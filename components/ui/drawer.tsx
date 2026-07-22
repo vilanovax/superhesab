@@ -5,7 +5,7 @@ import { Drawer as DrawerPrimitive } from "vaul";
 import { cn } from "@/lib/utils";
 
 const Drawer = ({
-  shouldScaleBackground = true,
+  shouldScaleBackground = false,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
   <DrawerPrimitive.Root
@@ -25,7 +25,7 @@ const DrawerOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DrawerPrimitive.Overlay
     ref={ref}
-    className={cn("fixed inset-0 z-50 bg-zinc-950/40", className)}
+    className={cn("fixed inset-0 z-50 bg-ink/50 backdrop-blur-[2px]", className)}
     {...props}
   />
 ));
@@ -40,12 +40,13 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[92vh] flex-col rounded-t-lg border border-border bg-card shadow-none",
+        "fixed inset-x-0 bottom-0 z-50 mt-0 flex h-auto max-h-[92dvh] flex-col rounded-t-2xl border border-border/60 bg-background outline-none",
+        "shadow-[0_-12px_40px_-16px_rgba(15,92,87,0.35)]",
         className,
       )}
       {...props}
     >
-      <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-muted" />
+      <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-primary/30" />
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>

@@ -54,7 +54,7 @@ export function TabsList({
     <div
       role="tablist"
       className={cn(
-        "grid h-12 gap-1 rounded-lg border border-border bg-muted p-1",
+        "grid h-12 gap-1 rounded-2xl border border-border/70 bg-white/55 p-1.5 backdrop-blur-md",
         className ?? "grid-cols-2",
       )}
     >
@@ -81,10 +81,10 @@ export function TabsTrigger({
       aria-selected={selected}
       onClick={() => setValue(value)}
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-md text-sm font-medium transition-colors",
+        "inline-flex h-11 items-center justify-center rounded-xl text-sm font-medium transition-all",
         selected
-          ? "bg-card text-foreground"
-          : "text-muted-foreground hover:text-foreground",
+          ? "bg-primary text-primary-foreground shadow-[0_6px_16px_-6px_rgba(15,92,87,0.55)]"
+          : "text-muted-foreground hover:bg-white/70 hover:text-foreground",
         className,
       )}
     >
@@ -105,7 +105,10 @@ export function TabsContent({
   const { value: active } = useTabs();
   if (active !== value) return null;
   return (
-    <div role="tabpanel" className={cn("mt-4 outline-none", className)}>
+    <div
+      role="tabpanel"
+      className={cn("animate-fade-up mt-4 outline-none", className)}
+    >
       {children}
     </div>
   );

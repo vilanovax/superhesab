@@ -2,14 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
 /**
- * Protects `/app`, `/dashboard`, and `/spaces`.
+ * Protects app routes and invite landing.
+ * Unauthenticated invite visits → /login?callbackUrl=/invite/[id]
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected =
     pathname.startsWith("/app") ||
     pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/spaces");
+    pathname.startsWith("/spaces") ||
+    pathname.startsWith("/invite");
 
   if (!isProtected) {
     return NextResponse.next();
@@ -20,7 +22,10 @@ export async function middleware(request: NextRequest) {
 
   if (!session) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+    const callback = `${pathname}${request.nextUrl.search}`;
+    loginUrl.searchParams.set("callbackUrl", callback);
+    // Keep legacy `next` for older links
+    loginUrl.searchParams.set("next", callback);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -28,5 +33,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/dashboard/:path*", "/spaces/:path*"],
+  matcher: [
+    "/app/:path*",
+    "/dashboard/:path*",
+    "/spaces/:path*",
+    "/invite/:path*",
+  ],
 };

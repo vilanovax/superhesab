@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,13 +22,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney, memberLabel } from "@/lib/format";
+import { memberLabel, type SpaceCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/formatters";
 import { asMoney, splitEqual } from "@/lib/money";
 import {
   expenseSchema,
   type ExpenseFormValues,
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
+
+function parseAmountInput(raw: string): number {
+  if (raw === "" || raw == null) return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
 
 export type ExpenseMember = {
   userId: string;
@@ -41,13 +47,44 @@ type ExpenseFormProps = {
   spaceId: string;
   currentUserId: string;
   members: ExpenseMember[];
+  currency?: SpaceCurrency;
   onSuccess?: () => void;
 };
+
+function Section({
+  title,
+  hint,
+  children,
+  className,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "space-y-3 rounded-2xl border border-border/60 bg-white/70 p-4 backdrop-blur-sm",
+        className,
+      )}
+    >
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {hint ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export function ExpenseForm({
   spaceId,
   currentUserId,
   members,
+  currency: _currency = "TOMAN",
   onSuccess,
 }: ExpenseFormProps) {
   const [pending, startTransition] = useTransition();
@@ -89,7 +126,6 @@ export function ExpenseForm({
     }
   }, [totalAmount, selectedIndexes.length]);
 
-  // Keep EQUAL amounts in sync for submit payload (integer-safe remainder)
   useEffect(() => {
     if (splitMode !== "EQUAL") return;
     const current = form.getValues("splits");
@@ -111,6 +147,7 @@ export function ExpenseForm({
   }, [splits]);
 
   const remaining = (totalAmount || 0) - exactAllocated;
+  const selectedCount = selectedIndexes.length;
 
   function onSubmit(values: ExpenseFormValues) {
     startTransition(async () => {
@@ -139,110 +176,148 @@ export function ExpenseForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-4"
       >
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>عنوان</FormLabel>
-              <FormControl>
-                <Input placeholder="مثلاً ناهار رستوران" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <Section title="جزئیات هزینه" hint="عنوان کوتاه و واضح بنویسید">
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>عنوان</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="مثلاً ناهار رستوران"
+                    className="rounded-xl border-border/80 bg-white"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </Section>
 
         <FormField
           control={form.control}
           name="totalAmount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>مبلغ کل</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  dir="ltr"
-                  min={1}
-                  step={1}
-                  placeholder="250000"
-                  value={field.value || ""}
-                  onChange={(e) => {
-                    const n = e.target.valueAsNumber;
-                    field.onChange(Number.isFinite(n) ? Math.trunc(n) : 0);
-                  }}
-                />
-              </FormControl>
-              <FormDescription>مبلغ به واحد صحیح (بدون اعشار)</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="paidById"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>پرداخت‌کننده</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <div className="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-white to-highlight/10 p-4">
+                <FormLabel className="text-primary">مبلغ کل (تومان)</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="انتخاب کنید" />
-                  </SelectTrigger>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    placeholder="250000"
+                    className="mt-2 h-14 rounded-xl border-primary/20 bg-white text-center text-2xl font-bold tracking-wide text-ink"
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={field.value || ""}
+                    onChange={(e) =>
+                      field.onChange(parseAmountInput(e.target.value))
+                    }
+                  />
                 </FormControl>
-                <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.userId} value={m.userId}>
-                      {memberLabel(m)}
-                      {m.userId === currentUserId ? " (من)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="splitMode"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>نحوه تسهیم</FormLabel>
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { value: "EQUAL", label: "مساوی" },
-                    { value: "EXACT", label: "مبلغ دقیق" },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => field.onChange(opt.value)}
-                    className={cn(
-                      "h-12 rounded-lg border text-sm font-medium transition-colors",
-                      field.value === opt.value
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card text-foreground hover:bg-muted",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {formatCurrency(totalAmount)}
+                </p>
+                <FormMessage />
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-foreground">اعضا</p>
+        <Section title="پرداخت و تسهیم">
+          <FormField
+            control={form.control}
+            name="paidById"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>پرداخت‌کننده</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="rounded-xl border-border/80 bg-white">
+                      <SelectValue placeholder="انتخاب کنید" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.userId} value={m.userId}>
+                        {memberLabel(m)}
+                        {m.userId === currentUserId ? " (من)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="splitMode"
+            render={({ field }) => (
+              <FormItem className="pt-1">
+                <FormLabel>نحوه تسهیم</FormLabel>
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-muted/70 p-1.5">
+                  {(
+                    [
+                      {
+                        value: "EQUAL",
+                        label: "مساوی",
+                        sub: "تقسیم یکسان",
+                      },
+                      {
+                        value: "EXACT",
+                        label: "مبلغ دقیق",
+                        sub: "سهم دستی",
+                      },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => field.onChange(opt.value)}
+                      className={cn(
+                        "flex h-14 flex-col items-center justify-center rounded-xl text-sm transition-all",
+                        field.value === opt.value
+                          ? "bg-primary text-primary-foreground shadow-[0_8px_18px_-8px_rgba(15,92,87,0.65)]"
+                          : "bg-transparent text-muted-foreground hover:bg-white/80 hover:text-foreground",
+                      )}
+                    >
+                      <span className="font-semibold">{opt.label}</span>
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          field.value === opt.value
+                            ? "text-white/75"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {opt.sub}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </Section>
+
+        <Section
+          title="اعضا"
+          hint={
+            splitMode === "EQUAL"
+              ? `${selectedCount} نفر انتخاب شده`
+              : "سهم هر نفر را وارد کنید"
+          }
+        >
           <ul className="space-y-2">
             {members.map((member, index) => {
               const selected = splits?.[index]?.selected ?? false;
@@ -253,31 +328,54 @@ export function ExpenseForm({
               return (
                 <li
                   key={member.userId}
-                  className="rounded-lg border border-border bg-card p-3"
+                  className={cn(
+                    "rounded-xl border p-3 transition-colors",
+                    selected
+                      ? "border-primary/25 bg-primary/[0.04]"
+                      : "border-border/70 bg-white/80 opacity-70",
+                  )}
                 >
                   <div className="flex items-center gap-3">
                     <FormField
                       control={form.control}
                       name={`splits.${index}.selected`}
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center gap-3 space-y-0">
+                        <FormItem className="flex flex-1 flex-row items-center gap-3 space-y-0">
                           <FormControl>
                             <Checkbox
                               checked={field.value}
                               onCheckedChange={(v) =>
                                 field.onChange(v === true)
                               }
+                              className="size-5 rounded-md data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                             />
                           </FormControl>
-                          <FormLabel className="font-normal">
-                            {memberLabel(member)}
-                          </FormLabel>
+                          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(member.phone)}`}
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="size-8 shrink-0 rounded-full bg-secondary"
+                            />
+                            <FormLabel className="truncate font-medium">
+                              {memberLabel(member)}
+                              {member.userId === currentUserId ? (
+                                <span className="ms-1 text-xs font-normal text-primary">
+                                  من
+                                </span>
+                              ) : null}
+                            </FormLabel>
+                          </div>
                         </FormItem>
                       )}
                     />
                     {splitMode === "EQUAL" && selected ? (
-                      <span className="ms-auto text-sm text-muted-foreground" dir="ltr">
-                        {equalAmount != null ? formatMoney(equalAmount) : "—"}
+                      <span className="shrink-0 rounded-lg bg-secondary px-2.5 py-1 text-xs font-bold text-ink tabular-nums">
+                        {equalAmount != null
+                          ? formatCurrency(equalAmount)
+                          : "—"}
                       </span>
                     ) : null}
                   </div>
@@ -292,19 +390,22 @@ export function ExpenseForm({
                             <Input
                               type="number"
                               inputMode="numeric"
-                              dir="ltr"
                               min={0}
                               step={1}
-                              className="h-12"
+                              className="h-12 rounded-xl border-primary/20 bg-white text-base font-semibold"
+                              placeholder="سهم به تومان"
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
                               value={field.value || ""}
-                              onChange={(e) => {
-                                const n = e.target.valueAsNumber;
-                                field.onChange(
-                                  Number.isFinite(n) ? Math.trunc(n) : 0,
-                                );
-                              }}
+                              onChange={(e) =>
+                                field.onChange(parseAmountInput(e.target.value))
+                              }
                             />
                           </FormControl>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(field.value)}
+                          </p>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -316,25 +417,30 @@ export function ExpenseForm({
           </ul>
 
           {splitMode === "EXACT" ? (
-            <p
+            <div
               className={cn(
-                "text-sm",
+                "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm",
                 remaining === 0
-                  ? "text-success"
+                  ? "bg-success-soft text-success"
                   : remaining > 0
-                    ? "text-muted-foreground"
-                    : "text-destructive",
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-destructive-soft text-destructive",
               )}
             >
-              باقی‌مانده برای تخصیص:{" "}
-              <span dir="ltr">{formatMoney(remaining)}</span>
-            </p>
+              <span>باقی‌مانده</span>
+              <span className="font-bold tabular-nums">
+                {formatCurrency(remaining)}
+              </span>
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              مبلغ به‌صورت مساوی بین افراد انتخاب‌شده تقسیم می‌شود.
+            <p className="rounded-xl bg-accent/60 px-3 py-2 text-xs leading-relaxed text-accent-foreground">
+              مبلغ به‌صورت مساوی بین افراد انتخاب‌شده تقسیم می‌شود
+              {totalAmount > 0 && selectedCount > 0
+                ? ` — حدود ${formatCurrency(Math.floor(totalAmount / selectedCount))} برای هر نفر.`
+                : "."}
             </p>
           )}
-        </div>
+        </Section>
 
         {form.formState.errors.root?.message ? (
           <p className="text-sm text-destructive" role="alert">
@@ -352,9 +458,15 @@ export function ExpenseForm({
           </p>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "در حال ثبت…" : "ثبت هزینه"}
-        </Button>
+        <div className="sticky bottom-0 -mx-1 border-t border-border/50 bg-gradient-to-t from-[#eef5f4] via-[#eef5f4]/95 to-transparent pb-1 pt-3">
+          <Button
+            type="submit"
+            className="h-14 w-full rounded-2xl text-base font-semibold shadow-[0_12px_28px_-10px_rgba(15,92,87,0.55)]"
+            disabled={pending}
+          >
+            {pending ? "در حال ثبت…" : "ثبت هزینه"}
+          </Button>
+        </div>
       </form>
     </Form>
   );

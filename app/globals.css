@@ -1,46 +1,84 @@
 @import "tailwindcss";
 
 /*
-  SuperHesab design tokens — soft, flat, mobile-first.
-  Semantic finance colors: success (credit) / destructive (debt).
+  SuperHesab — "Travel Ledger"
+  Deep teal ink on cool mist paper. Finance semantics stay clear.
+  Flat surfaces, soft atmosphere, no purple / no cream-terracotta.
 */
 
 :root {
-  /* Neutral surface */
-  --background: #fafafa;
-  --foreground: #18181b;
+  --background: #e8eef1;
+  --foreground: #12202a;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #12202a;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
+  --popover-foreground: #12202a;
 
-  /* Brand / primary (zinc — flat, not purple) */
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
+  /* Deep teal ink — brand */
+  --primary: #0f5c57;
+  --primary-foreground: #f3fbfa;
 
-  /* Muted / secondary */
-  --secondary: #f4f4f5;
-  --secondary-foreground: #27272a;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --secondary: #d7e6e4;
+  --secondary-foreground: #163833;
+  --muted: #dfe8eb;
+  --muted-foreground: #5b6b75;
+  --accent: #c8e6e2;
+  --accent-foreground: #0f5c57;
 
-  /* Borders & inputs */
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #18181b;
+  --border: #c9d6dc;
+  --input: #c9d6dc;
+  --ring: #0f5c57;
 
-  /* Finance semantics */
-  --success: #16a34a;
-  --success-foreground: #f0fdf4;
-  --success-soft: #dcfce7;
-  --destructive: #dc2626;
+  --success: #1b7f4a;
+  --success-foreground: #ecfdf3;
+  --success-soft: #d1fae5;
+  --destructive: #c43d3d;
   --destructive-foreground: #fef2f2;
   --destructive-soft: #fee2e2;
 
-  /* Shape */
+  /* Atmosphere */
+  --mist: #d4e8e5;
+  --ink: #0a3d3a;
+  --highlight: #2a9d8f;
+  --surface-elevated: rgba(255, 255, 255, 0.78);
+
   --radius: 1rem;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0f1719;
+  --foreground: #e8eef0;
+  --card: #162024;
+  --card-foreground: #e8eef0;
+  --popover: #162024;
+  --popover-foreground: #e8eef0;
+
+  --primary: #2a9d8f;
+  --primary-foreground: #062422;
+
+  --secondary: #1c2c30;
+  --secondary-foreground: #c8e6e2;
+  --muted: #1a262a;
+  --muted-foreground: #8fa3ab;
+  --accent: #1e3533;
+  --accent-foreground: #9fd8d0;
+
+  --border: #2a3a40;
+  --input: #2a3a40;
+  --ring: #2a9d8f;
+
+  --success: #34d399;
+  --success-foreground: #052e1c;
+  --success-soft: #0f2f22;
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --destructive-soft: #3f1515;
+
+  --mist: #1a2e2c;
+  --ink: #9fd8d0;
+  --highlight: #3db8a8;
+  --surface-elevated: rgba(22, 32, 36, 0.86);
 }
 
 @theme inline {
@@ -67,6 +105,9 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-soft: var(--destructive-soft);
+  --color-mist: var(--mist);
+  --color-ink: var(--ink);
+  --color-highlight: var(--highlight);
 
   --radius-sm: calc(var(--radius) - 0.5rem);
   --radius-md: calc(var(--radius) - 0.25rem);
@@ -75,21 +116,115 @@
 
   --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --animate-fade-up: fade-up 0.45s ease-out both;
+  --animate-soft-pulse: soft-pulse 4s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
 }
 
 html {
   color-scheme: light;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
-/* Flat form baseline — no heavy shadows */
+body {
+  color: var(--foreground);
+  font-family: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 90% 60% at 100% -10%, rgba(42, 157, 143, 0.28), transparent 55%),
+    radial-gradient(ellipse 70% 50% at -10% 20%, rgba(15, 92, 87, 0.14), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(196, 61, 61, 0.06), transparent 45%),
+    linear-gradient(180deg, #eef5f4 0%, #e8eef1 45%, #e6ecef 100%);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+html[data-theme="dark"] body {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 100% -10%, rgba(42, 157, 143, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 45% at -10% 25%, rgba(15, 92, 87, 0.2), transparent 50%),
+    linear-gradient(180deg, #101a1d 0%, #0f1719 50%, #0c1315 100%);
+}
+
+html[data-theme="dark"] body::before {
+  opacity: 0.18;
+}
+
+/* Soft ledger grid — notebook feel without noise */
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(18, 32, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 42, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+/* App shell sits above the grid. Do NOT use `body > *` — that breaks
+   portaled drawers/dialogs (Vaul/Radix) by overriding `position: fixed`. */
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+
 @layer base {
   * {
     border-color: var(--border);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Utility surfaces */
+.surface-glass {
+  background: var(--surface-elevated);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, white);
+}
+
+.surface-hero {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, black) 0%, var(--highlight) 100%);
+  color: var(--primary-foreground);
+}
+
+.animate-fade-up {
+  animation: var(--animate-fade-up);
 }

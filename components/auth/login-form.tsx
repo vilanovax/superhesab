@@ -9,8 +9,20 @@ import { Label } from "@/components/ui/label";
 
 type Step = "phone" | "otp";
 
-export function LoginForm() {
+function safeCallbackUrl(raw: string | undefined | null): string {
+  if (!raw) return "/app";
+  // Only allow relative in-app paths (block open redirects)
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/app";
+  return raw;
+}
+
+export function LoginForm({
+  callbackUrl,
+}: {
+  callbackUrl?: string | null;
+}) {
   const router = useRouter();
+  const redirectTo = safeCallbackUrl(callbackUrl);
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -39,26 +51,26 @@ export function LoginForm() {
         setError(result.error);
         return;
       }
-      router.replace("/app");
+      router.replace(redirectTo);
       router.refresh();
     });
   }
 
   return (
-    <div className="w-full max-w-sm space-y-8 rounded-lg border border-border bg-card p-6 shadow-none">
-      <header className="space-y-2 text-center">
-        <p className="text-sm font-medium tracking-wide text-muted-foreground">
-          SuperHesab
+    <div className="animate-fade-up w-full max-w-sm space-y-8 overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-6 shadow-[0_20px_50px_-24px_rgba(15,92,87,0.45)] backdrop-blur-md">
+      <div className="surface-hero -mx-6 -mt-6 mb-2 px-6 py-5">
+        <p className="text-xs font-semibold tracking-[0.18em] text-white/70">
+          SUPERHESAB
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">
           ورود با موبایل
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1.5 text-sm text-white/75">
           {step === "phone"
             ? "شماره موبایل خود را وارد کنید."
             : `کد ارسال‌شده به ${phone} را وارد کنید.`}
         </p>
-      </header>
+      </div>
 
       {step === "phone" ? (
         <form onSubmit={onRequestOtp} className="space-y-4">

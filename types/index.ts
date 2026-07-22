@@ -1,6 +1,7 @@
 export type SpaceType = "TRIP" | "PARTNER";
 export type SpaceRole = "OWNER" | "EDITOR";
 export type SettlementStatus = "PENDING" | "COMPLETED";
+export type SpaceCurrency = "TOMAN" | "RIAL";
 
 export type SplitMode = "equal" | "exact";
 

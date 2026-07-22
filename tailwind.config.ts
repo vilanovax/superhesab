@@ -50,6 +50,9 @@ const config = {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+        mist: "var(--mist)",
+        ink: "var(--ink)",
+        highlight: "var(--highlight)",
         success: {
           DEFAULT: "var(--success)",
           foreground: "var(--success-foreground)",

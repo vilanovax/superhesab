@@ -27,6 +27,11 @@ enum SettlementStatus {
   COMPLETED
 }
 
+enum SpaceCurrency {
+  TOMAN
+  RIAL
+}
+
 model User {
   id        String   @id @default(cuid())
   phone     String   @unique
@@ -48,12 +53,13 @@ model User {
 }
 
 model Space {
-  id        String    @id @default(cuid())
+  id        String        @id @default(cuid())
   name      String
   type      SpaceType
+  currency  SpaceCurrency @default(TOMAN)
   ownerId   String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   owner        User            @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      SpaceMember[]

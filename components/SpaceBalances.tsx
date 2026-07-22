@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { settleDebt } from "@/app/actions/settlement";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
 import { Button } from "@/components/ui/button";
-import { formatMoney, memberLabel } from "@/lib/format";
+import { EmptyState } from "@/components/ui/empty-state";
+import { memberLabel } from "@/lib/format";
+import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 export type BalanceMember = {
@@ -23,18 +25,20 @@ type SpaceBalancesProps = {
 
 function BalanceAmount({ amount }: { amount: number }) {
   if (amount === 0) {
-    return <span className="text-sm font-medium text-muted-foreground">Settled</span>;
+    return (
+      <span className="text-sm font-medium text-muted-foreground">Settled</span>
+    );
   }
   if (amount > 0) {
     return (
-      <span className="text-sm font-semibold text-success" dir="ltr">
-        +{formatMoney(amount)}
+      <span className="text-sm font-semibold text-success">
+        +{formatCurrency(amount)}
       </span>
     );
   }
   return (
-    <span className="text-sm font-semibold text-destructive" dir="ltr">
-      {formatMoney(amount)}
+    <span className="text-sm font-semibold text-destructive">
+      −{formatCurrency(Math.abs(amount))}
     </span>
   );
 }
@@ -68,7 +72,7 @@ function SuggestionCard({
   }
 
   return (
-    <li className="rounded-lg border border-border bg-card p-4 shadow-none">
+    <li className="rounded-xl border border-border/80 bg-card/90 p-4 backdrop-blur-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1">
           <p className="text-sm text-foreground">
@@ -80,8 +84,8 @@ function SuggestionCard({
               {to ? memberLabel(to) : suggestion.toUserId}
             </span>
           </p>
-          <p className="text-base font-semibold text-foreground" dir="ltr">
-            {formatMoney(suggestion.amount)}
+          <p className="text-base font-semibold text-foreground">
+            {formatCurrency(suggestion.amount)}
           </p>
         </div>
         <Button
@@ -124,9 +128,9 @@ export function SpaceBalances({
               <li
                 key={member.userId}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-none",
-                  amount > 0 && "border-success/20",
-                  amount < 0 && "border-destructive/20",
+                  "flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-card/90 px-4 py-3.5 backdrop-blur-sm",
+                  amount > 0 && "border-success/30 bg-success-soft/40",
+                  amount < 0 && "border-destructive/30 bg-destructive-soft/40",
                 )}
               >
                 <span className="truncate text-sm font-medium text-foreground">
@@ -149,13 +153,13 @@ export function SpaceBalances({
           </p>
         </div>
         {suggestions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              همه حساب‌ها تسویه است.
-            </p>
-          </div>
+          <EmptyState
+            icon="balance"
+            title="همه‌چیز تسویه است"
+            description="وقتی هزینه‌ای ثبت شود، پیشنهادهای بهینهٔ پرداخت اینجا می‌آید."
+          />
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {suggestions.map((suggestion) => (
               <SuggestionCard
                 key={`${suggestion.fromUserId}-${suggestion.toUserId}-${suggestion.amount}`}

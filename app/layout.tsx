@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const vazirmatn = Vazirmatn({
@@ -23,9 +24,12 @@ export default function RootLayout({
       lang="fa"
       dir="rtl"
       className={`${vazirmatn.variable} ${vazirmatn.className} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
-        {children}
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <div className="app-shell flex min-h-full flex-1 flex-col">
+          <ThemeProvider>{children}</ThemeProvider>
+        </div>
       </body>
     </html>
   );

@@ -31,6 +31,8 @@ type SpaceBalancesProps = {
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
   roundUpToThousand?: boolean;
+  /** Partner shell: one bold rolling balance + settle up */
+  variant?: "default" | "partner";
 };
 
 function personName(member: BalanceMember, currentUserId?: string): string {
@@ -59,6 +61,79 @@ function BalanceAmount({ amount }: { amount: number }) {
   );
 }
 
+function SettleConfirmDialog({
+  open,
+  onOpenChange,
+  fromName,
+  toName,
+  amount,
+  pending,
+  error,
+  onConfirm,
+  roundUpToThousand,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  fromName: string;
+  toName: string;
+  amount: number;
+  pending: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  roundUpToThousand: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-sm">
+        <DialogHeader className="space-y-1.5 px-5 pb-3 pt-5 text-start">
+          <DialogTitle className="text-base font-bold">تأیید پرداخت</DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
+            این تسویه ثبت می‌شود و از مانده‌ها کم می‌گردد.
+            {roundUpToThousand ? " مبلغ به‌صورت رند‌شده ثبت می‌شود." : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mx-5 mb-4 rounded-2xl border border-border/55 bg-[#f7fafb] px-4 py-3.5">
+          <p className="text-[13px] text-foreground">
+            <span className="font-semibold">{fromName}</span>
+            <span className="mx-1.5 text-muted-foreground/70">←</span>
+            <span className="font-semibold">{toName}</span>
+          </p>
+          <p className="mt-1.5 text-lg font-bold tabular-nums text-ink">
+            {formatCurrency(amount)}
+          </p>
+        </div>
+
+        {error ? (
+          <p className="px-5 pb-2 text-[12px] text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-row gap-2 border-t border-border/50 bg-muted/30 px-4 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 flex-1 rounded-xl"
+            disabled={pending}
+            onClick={() => onOpenChange(false)}
+          >
+            انصراف
+          </Button>
+          <Button
+            type="button"
+            className="h-11 flex-1 rounded-xl"
+            disabled={pending}
+            onClick={onConfirm}
+          >
+            {pending ? "در حال ثبت…" : "بله، پرداخت شد"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SuggestionCard({
   spaceId,
   suggestion,
@@ -83,10 +158,7 @@ function SuggestionCard({
     ? personName(from, currentUserId)
     : suggestion.fromUserId;
   const toName = to ? personName(to, currentUserId) : suggestion.toUserId;
-  const amount = maybeCeilToThousand(
-    suggestion.amount,
-    roundUpToThousand,
-  );
+  const amount = maybeCeilToThousand(suggestion.amount, roundUpToThousand);
 
   function onConfirmPaid() {
     setError(null);
@@ -133,57 +205,156 @@ function SuggestionCard({
         </Button>
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-sm">
-          <DialogHeader className="space-y-1.5 px-5 pb-3 pt-5 text-start">
-            <DialogTitle className="text-base font-bold">
-              تأیید پرداخت
-            </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
-              این تسویه ثبت می‌شود و از مانده‌ها کم می‌گردد.
-              {roundUpToThousand ? " مبلغ به‌صورت رند‌شده ثبت می‌شود." : ""}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mx-5 mb-4 rounded-2xl border border-border/55 bg-[#f7fafb] px-4 py-3.5">
-            <p className="text-[13px] text-foreground">
-              <span className="font-semibold">{fromName}</span>
-              <span className="mx-1.5 text-muted-foreground/70">←</span>
-              <span className="font-semibold">{toName}</span>
-            </p>
-            <p className="mt-1.5 text-lg font-bold tabular-nums text-ink">
-              {formatCurrency(amount)}
-            </p>
-          </div>
-
-          {error ? (
-            <p className="px-5 pb-2 text-[12px] text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="flex flex-row gap-2 border-t border-border/50 bg-muted/30 px-4 py-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 flex-1 rounded-xl"
-              disabled={pending}
-              onClick={() => setConfirmOpen(false)}
-            >
-              انصراف
-            </Button>
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl"
-              disabled={pending}
-              onClick={onConfirmPaid}
-            >
-              {pending ? "در حال ثبت…" : "بله، پرداخت شد"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SettleConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        fromName={fromName}
+        toName={toName}
+        amount={amount}
+        pending={pending}
+        error={error}
+        onConfirm={onConfirmPaid}
+        roundUpToThousand={roundUpToThousand}
+      />
     </li>
+  );
+}
+
+function PartnerRollingBalance({
+  spaceId,
+  currentUserId,
+  members,
+  balances,
+  suggestions,
+  roundUpToThousand,
+}: {
+  spaceId: string;
+  currentUserId: string;
+  members: BalanceMember[];
+  balances: Record<string, number>;
+  suggestions: SimplifiedSettlement[];
+  roundUpToThousand: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const rawBalance = balances[currentUserId] ?? 0;
+  const myBalance = maybeCeilToThousand(rawBalance, roundUpToThousand);
+
+  const membersById = Object.fromEntries(
+    members.map((m) => [m.userId, m]),
+  ) as Record<string, BalanceMember>;
+
+  // Prefer a settlement involving the current user; else first suggestion
+  const suggestion =
+    suggestions.find(
+      (s) =>
+        s.fromUserId === currentUserId || s.toUserId === currentUserId,
+    ) ?? suggestions[0] ?? null;
+
+  const settleAmount = suggestion
+    ? maybeCeilToThousand(suggestion.amount, roundUpToThousand)
+    : 0;
+
+  const from = suggestion ? membersById[suggestion.fromUserId] : undefined;
+  const to = suggestion ? membersById[suggestion.toUserId] : undefined;
+  const fromName = from
+    ? personName(from, currentUserId)
+    : suggestion?.fromUserId ?? "";
+  const toName = to
+    ? personName(to, currentUserId)
+    : suggestion?.toUserId ?? "";
+
+  function onConfirmPaid() {
+    if (!suggestion) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await settleDebt(
+        spaceId,
+        suggestion.fromUserId,
+        suggestion.toUserId,
+        settleAmount,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setConfirmOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="animate-fade-up space-y-3">
+      <div
+        className={cn(
+          "rounded-2xl border px-5 py-6 text-center",
+          myBalance === 0
+            ? "border-success/25 bg-success-soft/50"
+            : myBalance > 0
+              ? "border-success/30 bg-success-soft/40"
+              : "border-destructive/25 bg-destructive-soft/50",
+        )}
+      >
+        {myBalance === 0 ? (
+          <p className="text-lg font-bold text-success">حساب‌ها صاف است</p>
+        ) : myBalance > 0 ? (
+          <p className="text-[15px] leading-relaxed text-success">
+            شما{" "}
+            <span className="text-2xl font-bold tabular-nums">
+              {formatCurrency(myBalance)}
+            </span>{" "}
+            طلبکار هستید
+          </p>
+        ) : (
+          <p className="text-[15px] leading-relaxed text-destructive">
+            شما{" "}
+            <span className="text-2xl font-bold tabular-nums">
+              {formatCurrency(Math.abs(myBalance))}
+            </span>{" "}
+            بدهکار هستید
+          </p>
+        )}
+
+        {suggestion && myBalance !== 0 ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              className="h-11 rounded-xl px-5"
+              disabled={pending}
+              onClick={() => {
+                setError(null);
+                setConfirmOpen(true);
+              }}
+            >
+              تسویه دستی
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {suggestion && myBalance !== 0 ? (
+        <p className="px-1 text-center text-[12px] text-muted-foreground">
+          {fromName} ← {toName} · {formatCurrency(settleAmount)}
+        </p>
+      ) : null}
+
+      {suggestion ? (
+        <SettleConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          fromName={fromName}
+          toName={toName}
+          amount={settleAmount}
+          pending={pending}
+          error={error}
+          onConfirm={onConfirmPaid}
+          roundUpToThousand={roundUpToThousand}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -223,7 +394,21 @@ export function SpaceBalances({
   balances,
   suggestions,
   roundUpToThousand = false,
+  variant = "default",
 }: SpaceBalancesProps) {
+  if (variant === "partner" && currentUserId) {
+    return (
+      <PartnerRollingBalance
+        spaceId={spaceId}
+        currentUserId={currentUserId}
+        members={members}
+        balances={balances}
+        suggestions={suggestions}
+        roundUpToThousand={roundUpToThousand}
+      />
+    );
+  }
+
   const membersById = Object.fromEntries(
     members.map((m) => [m.userId, m]),
   ) as Record<string, BalanceMember>;

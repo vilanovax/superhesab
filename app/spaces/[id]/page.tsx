@@ -30,7 +30,6 @@ function BackChevron({ className }: { className?: string }) {
       strokeLinejoin="round"
       aria-hidden
     >
-      {/* Points toward start in RTL (visual “back”) */}
       <path d="M9 18l6-6-6-6" />
     </svg>
   );
@@ -128,12 +127,30 @@ export default async function SpacePage({ params }: SpacePageProps) {
   }
 
   const template = getTemplate(space.type);
+  const isPartner = space.type === "PARTNER";
+  const showChecklist = template.features.checklist;
+  const needsPartner = isPartner && space.members.length < 2;
+
+  const inviteMembers = space.members.map((m) => ({
+    userId: m.user.id,
+    name: m.user.name,
+    phone: m.user.phone,
+    avatarUrl: m.user.avatarUrl,
+    role: m.role,
+    isVirtual: m.user.isVirtual,
+  }));
+
   const members = space.members.map((m) => ({
     userId: m.user.id,
     name: m.user.name,
     phone: m.user.phone,
     isVirtual: m.user.isVirtual,
   }));
+
+  const partner = space.members.find((m) => m.user.id !== session.userId)?.user;
+  const partnerLabel =
+    partner?.name?.trim().split(/\s+/)[0] ||
+    (partner ? "طرف مقابل" : null);
 
   const myBalance = maybeCeilToThousand(
     balanceData.balances[session.userId] ?? 0,
@@ -151,7 +168,6 @@ export default async function SpacePage({ params }: SpacePageProps) {
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
-      {/* Top bar — single horizontal rhythm */}
       <div className="mb-3 flex items-center gap-2">
         <Button
           asChild
@@ -166,7 +182,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
         </Button>
 
         <span className="ms-auto max-w-[9.5rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground">
-          {template.label}
+          {isPartner ? "حساب مشترک" : template.label}
         </span>
 
         <Button
@@ -182,7 +198,6 @@ export default async function SpacePage({ params }: SpacePageProps) {
         </Button>
       </div>
 
-      {/* Hero */}
       <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-2xl px-4 pb-4 pt-4">
         <div
           aria-hidden
@@ -196,18 +211,28 @@ export default async function SpacePage({ params }: SpacePageProps) {
         <div className="relative space-y-3.5">
           <div className="space-y-1">
             <p className="text-[11px] font-medium tracking-wide text-white/60">
-              فضای مشترک
+              {isPartner ? "حساب مشترک" : "فضای مشترک"}
             </p>
             <h1 className="text-[1.375rem] font-bold leading-tight tracking-tight text-white">
               {space.name}
             </h1>
             <p className="text-xs text-white/70">
-              {space.members.length} عضو · {space.expenses.length} هزینه
-              {totalExpenses > 0 ? (
+              {isPartner ? (
+                partnerLabel ? (
+                  <>من و {partnerLabel}</>
+                ) : (
+                  <>من · منتظر طرف مقابل</>
+                )
+              ) : (
                 <>
-                  {" "}
-                  · جمع {formatCurrency(totalExpenses)}
+                  {space.members.length} عضو · {space.expenses.length} هزینه
+                  {totalExpenses > 0 ? (
+                    <> · جمع {formatCurrency(totalExpenses)}</>
+                  ) : null}
                 </>
+              )}
+              {isPartner && totalExpenses > 0 ? (
+                <> · جمع {formatCurrency(totalExpenses)}</>
               ) : null}
             </p>
           </div>
@@ -237,36 +262,61 @@ export default async function SpacePage({ params }: SpacePageProps) {
             <InviteMembersButton
               spaceId={space.id}
               spaceName={space.name}
-              members={space.members.map((m) => ({
-                userId: m.user.id,
-                name: m.user.name,
-                phone: m.user.phone,
-                avatarUrl: m.user.avatarUrl,
-                role: m.role,
-                isVirtual: m.user.isVirtual,
-              }))}
+              members={inviteMembers}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <HeroStat label="مانده شما">
-              {myBalance === 0 ? (
-                <span className="text-white/90">تسویه‌شده</span>
-              ) : (
-                <span className={myBalance > 0 ? "text-emerald-100" : "text-rose-100"}>
-                  {myBalance > 0 ? "+" : "−"}
-                  {formatCurrency(Math.abs(myBalance))}
-                </span>
-              )}
-            </HeroStat>
-            <HeroStat label="تسویه باز">
-              {openSettlementAmount === 0
-                ? "صفر"
-                : formatCurrency(openSettlementAmount)}
-            </HeroStat>
-          </div>
+          {isPartner ? (
+            <div className="rounded-xl bg-white/12 px-3.5 py-3">
+              <p className="text-[11px] text-white/65">مانده شما</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-white">
+                {myBalance === 0
+                  ? "صاف"
+                  : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance))}`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <HeroStat label="مانده شما">
+                {myBalance === 0 ? (
+                  <span className="text-white/90">تسویه‌شده</span>
+                ) : (
+                  <span
+                    className={
+                      myBalance > 0 ? "text-emerald-100" : "text-rose-100"
+                    }
+                  >
+                    {myBalance > 0 ? "+" : "−"}
+                    {formatCurrency(Math.abs(myBalance))}
+                  </span>
+                )}
+              </HeroStat>
+              <HeroStat label="تسویه باز">
+                {openSettlementAmount === 0
+                  ? "صفر"
+                  : formatCurrency(openSettlementAmount)}
+              </HeroStat>
+            </div>
+          )}
         </div>
       </header>
+
+      {needsPartner ? (
+        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-white px-4 py-5 text-center shadow-sm">
+          <p className="text-[15px] font-semibold text-foreground">
+            طرف مقابل را به این حساب مشترک دعوت کنید
+          </p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+            با لینک دعوت یا افزودن دستی، حساب دونفره‌تان کامل می‌شود.
+          </p>
+          <InviteMembersButton
+            spaceId={space.id}
+            spaceName={space.name}
+            members={inviteMembers}
+            variant="banner"
+          />
+        </div>
+      ) : null}
 
       <SpaceTabs
         spaceId={space.id}
@@ -278,6 +328,8 @@ export default async function SpacePage({ params }: SpacePageProps) {
         checklist={checklist}
         currency={space.currency}
         roundUpToThousand={space.roundUpToThousand}
+        spaceType={space.type}
+        showChecklist={showChecklist}
       />
 
       <AddExpenseButton
@@ -285,6 +337,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
         currentUserId={session.userId}
         members={members}
         currency={space.currency}
+        spaceType={space.type}
       />
     </main>
   );

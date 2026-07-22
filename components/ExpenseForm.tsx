@@ -36,6 +36,7 @@ import {
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import type { SpaceType } from "@/types";
 
 function parseAmountInput(raw: string): number {
   if (raw === "" || raw == null) return 0;
@@ -71,6 +72,7 @@ type ExpenseFormProps = {
   currency?: SpaceCurrency;
   initialExpense?: ExpenseInitialValues;
   onSuccess?: () => void;
+  spaceType?: SpaceType;
 };
 
 function personLabel(member: ExpenseMember, currentUserId: string): string {
@@ -124,9 +126,11 @@ export function ExpenseForm({
   currency: _currency = "TOMAN",
   initialExpense,
   onSuccess,
+  spaceType = "TRIP",
 }: ExpenseFormProps) {
   const [pending, startTransition] = useTransition();
   const isEdit = Boolean(initialExpense?.expenseId);
+  const isPartner = spaceType === "PARTNER";
   const initialDate = initialExpense?.date ?? todayIsoDateTehran();
   const [changeDate, setChangeDate] = useState(
     Boolean(initialExpense && initialDate !== todayIsoDateTehran()),
@@ -201,13 +205,25 @@ export function ExpenseForm({
 
   function onSubmit(values: ExpenseFormValues) {
     startTransition(async () => {
-      const payload: ExpenseFormValues = {
-        ...values,
-        date:
-          !changeDate && !isEdit
-            ? todayIsoDateTehran()
-            : values.date || todayIsoDateTehran(),
-      };
+      const payload: ExpenseFormValues = isPartner
+        ? {
+            ...values,
+            paidById: isEdit ? values.paidById : currentUserId,
+            splitMode: "EQUAL",
+            date: todayIsoDateTehran(),
+            splits: members.map((m) => ({
+              userId: m.userId,
+              amount: 0,
+              selected: true,
+            })),
+          }
+        : {
+            ...values,
+            date:
+              !changeDate && !isEdit
+                ? todayIsoDateTehran()
+                : values.date || todayIsoDateTehran(),
+          };
 
       const result = isEdit
         ? await updateExpense(initialExpense!.expenseId, payload)
@@ -291,6 +307,7 @@ export function ExpenseForm({
             }}
           />
 
+          {!isPartner ? (
           <div className="space-y-2 rounded-xl bg-[#f7fafb] px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[12px] text-muted-foreground">تاریخ</p>
@@ -337,7 +354,9 @@ export function ExpenseForm({
               />
             ) : null}
           </div>
+          ) : null}
 
+          {!isPartner ? (
           <FormField
             control={form.control}
             name="paidById"
@@ -364,7 +383,9 @@ export function ExpenseForm({
               </FormItem>
             )}
           />
+          ) : null}
 
+          {!isPartner ? (
           <FormField
             control={form.control}
             name="splitMode"
@@ -399,8 +420,14 @@ export function ExpenseForm({
               </FormItem>
             )}
           />
+          ) : (
+            <p className="rounded-xl bg-[#f7fafb] px-3 py-2.5 text-[12px] text-muted-foreground">
+              هزینه به‌صورت مساوی بین شما و طرف مقابل تسهیم می‌شود.
+            </p>
+          )}
         </div>
 
+        {!isPartner ? (
         <div className="rounded-2xl border border-border/55 bg-white p-3.5">
           <div className="mb-2.5 flex items-baseline justify-between gap-2">
             <p className="text-[13px] font-semibold text-foreground">چه کسانی</p>
@@ -531,6 +558,7 @@ export function ExpenseForm({
             </div>
           ) : null}
         </div>
+        ) : null}
 
         {form.formState.errors.root?.message ? (
           <p className="text-sm text-destructive" role="alert">

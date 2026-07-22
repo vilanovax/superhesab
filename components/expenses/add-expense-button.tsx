@@ -22,12 +22,14 @@ import {
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import type { SpaceCurrency } from "@/lib/format";
+import type { SpaceType } from "@/types";
 
 type AddExpenseButtonProps = {
   spaceId: string;
   currentUserId: string;
   members: ExpenseMember[];
   currency?: SpaceCurrency;
+  spaceType?: SpaceType;
 };
 
 function useIsDesktop() {
@@ -120,10 +122,14 @@ export function AddExpenseButton({
   currentUserId,
   members,
   currency = "TOMAN",
+  spaceType = "TRIP",
 }: AddExpenseButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
-  const description = "عنوان، مبلغ و سهم‌ها";
+  const isPartner = spaceType === "PARTNER";
+  const description = isPartner
+    ? "عنوان و مبلغ — تسهیم مساوی"
+    : "عنوان، مبلغ و سهم‌ها";
 
   const form = (
     <ExpenseForm
@@ -131,6 +137,7 @@ export function AddExpenseButton({
       currentUserId={currentUserId}
       members={members}
       currency={currency}
+      spaceType={spaceType}
       onSuccess={() => setOpen(false)}
     />
   );

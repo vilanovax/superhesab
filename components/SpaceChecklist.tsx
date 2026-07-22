@@ -24,6 +24,18 @@ type OptimisticAction =
   | { type: "delete"; id: string }
   | { type: "add"; item: ChecklistItemDTO };
 
+/** Incomplete first; completed sink to the end. Stable by createdAt within group. */
+function sortChecklist(items: ChecklistItemDTO[]): ChecklistItemDTO[] {
+  return [...items].sort((a, b) => {
+    if (a.isCompleted !== b.isCompleted) {
+      return a.isCompleted ? 1 : -1;
+    }
+    return (
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  });
+}
+
 function TrashIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -52,19 +64,21 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
   const [pending, startTransition] = useTransition();
 
   const [optimisticItems, applyOptimistic] = useOptimistic(
-    items,
+    sortChecklist(items),
     (state: ChecklistItemDTO[], action: OptimisticAction) => {
       switch (action.type) {
         case "toggle":
-          return state.map((item) =>
-            item.id === action.id
-              ? { ...item, isCompleted: !item.isCompleted }
-              : item,
+          return sortChecklist(
+            state.map((item) =>
+              item.id === action.id
+                ? { ...item, isCompleted: !item.isCompleted }
+                : item,
+            ),
           );
         case "delete":
           return state.filter((item) => item.id !== action.id);
         case "add":
-          return [...state, action.item];
+          return sortChecklist([...state, action.item]);
         default:
           return state;
       }

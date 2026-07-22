@@ -17,7 +17,7 @@ const TEMPLATES = [
   },
   {
     value: "PARTNER",
-    label: "حساب دونفره",
+    label: "حساب مشترک",
     hint: "شریک زندگی یا هم‌خانه",
     mark: "۲نفر",
   },

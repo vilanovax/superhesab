@@ -23,7 +23,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
   },
   PARTNER: {
     type: "PARTNER",
-    label: "حساب دونفره",
+    label: "حساب مشترک",
     defaultInviteRole: "EDITOR",
     features: { checklist: false },
   },

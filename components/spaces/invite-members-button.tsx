@@ -37,6 +37,8 @@ type InviteMembersButtonProps = {
   spaceId: string;
   spaceName: string;
   members: InviteMemberRow[];
+  /** icon = hero +; banner = partner empty-state CTA */
+  variant?: "icon" | "banner";
 };
 
 function useIsDesktop() {
@@ -290,21 +292,36 @@ export function InviteMembersButton({
   spaceId,
   spaceName,
   members,
+  variant = "icon",
 }: InviteMembersButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
 
-  const trigger = (
-    <Button
-      type="button"
-      size="icon"
-      variant="ghost"
-      className="size-8 rounded-full border border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
-      aria-label="دعوت از اعضا"
-    >
-      <UserPlusIcon className="size-4" />
-    </Button>
-  );
+  const trigger =
+    variant === "banner" ? (
+      <Button
+        type="button"
+        className="mt-4 h-11 w-full rounded-xl text-[14px] font-semibold"
+      >
+        دعوت طرف مقابل
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-8 rounded-full border border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
+        aria-label="دعوت از اعضا"
+      >
+        <UserPlusIcon className="size-4" />
+      </Button>
+    );
+
+  const title = variant === "banner" ? "دعوت به حساب مشترک" : "دعوت از اعضا";
+  const description =
+    variant === "banner"
+      ? `لینک را برای پارتنر بفرست یا دستی اضافه کن — «${spaceName}»`
+      : `شیر لینک یا افزودن دستی به «${spaceName}»`;
 
   const panel = (
     <InvitePanel spaceId={spaceId} spaceName={spaceName} members={members} />
@@ -316,10 +333,8 @@ export function InviteMembersButton({
         <DialogTrigger asChild>{trigger}</DialogTrigger>
         <DialogContent className="max-h-[85vh] overflow-y-auto border-border/70 bg-card/95 sm:max-w-md">
           <DialogHeader className="text-start">
-            <DialogTitle>دعوت از اعضا</DialogTitle>
-            <DialogDescription>
-              شیر لینک یا افزودن دستی به «{spaceName}»
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           {panel}
         </DialogContent>
@@ -332,10 +347,8 @@ export function InviteMembersButton({
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent className="border-border/60 bg-[#eef5f4]">
         <DrawerHeader className="text-start">
-          <DrawerTitle>دعوت از اعضا</DrawerTitle>
-          <DrawerDescription>
-            شیر لینک یا افزودن دستی به «{spaceName}»
-          </DrawerDescription>
+          <DrawerTitle>{title}</DrawerTitle>
+          <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-8">{panel}</div>
       </DrawerContent>

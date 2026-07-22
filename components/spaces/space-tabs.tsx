@@ -11,6 +11,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
+import type { SpaceType } from "@/types";
+import { cn } from "@/lib/utils";
 
 type SpaceTabsProps = {
   spaceId: string;
@@ -22,6 +24,8 @@ type SpaceTabsProps = {
   checklist: ChecklistItemDTO[];
   currency?: "TOMAN" | "RIAL";
   roundUpToThousand?: boolean;
+  spaceType?: SpaceType;
+  showChecklist?: boolean;
 };
 
 export function SpaceTabs({
@@ -34,13 +38,25 @@ export function SpaceTabs({
   checklist,
   currency = "TOMAN",
   roundUpToThousand = false,
+  spaceType = "TRIP",
+  showChecklist = true,
 }: SpaceTabsProps) {
+  const isPartner = spaceType === "PARTNER";
+  const tabCount = showChecklist ? 3 : 2;
+
   return (
     <Tabs defaultValue="expenses" className="flex min-h-0 flex-1 flex-col">
-      <TabsList className="grid h-10 w-full grid-cols-3">
+      <TabsList
+        className={cn(
+          "grid h-10 w-full",
+          tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
         <TabsTrigger value="expenses">هزینه‌ها</TabsTrigger>
-        <TabsTrigger value="balances">ترازها</TabsTrigger>
-        <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
+        <TabsTrigger value="balances">تراز</TabsTrigger>
+        {showChecklist ? (
+          <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
+        ) : null}
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
         <ExpenseList
@@ -49,6 +65,7 @@ export function SpaceTabs({
           members={members}
           expenses={expenses}
           currency={currency}
+          spaceType={spaceType}
         />
       </TabsContent>
       <TabsContent value="balances" className="mt-3">
@@ -59,11 +76,14 @@ export function SpaceTabs({
           balances={balances}
           suggestions={suggestions}
           roundUpToThousand={roundUpToThousand}
+          variant={isPartner ? "partner" : "default"}
         />
       </TabsContent>
-      <TabsContent value="checklist" className="mt-3">
-        <SpaceChecklist spaceId={spaceId} items={checklist} />
-      </TabsContent>
+      {showChecklist ? (
+        <TabsContent value="checklist" className="mt-3">
+          <SpaceChecklist spaceId={spaceId} items={checklist} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

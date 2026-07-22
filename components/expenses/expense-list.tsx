@@ -32,6 +32,7 @@ import {
 } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import type { SpaceType } from "@/types";
 
 export type ExpenseListItem = {
   id: string;
@@ -49,6 +50,7 @@ type ExpenseListProps = {
   members: ExpenseMember[];
   expenses: ExpenseListItem[];
   currency?: SpaceCurrency;
+  spaceType?: SpaceType;
 };
 
 function useIsDesktop() {
@@ -126,6 +128,7 @@ function EditSheet({
   currentUserId,
   members,
   currency,
+  spaceType = "TRIP",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -134,6 +137,7 @@ function EditSheet({
   currentUserId: string;
   members: ExpenseMember[];
   currency: SpaceCurrency;
+  spaceType?: SpaceType;
 }) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -172,6 +176,7 @@ function EditSheet({
         currentUserId={currentUserId}
         members={members}
         currency={currency}
+        spaceType={spaceType}
         initialExpense={toInitial(expense)}
         onSuccess={() => {
           onOpenChange(false);
@@ -274,6 +279,7 @@ export function ExpenseList({
   members,
   expenses,
   currency = "TOMAN",
+  spaceType = "TRIP",
 }: ExpenseListProps) {
   const [editing, setEditing] = useState<ExpenseListItem | null>(null);
 
@@ -282,7 +288,11 @@ export function ExpenseList({
       <EmptyState
         icon="expense"
         title="هنوز هزینه‌ای نیست"
-        description="با دکمه «ثبت هزینه» اولین خرج سفر را اضافه کنید تا ترازها زنده شوند."
+        description={
+          spaceType === "PARTNER"
+            ? "با دکمه «ثبت هزینه» اولین خرج مشترک را اضافه کنید."
+            : "با دکمه «ثبت هزینه» اولین خرج سفر را اضافه کنید تا ترازها زنده شوند."
+        }
       />
     );
   }
@@ -373,6 +383,7 @@ export function ExpenseList({
         currentUserId={currentUserId}
         members={members}
         currency={currency}
+        spaceType={spaceType}
       />
     </>
   );

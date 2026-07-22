@@ -27,7 +27,7 @@ export async function getChecklist(
 
   return prisma.checklistItem.findMany({
     where: { spaceId },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ isCompleted: "asc" }, { createdAt: "asc" }],
   });
 }
 

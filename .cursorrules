@@ -1,0 +1,59 @@
+# SuperHesab — Cursor Rules
+
+You are working on **SuperHesab**: a multi-tenant, template-driven shared finance PWA (Next.js App Router).
+
+## Source of truth
+
+1. Read `docs/PRODUCT_VISION.md` for product scope and phasing.
+2. Read `docs/PRD.md` and `docs/architecture.md` before schema or feature changes.
+3. Prefer extending the **core engine**; do not create parallel per-template databases or duplicate Expense/Settlement tables for a new template.
+
+## Next.js App Router
+
+- Default to **React Server Components**.
+- Use `"use client"` only for interactive islands (forms with local state, Zustand consumers, etc.).
+- **All mutations go through Server Actions** (`app/actions/`). Do not add REST route handlers for CRUD unless there is a clear external API need.
+- Colocate route-specific UI under `app/`; shared UI under `components/`.
+- Keep data fetching on the server when possible; pass serializable props to clients.
+
+## Money & correctness
+
+- **Never use floating-point numbers for currency.** Store and compute with integers (smallest unit). Use helpers in `lib/money`.
+- Validate that expense splits sum exactly to `totalAmount` before persist.
+- Debt simplification and balances live in `lib/` as pure, testable functions.
+
+## Prisma & database
+
+- Schema: `prisma/schema.prisma`. Client output: `lib/generated/prisma`.
+- Use the shared Prisma singleton from `lib/db/prisma.ts`.
+- After schema edits: `npx prisma generate` and create a migration (`prisma migrate dev`).
+- Always define both sides of relations; include `createdAt` / `updatedAt` where models are mutable.
+- Index foreign keys and frequent filters.
+
+## Auth & multi-tenancy
+
+- Every Space-scoped read/write must check `SpaceMember` (or ownership) for the current user.
+- Default invite role for Trip/Partner: `EDITOR`. Do not invent `VIEWER` until v2.
+
+## Templates
+
+- Templates are UI + policy packs selected by `Space.type` (`TRIP` | `PARTNER`).
+- New templates may add **additive** models or metadata; they must reuse core Expense/Split/Settlement flows.
+- Build **Trip** first; Partner reuses the same actions and domain logic.
+
+## State management
+
+- **Zustand** = client UI state only (drafts, toggles). Server/DB is the source of truth for money.
+- Do not mirror the full ledger in Zustand.
+
+## Code style
+
+- TypeScript strict; no `any` unless justified.
+- Match existing file structure and naming.
+- Do not commit secrets; `.env` is gitignored — keep `.env.example` in sync.
+- Do not build large UI in scaffold phases unless asked; follow the current task scope.
+- Prefer focused diffs; no drive-by refactors.
+
+## Out of scope until asked
+
+- Building template, percentage splits, file uploads, Excel/PDF, Viewer role (see PRODUCT_VISION phase 2).

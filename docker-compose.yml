@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: superhesab-postgres
+    restart: unless-stopped
+    ports:
+      # Host 15432 avoids clashing with local/other Postgres on 5432/5433
+      - "15432:5432"
+    environment:
+      POSTGRES_USER: superhesab
+      POSTGRES_PASSWORD: superhesab
+      POSTGRES_DB: superhesab
+    volumes:
+      - superhesab_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superhesab -d superhesab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  superhesab_pg_data:

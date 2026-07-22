@@ -1,0 +1,137 @@
+// SuperHesab — modular core schema
+// Templates (Trip, Partner, …) are presentation/policy layers over Space.type.
+// Do not fork per-template tables for core money flows.
+// Currency: store amounts as Int in the smallest unit (e.g. Rials). Never use Float.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SpaceType {
+  TRIP
+  PARTNER
+}
+
+enum SpaceRole {
+  OWNER
+  EDITOR
+}
+
+enum SettlementStatus {
+  PENDING
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  email     String?  @unique
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedSpaces      Space[]         @relation("SpaceOwner")
+  memberships      SpaceMember[]
+  paidExpenses     Expense[]       @relation("ExpensePayer")
+  expenseSplits    ExpenseSplit[]
+  settlementsFrom  Settlement[]    @relation("SettlementFrom")
+  settlementsTo    Settlement[]    @relation("SettlementTo")
+
+  @@index([phone])
+  @@index([email])
+}
+
+model Space {
+  id        String    @id @default(cuid())
+  name      String
+  type      SpaceType
+  ownerId   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  owner        User          @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      SpaceMember[]
+  expenses     Expense[]
+  settlements  Settlement[]
+
+  @@index([ownerId])
+  @@index([type])
+}
+
+model SpaceMember {
+  id        String    @id @default(cuid())
+  spaceId   String
+  userId    String
+  role      SpaceRole @default(EDITOR)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@index([userId])
+  @@index([spaceId])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  spaceId     String
+  title       String
+  /// Amount in smallest currency unit (never Float)
+  totalAmount Int
+  paidById    String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space  Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  paidBy User           @relation("ExpensePayer", fields: [paidById], references: [id], onDelete: Restrict)
+  splits ExpenseSplit[]
+
+  @@index([spaceId])
+  @@index([paidById])
+  @@index([date])
+}
+
+model ExpenseSplit {
+  id         String @id @default(cuid())
+  expenseId  String
+  userId     String
+  /// Amount this user owes for the expense (smallest currency unit)
+  owedAmount Int
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+  @@index([userId])
+  @@index([expenseId])
+}
+
+model Settlement {
+  id         String           @id @default(cuid())
+  spaceId    String
+  fromUserId String
+  toUserId   String
+  /// Amount in smallest currency unit
+  amount     Int
+  status     SettlementStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  space    Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  fromUser User  @relation("SettlementFrom", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser   User  @relation("SettlementTo", fields: [toUserId], references: [id], onDelete: Restrict)
+
+  @@index([spaceId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+}

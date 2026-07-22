@@ -1,0 +1,9 @@
+/**
+ * Server Actions live here.
+ * Example (implement after auth):
+ *
+ * "use server"
+ * export async function createExpense(...) { ... }
+ */
+
+export {};

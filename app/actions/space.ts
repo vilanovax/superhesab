@@ -22,12 +22,14 @@ const updateSpaceSchema = z.object({
   spaceId: z.string().min(1),
   name: z.string().trim().min(2).max(80),
   currency: z.enum(["TOMAN", "RIAL"]),
+  roundUpToThousand: z.boolean(),
 });
 
 export async function updateSpaceSettings(input: {
   spaceId: string;
   name: string;
   currency: "TOMAN" | "RIAL";
+  roundUpToThousand: boolean;
 }): Promise<SpaceActionResult> {
   const session = await requireUser();
   const parsed = updateSpaceSchema.safeParse(input);
@@ -53,6 +55,7 @@ export async function updateSpaceSettings(input: {
     data: {
       name: parsed.data.name,
       currency: parsed.data.currency,
+      roundUpToThousand: parsed.data.roundUpToThousand,
     },
   });
 
@@ -68,7 +71,13 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
   const currency = String(formData.get("currency") ?? "TOMAN") as
     | "TOMAN"
     | "RIAL";
-  const result = await updateSpaceSettings({ spaceId, name, currency });
+  const roundUpToThousand = formData.get("roundUpToThousand") === "on";
+  const result = await updateSpaceSettings({
+    spaceId,
+    name,
+    currency,
+    roundUpToThousand,
+  });
   if (!result.ok) {
     redirect(
       `/spaces/${spaceId}/settings?error=${encodeURIComponent(result.error)}`,

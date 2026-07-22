@@ -56,7 +56,32 @@ export function formatDateFa(date: Date | string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Tehran",
   }).format(d);
+}
+
+/** Calendar day key in Tehran (yyyy-mm-dd) for grouping. */
+export function expenseDayKey(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** Today's date as yyyy-mm-dd in Asia/Tehran. */
+export function todayIsoDateTehran(): string {
+  return expenseDayKey(new Date());
+}
+
+/** Parse form date (yyyy-mm-dd) to a stable DateTime (noon Tehran). */
+export function parseExpenseDateInput(isoYmd: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoYmd.trim());
+  if (!match) return new Date();
+  const [, y, m, d] = match;
+  return new Date(`${y}-${m}-${d}T12:00:00+03:30`);
 }
 
 export function memberLabel(user: {
@@ -66,4 +91,16 @@ export function memberLabel(user: {
 }): string {
   const base = user.name?.trim() || (user.isVirtual ? "همسفر" : user.phone);
   return user.isVirtual ? `${base} (دستی)` : base;
+}
+
+/** Short payer label for lists — never a phone number. */
+export function payerName(
+  user: { name: string | null; phone?: string; isVirtual?: boolean },
+  options?: { isCurrentUser?: boolean },
+): string {
+  if (options?.isCurrentUser) return "من";
+  const name = user.name?.trim();
+  if (name) return name.split(/\s+/)[0] ?? name;
+  if (user.isVirtual) return "همسفر";
+  return "بدون نام";
 }

@@ -75,8 +75,46 @@ function roleLabel(role: "OWNER" | "EDITOR", isVirtual?: boolean) {
   return role === "OWNER" ? "مالک" : "ویرایشگر";
 }
 
+function ShareIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 function InvitePanel({
   spaceId,
+  spaceName,
   members,
 }: {
   spaceId: string;
@@ -84,7 +122,7 @@ function InvitePanel({
   members: InviteMemberRow[];
 }) {
   const router = useRouter();
-  const [copied, setCopied] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "done">("idle");
   const [manualName, setManualName] = useState("");
   const [manualError, setManualError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -94,13 +132,28 @@ function InvitePanel({
     return `${window.location.origin}/invite/${spaceId}`;
   }, [spaceId]);
 
-  async function copyLink() {
+  async function shareInvite() {
+    const title = `دعوت به ${spaceName}`;
+    const text = `به «${spaceName}» در SuperHesab بپیوند`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title, text, url: inviteUrl });
+        setShareState("done");
+        window.setTimeout(() => setShareState("idle"), 2000);
+        return;
+      }
+    } catch (err) {
+      // User dismissed share sheet — don't fall through to copy noise
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
+
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      setShareState("done");
+      window.setTimeout(() => setShareState("idle"), 2000);
     } catch {
-      setCopied(false);
+      setShareState("idle");
     }
   }
 
@@ -119,35 +172,42 @@ function InvitePanel({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">لینک دعوت</p>
-        <div className="rounded-xl border border-border/70 bg-muted/50 px-3 py-3">
-          <p className="break-all text-sm font-medium text-foreground" dir="ltr">
-            {inviteUrl}
+    <div className="space-y-4">
+      {/* Compact share — no URL shown */}
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-white/80 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">دعوت با لینک</p>
+          <p className="text-[11px] text-muted-foreground">
+            {shareState === "done"
+              ? "آمادهٔ ارسال شد"
+              : "شیر برای تلگرام، واتس‌اپ و …"}
           </p>
         </div>
         <Button
           type="button"
-          className="h-12 w-full rounded-xl"
-          onClick={copyLink}
+          size="icon"
+          onClick={shareInvite}
+          className={cn(
+            "size-11 shrink-0 rounded-xl transition-colors",
+            shareState === "done" && "bg-success hover:bg-success/90",
+          )}
+          aria-label={shareState === "done" ? "لینک آماده شد" : "اشتراک لینک دعوت"}
         >
-          {copied ? "لینک کپی شد ✓" : "کپی لینک"}
+          {shareState === "done" ? (
+            <CheckIcon className="size-5" />
+          ) : (
+            <ShareIcon className="size-5" />
+          )}
         </Button>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          لینک را در تلگرام یا واتس‌اپ بفرستید. مهمان بعد از ورود با نقش
-          ویرایشگر عضو می‌شود.
-        </p>
       </div>
 
-      <div className="space-y-2 rounded-2xl border border-border/60 bg-white/70 p-3.5">
-        <p className="text-xs font-medium text-foreground">
-          افزودن دستی همسفر (بدون اپ)
-        </p>
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          اگر کسی اپ نصب نمی‌کند، فقط نامش را اضافه کن تا در دنگ و تسویه حساب
-          شود.
-        </p>
+      <div className="space-y-2.5 rounded-2xl border border-border/60 bg-white/70 p-3.5">
+        <div>
+          <p className="text-sm font-medium text-foreground">افزودن دستی</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            بدون نصب اپ — فقط نام همسفر
+          </p>
+        </div>
         <form onSubmit={onAddVirtual} className="flex gap-2">
           <Input
             value={manualName}
@@ -175,9 +235,9 @@ function InvitePanel({
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">
-          اعضای فعلی ({members.length})
+          اعضا ({members.length})
         </p>
-        <ul className="max-h-56 space-y-2 overflow-y-auto">
+        <ul className="max-h-52 space-y-2 overflow-y-auto">
           {members.map((m) => (
             <li
               key={m.userId}
@@ -258,8 +318,7 @@ export function InviteMembersButton({
           <DialogHeader className="text-start">
             <DialogTitle>دعوت از اعضا</DialogTitle>
             <DialogDescription>
-              لینک دعوت را برای پیوستن به «{spaceName}» بفرستید یا همسفر را دستی
-              اضافه کنید.
+              شیر لینک یا افزودن دستی به «{spaceName}»
             </DialogDescription>
           </DialogHeader>
           {panel}
@@ -275,8 +334,7 @@ export function InviteMembersButton({
         <DrawerHeader className="text-start">
           <DrawerTitle>دعوت از اعضا</DrawerTitle>
           <DrawerDescription>
-            لینک دعوت را برای پیوستن به «{spaceName}» بفرستید یا همسفر را دستی
-            اضافه کنید.
+            شیر لینک یا افزودن دستی به «{spaceName}»
           </DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-8">{panel}</div>

@@ -65,51 +65,47 @@ function ExpenseSheetBody({
   description,
   children,
   variant,
+  title = "ثبت هزینه جدید",
 }: {
   description: string;
   children: React.ReactNode;
   variant: "drawer" | "dialog";
+  title?: string;
 }) {
   return (
     <div
       className={cn(
         "flex min-h-0 flex-col",
-        // Drawer: fill the fixed-height sheet. Dialog: grow within max-h.
         variant === "drawer" ? "h-full" : "max-h-[inherit] flex-1",
       )}
     >
-      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-4 pt-2">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-e-8 -top-10 size-28 rounded-full bg-white/15 blur-2xl"
-        />
+      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-3.5 pt-2">
         {variant === "drawer" ? (
-          <DrawerHeader className="relative space-y-1 p-0 text-start">
-            <DrawerTitle className="text-xl font-bold text-white">
-              ثبت هزینه جدید
+          <DrawerHeader className="relative space-y-0.5 p-0 text-start">
+            <DrawerTitle className="text-lg font-bold text-white">
+              {title}
             </DrawerTitle>
-            <DrawerDescription className="text-sm text-white/75">
+            <DrawerDescription className="text-[13px] text-white/70">
               {description}
             </DrawerDescription>
           </DrawerHeader>
         ) : (
-          <DialogHeader className="relative space-y-1 text-start">
-            <DialogTitle className="text-xl font-bold text-white">
-              ثبت هزینه جدید
+          <DialogHeader className="relative space-y-0.5 text-start">
+            <DialogTitle className="text-lg font-bold text-white">
+              {title}
             </DialogTitle>
-            <DialogDescription className="text-sm text-white/75">
+            <DialogDescription className="text-[13px] text-white/70">
               {description}
             </DialogDescription>
           </DialogHeader>
         )}
       </div>
 
-      {/* Explicit remaining height so Vaul flex collapse can't hide the form */}
       <div
         className={cn(
-          "overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-4 py-4 pb-8",
+          "overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-4 py-3 pb-8",
           variant === "drawer"
-            ? "h-[calc(92dvh-5.5rem)] min-h-[60dvh] shrink-0"
+            ? "h-[calc(92dvh-4.75rem)] min-h-[60dvh] shrink-0"
             : "min-h-0 flex-1",
         )}
       >
@@ -127,7 +123,7 @@ export function AddExpenseButton({
 }: AddExpenseButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
-  const description = "مبلغ، پرداخت‌کننده و نحوه تسهیم را مشخص کنید.";
+  const description = "عنوان، مبلغ و سهم‌ها";
 
   const form = (
     <ExpenseForm

@@ -30,3 +30,21 @@ export function assertSplitsSumToTotal(total: Money, parts: Money[]): void {
     throw new Error(`Split sum ${sum} !== total ${total}`);
   }
 }
+
+/**
+ * Round magnitude up to the nearest thousand (e.g. 296666 → 297000).
+ * Preserves sign. Zero stays zero.
+ */
+export function ceilToThousand(amount: number): number {
+  if (!Number.isFinite(amount) || amount === 0) return 0;
+  const sign = amount < 0 ? -1 : 1;
+  const abs = Math.abs(Math.trunc(amount));
+  return sign * Math.ceil(abs / 1000) * 1000;
+}
+
+export function maybeCeilToThousand(
+  amount: number,
+  enabled: boolean,
+): number {
+  return enabled ? ceilToThousand(amount) : amount;
+}

@@ -228,3 +228,38 @@ body::before {
 .animate-fade-up {
   animation: var(--animate-fade-up);
 }
+
+/* Shamsi date picker — match SuperHesab teal */
+.jalali-date-picker .rmdp-wrapper {
+  box-shadow: 0 12px 32px rgba(15, 92, 87, 0.14);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  font-family: inherit;
+}
+
+.jalali-date-picker .rmdp-input {
+  box-sizing: border-box;
+  width: 100% !important;
+  margin: 0 !important;
+  height: 2.75rem !important;
+  border-radius: 0.75rem !important;
+}
+
+.jalali-date-picker .rmdp-day.rmdp-selected span:not(.highlight) {
+  background-color: var(--primary) !important;
+  box-shadow: none !important;
+}
+
+.jalali-date-picker .rmdp-day.rmdp-today span {
+  background-color: color-mix(in srgb, var(--primary) 18%, white) !important;
+  color: var(--primary) !important;
+}
+
+.jalali-date-picker .rmdp-arrow-container:hover {
+  background-color: var(--secondary);
+  box-shadow: none;
+}
+
+.jalali-date-picker .rmdp-week-day {
+  color: var(--primary);
+}

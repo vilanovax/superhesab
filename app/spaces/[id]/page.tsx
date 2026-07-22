@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
+import { maybeCeilToThousand } from "@/lib/money";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -106,7 +107,12 @@ export default async function SpacePage({ params }: SpacePageProps) {
         },
         expenses: {
           include: {
-            paidBy: { select: { name: true, phone: true } },
+            paidBy: {
+              select: { name: true, phone: true, isVirtual: true },
+            },
+            splits: {
+              select: { userId: true, owedAmount: true },
+            },
           },
           orderBy: { date: "desc" },
           take: 50,
@@ -129,13 +135,17 @@ export default async function SpacePage({ params }: SpacePageProps) {
     isVirtual: m.user.isVirtual,
   }));
 
-  const myBalance = balanceData.balances[session.userId] ?? 0;
+  const myBalance = maybeCeilToThousand(
+    balanceData.balances[session.userId] ?? 0,
+    space.roundUpToThousand,
+  );
   const totalExpenses = space.expenses.reduce(
     (sum, expense) => sum + expense.totalAmount,
     0,
   );
   const openSettlementAmount = balanceData.suggestions.reduce(
-    (sum, suggestion) => sum + suggestion.amount,
+    (sum, suggestion) =>
+      sum + maybeCeilToThousand(suggestion.amount, space.roundUpToThousand),
     0,
   );
 
@@ -260,11 +270,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
 
       <SpaceTabs
         spaceId={space.id}
+        currentUserId={session.userId}
         expenses={space.expenses}
         members={members}
         balances={balanceData.balances}
         suggestions={balanceData.suggestions}
         checklist={checklist}
+        currency={space.currency}
+        roundUpToThousand={space.roundUpToThousand}
       />
 
       <AddExpenseButton

@@ -34,6 +34,7 @@ export default async function SpaceSettingsPage({
       name: true,
       type: true,
       currency: true,
+      roundUpToThousand: true,
       ownerId: true,
     },
   });
@@ -65,7 +66,7 @@ export default async function SpaceSettingsPage({
         <p className="text-xs font-medium text-white/70">تنظیمات فضا</p>
         <h1 className="mt-1 text-2xl font-bold text-white">{space.name}</h1>
         <p className="mt-2 text-sm text-white/75">
-          واحد پول و نام این پروژه را مدیریت کنید.
+          نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید.
         </p>
       </header>
 
@@ -106,8 +107,31 @@ export default async function SpaceSettingsPage({
             </p>
           </div>
 
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-[#f7fafb] px-3.5 py-3.5 ${!isOwner ? "opacity-60" : ""}`}
+          >
+            <input
+              type="checkbox"
+              name="roundUpToThousand"
+              defaultChecked={space.roundUpToThousand}
+              disabled={!isOwner}
+              className="mt-0.5 size-5 shrink-0 rounded-md border border-input accent-[var(--primary)]"
+            />
+            <span className="min-w-0 space-y-1">
+              <span className="block text-[13px] font-semibold text-foreground">
+                رند کردن مبالغ به هزار
+              </span>
+              <span className="block text-[12px] leading-relaxed text-muted-foreground">
+                در تب ترازها، مانده و پیشنهاد تسویه به سمت بالا به نزدیک‌ترین
+                هزار رند می‌شود (مثلاً ۲۹۶٬۶۶۶ → ۲۹۷٬۰۰۰) تا پرداخت نقدی ساده‌تر
+                باشد.
+              </span>
+            </span>
+          </label>
+
           <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground">
-            قالب: <span className="font-medium text-foreground">{template.label}</span>
+            قالب:{" "}
+            <span className="font-medium text-foreground">{template.label}</span>
             {" · "}
             نقش شما:{" "}
             <span className="font-medium text-foreground">

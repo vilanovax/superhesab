@@ -10,10 +10,72 @@ import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
 import { getTemplate } from "@/lib/templates/registry";
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 type SpacePageProps = {
   params: Promise<{ id: string }>;
 };
+
+function BackChevron({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {/* Points toward start in RTL (visual “back”) */}
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+function HeroStat({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-[4.25rem] flex-col justify-center rounded-xl bg-white/12 px-3 py-2.5",
+        className,
+      )}
+    >
+      <p className="text-[11px] leading-none text-white/65">{label}</p>
+      <div className="mt-1.5 text-[0.9375rem] font-bold leading-snug tabular-nums tracking-tight">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default async function SpacePage({ params }: SpacePageProps) {
   const { id } = await params;
@@ -31,7 +93,13 @@ export default async function SpacePage({ params }: SpacePageProps) {
         members: {
           include: {
             user: {
-              select: { id: true, name: true, phone: true, avatarUrl: true },
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                avatarUrl: true,
+                isVirtual: true,
+              },
             },
           },
           orderBy: { createdAt: "asc" },
@@ -58,6 +126,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
     userId: m.user.id,
     name: m.user.name,
     phone: m.user.phone,
+    isVirtual: m.user.isVirtual,
   }));
 
   const myBalance = balanceData.balances[session.userId] ?? 0;
@@ -71,120 +140,120 @@ export default async function SpacePage({ params }: SpacePageProps) {
   );
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 pb-28 pt-5 sm:px-6">
-      <div className="flex items-center justify-between gap-3 px-1">
+    <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
+      {/* Top bar — single horizontal rhythm */}
+      <div className="mb-3 flex items-center gap-2">
         <Button
           asChild
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="rounded-xl bg-white/50 px-3 backdrop-blur-sm hover:bg-white/80"
+          className="h-9 gap-1 rounded-xl border-border/70 bg-white pe-3 ps-2 text-sm font-medium shadow-sm"
         >
-          <Link href="/app">← بازگشت</Link>
+          <Link href="/app">
+            <BackChevron className="size-4 text-muted-foreground" />
+            بازگشت
+          </Link>
         </Button>
-        <div className="flex items-center gap-2">
-          <span className="rounded-xl bg-ink/90 px-3 py-1.5 text-xs font-medium text-primary-foreground">
-            {template.label}
-          </span>
-          <Button
-            asChild
-            variant="outline"
-            size="icon"
-            className="size-10 rounded-xl border-border/70 bg-white/70 backdrop-blur-sm"
-            aria-label="تنظیمات فضا"
-          >
-            <Link href={`/spaces/${space.id}/settings`}>
-              <svg
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg>
-            </Link>
-          </Button>
-        </div>
+
+        <span className="ms-auto max-w-[9.5rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground">
+          {template.label}
+        </span>
+
+        <Button
+          asChild
+          variant="outline"
+          size="icon"
+          className="size-9 shrink-0 rounded-xl border-border/70 bg-white shadow-sm"
+          aria-label="تنظیمات فضا"
+        >
+          <Link href={`/spaces/${space.id}/settings`}>
+            <SettingsIcon className="size-4" />
+          </Link>
+        </Button>
       </div>
 
-      <header className="surface-hero animate-fade-up relative overflow-hidden rounded-2xl p-5">
+      {/* Hero */}
+      <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-2xl px-4 pb-4 pt-4">
         <div
           aria-hidden
-          className="pointer-events-none absolute -start-8 -top-10 size-36 rounded-full bg-white/10 blur-2xl animate-[soft-pulse_4s_ease-in-out_infinite]"
+          className="pointer-events-none absolute -inset-s-10 -top-12 size-32 rounded-full bg-white/12 blur-2xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-12 -end-6 size-40 rounded-full bg-black/10 blur-2xl"
+          className="pointer-events-none absolute -inset-e-8 -bottom-14 size-36 rounded-full bg-black/15 blur-2xl"
         />
 
-        <div className="relative space-y-4">
-          <div>
-            <p className="text-xs font-medium text-white/70">فضای مشترک</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
+        <div className="relative space-y-3.5">
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium tracking-wide text-white/60">
+              فضای مشترک
+            </p>
+            <h1 className="text-[1.375rem] font-bold leading-tight tracking-tight text-white">
               {space.name}
             </h1>
-          </div>
-
-          <div className="flex items-end justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2 space-x-reverse">
-                {space.members.slice(0, 5).map((m) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={m.user.id}
-                    src={
-                      m.user.avatarUrl ??
-                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.user.phone)}`
-                    }
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="size-9 rounded-full border-2 border-white/40 bg-white/20"
-                  />
-                ))}
-                {space.members.length > 5 ? (
-                  <span className="flex size-9 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-xs font-medium">
-                    +{space.members.length - 5}
-                  </span>
-                ) : null}
-              </div>
-              <InviteMembersButton
-                spaceId={space.id}
-                spaceName={space.name}
-                members={space.members.map((m) => ({
-                  userId: m.user.id,
-                  name: m.user.name,
-                  phone: m.user.phone,
-                  avatarUrl: m.user.avatarUrl,
-                  role: m.role,
-                }))}
-              />
-            </div>
-            <p className="text-xs text-white/75">
-              {space.members.length} عضو · {space.expenses.length} هزینه ·{" "}
-              {formatCurrency(totalExpenses)}
+            <p className="text-xs text-white/70">
+              {space.members.length} عضو · {space.expenses.length} هزینه
+              {totalExpenses > 0 ? (
+                <>
+                  {" "}
+                  · جمع {formatCurrency(totalExpenses)}
+                </>
+              ) : null}
             </p>
           </div>
 
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-2 space-x-reverse">
+              {space.members.slice(0, 4).map((m) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={m.user.id}
+                  src={
+                    m.user.avatarUrl ??
+                    `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.user.phone)}`
+                  }
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="size-8 rounded-full border-2 border-white/35 bg-white/20"
+                />
+              ))}
+              {space.members.length > 4 ? (
+                <span className="flex size-8 items-center justify-center rounded-full border-2 border-white/35 bg-white/20 text-[10px] font-semibold">
+                  +{space.members.length - 4}
+                </span>
+              ) : null}
+            </div>
+            <InviteMembersButton
+              spaceId={space.id}
+              spaceName={space.name}
+              members={space.members.map((m) => ({
+                userId: m.user.id,
+                name: m.user.name,
+                phone: m.user.phone,
+                avatarUrl: m.user.avatarUrl,
+                role: m.role,
+                isVirtual: m.user.isVirtual,
+              }))}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-white/12 px-3 py-2.5 backdrop-blur-sm">
-              <p className="text-[11px] text-white/70">مانده شما</p>
-              <p className="mt-0.5 text-base font-bold tabular-nums">
-                {myBalance === 0
-                  ? "Settled"
-                  : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance))}`}
-              </p>
-            </div>
-            <div className="rounded-xl bg-white/12 px-3 py-2.5 backdrop-blur-sm">
-              <p className="text-[11px] text-white/70">تسویه باز</p>
-              <p className="mt-0.5 text-base font-bold tabular-nums">
-                {formatCurrency(openSettlementAmount)}
-              </p>
-            </div>
+            <HeroStat label="مانده شما">
+              {myBalance === 0 ? (
+                <span className="text-white/90">تسویه‌شده</span>
+              ) : (
+                <span className={myBalance > 0 ? "text-emerald-100" : "text-rose-100"}>
+                  {myBalance > 0 ? "+" : "−"}
+                  {formatCurrency(Math.abs(myBalance))}
+                </span>
+              )}
+            </HeroStat>
+            <HeroStat label="تسویه باز">
+              {openSettlementAmount === 0
+                ? "صفر"
+                : formatCurrency(openSettlementAmount)}
+            </HeroStat>
           </div>
         </div>
       </header>

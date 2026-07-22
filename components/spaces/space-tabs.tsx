@@ -30,16 +30,16 @@ export function SpaceTabs({
   checklist,
 }: SpaceTabsProps) {
   return (
-    <Tabs defaultValue="expenses">
-      <TabsList className="grid h-12 grid-cols-3">
+    <Tabs defaultValue="expenses" className="flex min-h-0 flex-1 flex-col">
+      <TabsList className="grid h-10 w-full grid-cols-3">
         <TabsTrigger value="expenses">هزینه‌ها</TabsTrigger>
         <TabsTrigger value="balances">ترازها</TabsTrigger>
         <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
       </TabsList>
-      <TabsContent value="expenses">
+      <TabsContent value="expenses" className="mt-3">
         <ExpenseList expenses={expenses} />
       </TabsContent>
-      <TabsContent value="balances">
+      <TabsContent value="balances" className="mt-3">
         <SpaceBalances
           spaceId={spaceId}
           members={members}
@@ -47,7 +47,7 @@ export function SpaceTabs({
           suggestions={suggestions}
         />
       </TabsContent>
-      <TabsContent value="checklist">
+      <TabsContent value="checklist" className="mt-3">
         <SpaceChecklist spaceId={spaceId} items={checklist} />
       </TabsContent>
     </Tabs>

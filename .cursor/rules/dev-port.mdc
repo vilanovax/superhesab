@@ -1,0 +1,11 @@
+---
+description: Always run SuperHesab on port 3003; never use 3000
+alwaysApply: true
+---
+
+# Dev server port
+
+- Run Next.js **only on port 3003**.
+- **Never** start, bind, or suggest `localhost:3000` for this project.
+- Use `npm run dev` / `npm start` (scripts already pin `-p 3003`), or `next dev -p 3003` / `next start -p 3003`.
+- When telling the user the URL, always use `http://localhost:3003`.

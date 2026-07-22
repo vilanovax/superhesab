@@ -41,6 +41,7 @@ export type ExpenseMember = {
   userId: string;
   name: string | null;
   phone: string;
+  isVirtual?: boolean;
 };
 
 type ExpenseFormProps = {
@@ -353,7 +354,7 @@ export function ExpenseForm({
                           <div className="flex min-w-0 flex-1 items-center gap-2.5">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={`https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(member.phone)}`}
+                              src={`https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(member.name || member.phone)}`}
                               alt=""
                               width={32}
                               height={32}

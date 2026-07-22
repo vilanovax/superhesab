@@ -62,6 +62,8 @@ export function formatDateFa(date: Date | string): string {
 export function memberLabel(user: {
   name: string | null;
   phone: string;
+  isVirtual?: boolean;
 }): string {
-  return user.name?.trim() || user.phone;
+  const base = user.name?.trim() || (user.isVirtual ? "همسفر" : user.phone);
+  return user.isVirtual ? `${base} (دستی)` : base;
 }

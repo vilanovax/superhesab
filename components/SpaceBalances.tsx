@@ -14,6 +14,7 @@ export type BalanceMember = {
   userId: string;
   name: string | null;
   phone: string;
+  isVirtual?: boolean;
 };
 
 type SpaceBalancesProps = {
@@ -26,7 +27,7 @@ type SpaceBalancesProps = {
 function BalanceAmount({ amount }: { amount: number }) {
   if (amount === 0) {
     return (
-      <span className="text-sm font-medium text-muted-foreground">Settled</span>
+      <span className="text-sm font-medium text-muted-foreground">تسویه‌شده</span>
     );
   }
   if (amount > 0) {
@@ -94,7 +95,7 @@ function SuggestionCard({
           disabled={pending}
           onClick={onMarkPaid}
         >
-          {pending ? "در حال ثبت…" : "Mark as Paid"}
+          {pending ? "در حال ثبت…" : "ثبت پرداخت"}
         </Button>
       </div>
     </li>

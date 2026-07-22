@@ -38,6 +38,8 @@ model User {
   name      String?
   email     String?  @unique
   avatarUrl String?
+  /// Ghost / placeholder member without app login (Path B)
+  isVirtual Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -50,6 +52,7 @@ model User {
 
   @@index([phone])
   @@index([email])
+  @@index([isVirtual])
 }
 
 model Space {

@@ -47,13 +47,13 @@ function Fab(props: React.ComponentProps<typeof Button>) {
     <Button
       {...props}
       className={cn(
-        "fixed bottom-6 left-1/2 z-40 h-14 min-h-14 -translate-x-1/2 gap-2 rounded-2xl px-7",
-        "bg-primary text-primary-foreground shadow-[0_12px_28px_-8px_rgba(15,92,87,0.55)]",
-        "transition-transform hover:scale-[1.02] active:scale-[0.98]",
+        "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 h-12 min-h-12 -translate-x-1/2 gap-1.5 rounded-2xl px-5 text-sm font-semibold",
+        "bg-primary text-primary-foreground shadow-[0_10px_24px_-10px_rgba(15,92,87,0.55)]",
+        "transition-transform duration-150 ease-out hover:scale-[1.02] active:scale-[0.97]",
         props.className,
       )}
     >
-      <span className="flex size-7 items-center justify-center rounded-lg bg-white/15 text-lg leading-none">
+      <span className="flex size-6 items-center justify-center rounded-md bg-white/15 text-base leading-none">
         +
       </span>
       ثبت هزینه

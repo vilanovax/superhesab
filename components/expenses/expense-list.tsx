@@ -26,7 +26,7 @@ export function ExpenseList({ expenses }: { expenses: ExpenseListItem[] }) {
       {expenses.map((expense, index) => (
         <li
           key={expense.id}
-          className="group relative overflow-hidden rounded-xl border border-border/80 bg-card/90 px-4 py-3.5 backdrop-blur-sm transition-colors hover:border-primary/30"
+          className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 px-3.5 py-3 transition-colors hover:border-primary/25"
           style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
         >
           <span
@@ -43,7 +43,7 @@ export function ExpenseList({ expenses }: { expenses: ExpenseListItem[] }) {
                 {formatDateFa(expense.date)}
               </p>
             </div>
-            <p className="shrink-0 rounded-lg bg-secondary/80 px-2.5 py-1 text-sm font-bold text-ink tabular-nums">
+            <p className="shrink-0 rounded-lg bg-secondary/70 px-2 py-0.5 text-[13px] font-bold text-ink tabular-nums">
               {formatCurrency(expense.totalAmount)}
             </p>
           </div>

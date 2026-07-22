@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { addVirtualMember } from "@/app/actions/virtualMember";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +30,7 @@ export type InviteMemberRow = {
   phone: string;
   avatarUrl: string | null;
   role: "OWNER" | "EDITOR";
+  isVirtual?: boolean;
 };
 
 type InviteMembersButtonProps = {
@@ -66,7 +70,8 @@ function UserPlusIcon({ className }: { className?: string }) {
   );
 }
 
-function roleLabel(role: "OWNER" | "EDITOR") {
+function roleLabel(role: "OWNER" | "EDITOR", isVirtual?: boolean) {
+  if (isVirtual) return "عضو دستی";
   return role === "OWNER" ? "مالک" : "ویرایشگر";
 }
 
@@ -78,7 +83,12 @@ function InvitePanel({
   spaceName: string;
   members: InviteMemberRow[];
 }) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
   const inviteUrl = useMemo(() => {
     if (typeof window === "undefined") return `/invite/${spaceId}`;
     return `${window.location.origin}/invite/${spaceId}`;
@@ -92,6 +102,20 @@ function InvitePanel({
     } catch {
       setCopied(false);
     }
+  }
+
+  function onAddVirtual(e: React.FormEvent) {
+    e.preventDefault();
+    setManualError(null);
+    startTransition(async () => {
+      const result = await addVirtualMember(spaceId, manualName);
+      if (!result.ok) {
+        setManualError(result.error);
+        return;
+      }
+      setManualName("");
+      router.refresh();
+    });
   }
 
   return (
@@ -116,6 +140,39 @@ function InvitePanel({
         </p>
       </div>
 
+      <div className="space-y-2 rounded-2xl border border-border/60 bg-white/70 p-3.5">
+        <p className="text-xs font-medium text-foreground">
+          افزودن دستی همسفر (بدون اپ)
+        </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          اگر کسی اپ نصب نمی‌کند، فقط نامش را اضافه کن تا در دنگ و تسویه حساب
+          شود.
+        </p>
+        <form onSubmit={onAddVirtual} className="flex gap-2">
+          <Input
+            value={manualName}
+            onChange={(e) => setManualName(e.target.value)}
+            placeholder="مثلاً علی"
+            className="h-11 rounded-xl border-border/70 bg-white"
+            maxLength={40}
+            required
+            minLength={2}
+          />
+          <Button
+            type="submit"
+            className="h-11 shrink-0 rounded-xl px-4"
+            disabled={pending}
+          >
+            {pending ? "…" : "افزودن"}
+          </Button>
+        </form>
+        {manualError ? (
+          <p className="text-xs text-destructive" role="alert">
+            {manualError}
+          </p>
+        ) : null}
+      </div>
+
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">
           اعضای فعلی ({members.length})
@@ -130,7 +187,7 @@ function InvitePanel({
               <img
                 src={
                   m.avatarUrl ??
-                  `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.phone)}`
+                  `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
                 }
                 alt=""
                 width={36}
@@ -141,19 +198,25 @@ function InvitePanel({
                 <p className="truncate text-sm font-medium text-foreground">
                   {memberLabel(m)}
                 </p>
-                <p className="text-xs text-muted-foreground" dir="ltr">
-                  {m.phone}
-                </p>
+                {!m.isVirtual ? (
+                  <p className="text-xs text-muted-foreground" dir="ltr">
+                    {m.phone}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">بدون حساب اپ</p>
+                )}
               </div>
               <span
                 className={cn(
                   "rounded-lg px-2 py-1 text-[11px] font-semibold",
-                  m.role === "OWNER"
-                    ? "bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground",
+                  m.isVirtual
+                    ? "bg-accent text-accent-foreground"
+                    : m.role === "OWNER"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
                 )}
               >
-                {roleLabel(m.role)}
+                {roleLabel(m.role, m.isVirtual)}
               </span>
             </li>
           ))}
@@ -176,10 +239,10 @@ export function InviteMembersButton({
       type="button"
       size="icon"
       variant="ghost"
-      className="size-9 rounded-full border border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
+      className="size-8 rounded-full border border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
       aria-label="دعوت از اعضا"
     >
-      <UserPlusIcon className="size-5" />
+      <UserPlusIcon className="size-4" />
     </Button>
   );
 
@@ -195,7 +258,8 @@ export function InviteMembersButton({
           <DialogHeader className="text-start">
             <DialogTitle>دعوت از اعضا</DialogTitle>
             <DialogDescription>
-              لینک دعوت را برای پیوستن به «{spaceName}» بفرستید.
+              لینک دعوت را برای پیوستن به «{spaceName}» بفرستید یا همسفر را دستی
+              اضافه کنید.
             </DialogDescription>
           </DialogHeader>
           {panel}
@@ -211,7 +275,8 @@ export function InviteMembersButton({
         <DrawerHeader className="text-start">
           <DrawerTitle>دعوت از اعضا</DrawerTitle>
           <DrawerDescription>
-            لینک دعوت را برای پیوستن به «{spaceName}» بفرستید.
+            لینک دعوت را برای پیوستن به «{spaceName}» بفرستید یا همسفر را دستی
+            اضافه کنید.
           </DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-8">{panel}</div>

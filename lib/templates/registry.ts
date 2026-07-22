@@ -8,7 +8,7 @@ import type { SpaceType } from "@/types";
 export type TemplateDefinition = {
   type: SpaceType;
   label: string;
-  defaultInviteRole: "OWNER" | "EDITOR";
+  defaultInviteRole: "EDITOR" | "VIEWER";
   features: {
     checklist: boolean;
   };

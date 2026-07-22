@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start -p 3003",
     "lint": "eslint",
+    "icons:pwa": "node scripts/generate-pwa-icons.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -48,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "prisma": "^7.9.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

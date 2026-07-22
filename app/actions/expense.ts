@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { parseExpenseDateInput } from "@/lib/format";
 import { asMoney, splitEqual } from "@/lib/money";
+import { canMutateMoney } from "@/lib/rbac";
 import {
   expenseSchema,
   type ExpenseFormValues,
@@ -20,6 +21,12 @@ async function assertCanMutateExpense(spaceId: string, userId: string) {
   const membership = await requireSpaceMember(spaceId, userId);
   if (!membership) {
     return { ok: false as const, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canMutateMoney(membership.role)) {
+    return {
+      ok: false as const,
+      error: "نقش ناظر اجازه ثبت یا ویرایش هزینه ندارد.",
+    };
   }
   return { ok: true as const, membership };
 }

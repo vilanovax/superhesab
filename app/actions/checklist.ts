@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { canEditChecklist } from "@/lib/rbac";
 
 export type ChecklistItemDTO = {
   id: string;
@@ -31,15 +32,27 @@ export async function getChecklist(
   });
 }
 
+async function assertCanEditChecklist(spaceId: string, userId: string) {
+  const membership = await requireSpaceMember(spaceId, userId);
+  if (!membership) {
+    return { ok: false as const, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canEditChecklist(membership.role)) {
+    return {
+      ok: false as const,
+      error: "نقش ناظر اجازه تغییر چک‌لیست ندارد.",
+    };
+  }
+  return { ok: true as const };
+}
+
 export async function addChecklistItem(
   spaceId: string,
   title: string,
 ): Promise<ChecklistActionResult> {
   const session = await requireUser();
-  const membership = await requireSpaceMember(spaceId, session.userId);
-  if (!membership) {
-    return { ok: false, error: "به این فضا دسترسی ندارید." };
-  }
+  const access = await assertCanEditChecklist(spaceId, session.userId);
+  if (!access.ok) return access;
 
   const trimmed = title.trim();
   if (trimmed.length < 1) {
@@ -64,10 +77,8 @@ export async function toggleChecklistItem(
   spaceId: string,
 ): Promise<ChecklistActionResult> {
   const session = await requireUser();
-  const membership = await requireSpaceMember(spaceId, session.userId);
-  if (!membership) {
-    return { ok: false, error: "به این فضا دسترسی ندارید." };
-  }
+  const access = await assertCanEditChecklist(spaceId, session.userId);
+  if (!access.ok) return access;
 
   const item = await prisma.checklistItem.findFirst({
     where: { id: itemId, spaceId },
@@ -90,10 +101,8 @@ export async function deleteChecklistItem(
   spaceId: string,
 ): Promise<ChecklistActionResult> {
   const session = await requireUser();
-  const membership = await requireSpaceMember(spaceId, session.userId);
-  if (!membership) {
-    return { ok: false, error: "به این فضا دسترسی ندارید." };
-  }
+  const access = await assertCanEditChecklist(spaceId, session.userId);
+  if (!access.ok) return access;
 
   const item = await prisma.checklistItem.findFirst({
     where: { id: itemId, spaceId },

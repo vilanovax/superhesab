@@ -7,6 +7,7 @@ import {
   simplifyDebts,
   type SimplifiedSettlement,
 } from "@/lib/debtSimplification";
+import { canMutateMoney } from "@/lib/rbac";
 
 export type SpaceBalancesResult = {
   balances: Record<string, number>;
@@ -92,6 +93,9 @@ export async function settleDebt(
   const membership = await requireSpaceMember(spaceId, session.userId);
   if (!membership) {
     return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canMutateMoney(membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه ثبت تسویه ندارد." };
   }
 
   if (!Number.isInteger(amount) || amount < 1) {

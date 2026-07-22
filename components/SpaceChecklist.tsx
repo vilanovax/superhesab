@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 type SpaceChecklistProps = {
   spaceId: string;
   items: ChecklistItemDTO[];
+  canMutate?: boolean;
 };
 
 type OptimisticAction =
@@ -57,7 +58,11 @@ function TrashIcon({ className }: { className?: string }) {
   );
 }
 
-export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
+export function SpaceChecklist({
+  spaceId,
+  items,
+  canMutate = true,
+}: SpaceChecklistProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +92,7 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
 
   function onAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!canMutate) return;
     const trimmed = title.trim();
     if (!trimmed) return;
 
@@ -113,6 +119,7 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
   }
 
   function onToggle(item: ChecklistItemDTO) {
+    if (!canMutate) return;
     startTransition(async () => {
       applyOptimistic({ type: "toggle", id: item.id });
       await toggleChecklistItem(item.id, item.isCompleted, spaceId);
@@ -121,6 +128,7 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
   }
 
   function onDelete(itemId: string) {
+    if (!canMutate) return;
     startTransition(async () => {
       applyOptimistic({ type: "delete", id: itemId });
       await deleteChecklistItem(itemId, spaceId);
@@ -130,18 +138,20 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onAdd} className="flex gap-2">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="آیتم جدید…"
-          className="h-12"
-          disabled={pending}
-        />
-        <Button type="submit" className="h-12 shrink-0 px-5" disabled={pending}>
-          افزودن
-        </Button>
-      </form>
+      {canMutate ? (
+        <form onSubmit={onAdd} className="flex gap-2">
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="آیتم جدید…"
+            className="h-12"
+            disabled={pending}
+          />
+          <Button type="submit" className="h-12 shrink-0 px-5" disabled={pending}>
+            افزودن
+          </Button>
+        </form>
+      ) : null}
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -153,7 +163,11 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
         <EmptyState
           icon="checklist"
           title="چک‌لیست خالی است"
-          description="خرید، کارها و یادآورها را اینجا بنویسید تا همه ببینند."
+          description={
+            canMutate
+              ? "خرید، کارها و یادآورها را اینجا بنویسید تا همه ببینند."
+              : "هنوز آیتمی نیست. نقش ناظر فقط مشاهده است."
+          }
         />
       ) : (
         <ul className="space-y-2">
@@ -166,7 +180,7 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
                 checked={item.isCompleted}
                 onCheckedChange={() => onToggle(item)}
                 aria-label={item.title}
-                disabled={item.id.startsWith("temp-")}
+                disabled={!canMutate || item.id.startsWith("temp-")}
               />
               <span
                 className={cn(
@@ -178,17 +192,19 @@ export function SpaceChecklist({ spaceId, items }: SpaceChecklistProps) {
               >
                 {item.title}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-12 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(item.id)}
-                disabled={item.id.startsWith("temp-")}
-                aria-label="حذف"
-              >
-                <TrashIcon className="size-5" />
-              </Button>
+              {canMutate ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-12 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => onDelete(item.id)}
+                  disabled={item.id.startsWith("temp-")}
+                  aria-label="حذف"
+                >
+                  <TrashIcon className="size-5" />
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>

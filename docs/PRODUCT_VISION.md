@@ -114,9 +114,9 @@
 5. Net Balance + Debt Simplification + Settlement confirm ✅
 6. Shared Checklist ✅
 6b. Member invite links + join as EDITOR ✅
-7. Trip template UI shell
-8. Partner template UI shell (reuse core)
-9. PWA polish (manifest, offline shell حداقلی)
+7. Trip template UI shell ✅ (default shell)
+8. Partner template UI shell (reuse core) ✅
+9. PWA polish (manifest, offline shell حداقلی) ✅
 
 ---
 

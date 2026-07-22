@@ -26,6 +26,8 @@ type SpaceTabsProps = {
   roundUpToThousand?: boolean;
   spaceType?: SpaceType;
   showChecklist?: boolean;
+  /** OWNER/EDITOR can mutate; VIEWER is read-only */
+  canMutate?: boolean;
 };
 
 export function SpaceTabs({
@@ -40,6 +42,7 @@ export function SpaceTabs({
   roundUpToThousand = false,
   spaceType = "TRIP",
   showChecklist = true,
+  canMutate = true,
 }: SpaceTabsProps) {
   const isPartner = spaceType === "PARTNER";
   const tabCount = showChecklist ? 3 : 2;
@@ -66,6 +69,7 @@ export function SpaceTabs({
           expenses={expenses}
           currency={currency}
           spaceType={spaceType}
+          canMutate={canMutate}
         />
       </TabsContent>
       <TabsContent value="balances" className="mt-3">
@@ -77,11 +81,16 @@ export function SpaceTabs({
           suggestions={suggestions}
           roundUpToThousand={roundUpToThousand}
           variant={isPartner ? "partner" : "default"}
+          canMutate={canMutate}
         />
       </TabsContent>
       {showChecklist ? (
         <TabsContent value="checklist" className="mt-3">
-          <SpaceChecklist spaceId={spaceId} items={checklist} />
+          <SpaceChecklist
+            spaceId={spaceId}
+            items={checklist}
+            canMutate={canMutate}
+          />
         </TabsContent>
       ) : null}
     </Tabs>

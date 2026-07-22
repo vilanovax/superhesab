@@ -51,6 +51,7 @@ type ExpenseListProps = {
   expenses: ExpenseListItem[];
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
+  canMutate?: boolean;
 };
 
 function useIsDesktop() {
@@ -280,6 +281,7 @@ export function ExpenseList({
   expenses,
   currency = "TOMAN",
   spaceType = "TRIP",
+  canMutate = true,
 }: ExpenseListProps) {
   const [editing, setEditing] = useState<ExpenseListItem | null>(null);
 
@@ -289,9 +291,11 @@ export function ExpenseList({
         icon="expense"
         title="هنوز هزینه‌ای نیست"
         description={
-          spaceType === "PARTNER"
-            ? "با دکمه «ثبت هزینه» اولین خرج مشترک را اضافه کنید."
-            : "با دکمه «ثبت هزینه» اولین خرج سفر را اضافه کنید تا ترازها زنده شوند."
+          canMutate
+            ? spaceType === "PARTNER"
+              ? "با دکمه «ثبت هزینه» اولین خرج مشترک را اضافه کنید."
+              : "با دکمه «ثبت هزینه» اولین خرج سفر را اضافه کنید تا ترازها زنده شوند."
+            : "هنوز هزینه‌ای ثبت نشده. نقش ناظر فقط مشاهده است."
         }
       />
     );
@@ -324,6 +328,33 @@ export function ExpenseList({
               {group.items.map((expense) => {
                 const delay = Math.min(rowIndex, 8) * 40;
                 rowIndex += 1;
+                const rowBody = (
+                  <>
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="truncate font-semibold text-foreground">
+                        {expense.title}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {payerName(expense.paidBy, {
+                          isCurrentUser: expense.paidById === currentUserId,
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="rounded-lg bg-secondary/70 px-2 py-0.5 text-[13px] font-bold text-ink tabular-nums">
+                        {formatCurrency(expense.totalAmount)}
+                      </p>
+                      {canMutate ? (
+                        <span
+                          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary"
+                          aria-hidden
+                        >
+                          <PencilIcon className="size-4" />
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                );
                 return (
                   <li
                     key={expense.id}
@@ -334,37 +365,23 @@ export function ExpenseList({
                       aria-hidden
                       className="absolute inset-y-0 inset-s-0 w-1 bg-linear-to-b from-primary to-highlight opacity-80"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setEditing(expense)}
-                      aria-label={`ویرایش ${expense.title}`}
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start",
-                        "transition-transform duration-150 active:scale-[0.99]",
-                      )}
-                    >
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="truncate font-semibold text-foreground">
-                          {expense.title}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {payerName(expense.paidBy, {
-                            isCurrentUser: expense.paidById === currentUserId,
-                          })}
-                        </p>
+                    {canMutate ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(expense)}
+                        aria-label={`ویرایش ${expense.title}`}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start",
+                          "transition-transform duration-150 active:scale-[0.99]",
+                        )}
+                      >
+                        {rowBody}
+                      </button>
+                    ) : (
+                      <div className="flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start">
+                        {rowBody}
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <p className="rounded-lg bg-secondary/70 px-2 py-0.5 text-[13px] font-bold text-ink tabular-nums">
-                          {formatCurrency(expense.totalAmount)}
-                        </p>
-                        <span
-                          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary"
-                          aria-hidden
-                        >
-                          <PencilIcon className="size-4" />
-                        </span>
-                      </div>
-                    </button>
+                    )}
                   </li>
                 );
               })}
@@ -373,18 +390,20 @@ export function ExpenseList({
         ))}
       </div>
 
-      <EditSheet
-        open={Boolean(editing)}
-        onOpenChange={(open) => {
-          if (!open) setEditing(null);
-        }}
-        expense={editing}
-        spaceId={spaceId}
-        currentUserId={currentUserId}
-        members={members}
-        currency={currency}
-        spaceType={spaceType}
-      />
+      {canMutate ? (
+        <EditSheet
+          open={Boolean(editing)}
+          onOpenChange={(open) => {
+            if (!open) setEditing(null);
+          }}
+          expense={editing}
+          spaceId={spaceId}
+          currentUserId={currentUserId}
+          members={members}
+          currency={currency}
+          spaceType={spaceType}
+        />
+      ) : null}
     </>
   );
 }

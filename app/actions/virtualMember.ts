@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { canManageMembers } from "@/lib/rbac";
 
 export type VirtualMemberResult =
   | { ok: true; userId: string }
@@ -12,15 +13,20 @@ export type VirtualMemberResult =
 /**
  * Path B — Ghost user: create a non-login User + SpaceMember so they
  * participate in expenses/splits/settlements without installing the app.
+ * OWNER only. Role defaults to EDITOR (claimable later via invite link).
  */
 export async function addVirtualMember(
   spaceId: string,
   name: string,
+  role: "EDITOR" | "VIEWER" = "EDITOR",
 ): Promise<VirtualMemberResult> {
   const session = await requireUser();
   const membership = await requireSpaceMember(spaceId, session.userId);
   if (!membership) {
     return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canManageMembers(membership.role)) {
+    return { ok: false, error: "فقط مالک می‌تواند عضو دستی اضافه کند." };
   }
 
   const trimmed = name.trim();
@@ -41,7 +47,7 @@ export async function addVirtualMember(
       memberships: {
         create: {
           spaceId,
-          role: "EDITOR",
+          role,
         },
       },
     },

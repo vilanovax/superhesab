@@ -229,20 +229,28 @@ body::before {
   animation: var(--animate-fade-up);
 }
 
-/* Shamsi date picker — match SuperHesab teal */
+/* Shamsi date picker — match SuperHesab teal (inline inside drawers) */
 .jalali-date-picker .rmdp-wrapper {
-  box-shadow: 0 12px 32px rgba(15, 92, 87, 0.14);
+  box-shadow: none;
   border: 1px solid var(--border);
   border-radius: 1rem;
   font-family: inherit;
+  width: 100% !important;
+  margin: 0 auto;
 }
 
-.jalali-date-picker .rmdp-input {
-  box-sizing: border-box;
+.jalali-date-picker .rmdp-calendar {
   width: 100% !important;
-  margin: 0 !important;
-  height: 2.75rem !important;
-  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+}
+
+.jalali-date-picker .rmdp-day-picker > div {
+  width: 100%;
+}
+
+.jalali-date-picker .rmdp-day {
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 .jalali-date-picker .rmdp-day.rmdp-selected span:not(.highlight) {
@@ -255,6 +263,10 @@ body::before {
   color: var(--primary) !important;
 }
 
+.jalali-date-picker .rmdp-day:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover {
+  background-color: color-mix(in srgb, var(--primary) 12%, white) !important;
+}
+
 .jalali-date-picker .rmdp-arrow-container:hover {
   background-color: var(--secondary);
   box-shadow: none;
@@ -262,4 +274,8 @@ body::before {
 
 .jalali-date-picker .rmdp-week-day {
   color: var(--primary);
+}
+
+.jalali-date-picker .rmdp-header {
+  margin-bottom: 0.25rem;
 }

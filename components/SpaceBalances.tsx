@@ -33,6 +33,7 @@ type SpaceBalancesProps = {
   roundUpToThousand?: boolean;
   /** Partner shell: one bold rolling balance + settle up */
   variant?: "default" | "partner";
+  canMutate?: boolean;
 };
 
 function personName(member: BalanceMember, currentUserId?: string): string {
@@ -140,12 +141,14 @@ function SuggestionCard({
   membersById,
   currentUserId,
   roundUpToThousand,
+  canMutate,
 }: {
   spaceId: string;
   suggestion: SimplifiedSettlement;
   membersById: Record<string, BalanceMember>;
   currentUserId?: string;
   roundUpToThousand: boolean;
+  canMutate: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -191,31 +194,35 @@ function SuggestionCard({
             {formatCurrency(amount)}
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          className="h-10 shrink-0 rounded-xl px-3.5 text-[13px]"
-          disabled={pending}
-          onClick={() => {
-            setError(null);
-            setConfirmOpen(true);
-          }}
-        >
-          پرداخت شد
-        </Button>
+        {canMutate ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-10 shrink-0 rounded-xl px-3.5 text-[13px]"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              setConfirmOpen(true);
+            }}
+          >
+            پرداخت شد
+          </Button>
+        ) : null}
       </div>
 
-      <SettleConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        fromName={fromName}
-        toName={toName}
-        amount={amount}
-        pending={pending}
-        error={error}
-        onConfirm={onConfirmPaid}
-        roundUpToThousand={roundUpToThousand}
-      />
+      {canMutate ? (
+        <SettleConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          fromName={fromName}
+          toName={toName}
+          amount={amount}
+          pending={pending}
+          error={error}
+          onConfirm={onConfirmPaid}
+          roundUpToThousand={roundUpToThousand}
+        />
+      ) : null}
     </li>
   );
 }
@@ -227,6 +234,7 @@ function PartnerRollingBalance({
   balances,
   suggestions,
   roundUpToThousand,
+  canMutate,
 }: {
   spaceId: string;
   currentUserId: string;
@@ -234,6 +242,7 @@ function PartnerRollingBalance({
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
   roundUpToThousand: boolean;
+  canMutate: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -318,7 +327,7 @@ function PartnerRollingBalance({
           </p>
         )}
 
-        {suggestion && myBalance !== 0 ? (
+        {canMutate && suggestion && myBalance !== 0 ? (
           <div className="mt-4 flex justify-center">
             <Button
               type="button"
@@ -341,7 +350,7 @@ function PartnerRollingBalance({
         </p>
       ) : null}
 
-      {suggestion ? (
+      {canMutate && suggestion ? (
         <SettleConfirmDialog
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
@@ -395,6 +404,7 @@ export function SpaceBalances({
   suggestions,
   roundUpToThousand = false,
   variant = "default",
+  canMutate = true,
 }: SpaceBalancesProps) {
   if (variant === "partner" && currentUserId) {
     return (
@@ -405,6 +415,7 @@ export function SpaceBalances({
         balances={balances}
         suggestions={suggestions}
         roundUpToThousand={roundUpToThousand}
+        canMutate={canMutate}
       />
     );
   }
@@ -494,6 +505,7 @@ export function SpaceBalances({
                 membersById={membersById}
                 currentUserId={currentUserId}
                 roundUpToThousand={roundUpToThousand}
+                canMutate={canMutate}
               />
             ))}
           </ul>

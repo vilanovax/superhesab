@@ -130,6 +130,9 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const isPartner = space.type === "PARTNER";
   const showChecklist = template.features.checklist;
   const needsPartner = isPartner && space.members.length < 2;
+  const myRole = membership.role;
+  const canWrite = myRole === "OWNER" || myRole === "EDITOR";
+  const isOwner = myRole === "OWNER";
 
   const inviteMembers = space.members.map((m) => ({
     userId: m.user.id,
@@ -259,11 +262,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
                 </span>
               ) : null}
             </div>
-            <InviteMembersButton
-              spaceId={space.id}
-              spaceName={space.name}
-              members={inviteMembers}
-            />
+            {isOwner ? (
+              <InviteMembersButton
+                spaceId={space.id}
+                spaceName={space.name}
+                members={inviteMembers}
+                currentUserRole={myRole}
+              />
+            ) : null}
           </div>
 
           {isPartner ? (
@@ -301,7 +307,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
         </div>
       </header>
 
-      {needsPartner ? (
+      {needsPartner && isOwner ? (
         <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-white px-4 py-5 text-center shadow-sm">
           <p className="text-[15px] font-semibold text-foreground">
             طرف مقابل را به این حساب مشترک دعوت کنید
@@ -313,6 +319,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
             spaceId={space.id}
             spaceName={space.name}
             members={inviteMembers}
+            currentUserRole={myRole}
             variant="banner"
           />
         </div>
@@ -330,15 +337,18 @@ export default async function SpacePage({ params }: SpacePageProps) {
         roundUpToThousand={space.roundUpToThousand}
         spaceType={space.type}
         showChecklist={showChecklist}
+        canMutate={canWrite}
       />
 
-      <AddExpenseButton
-        spaceId={space.id}
-        currentUserId={session.userId}
-        members={members}
-        currency={space.currency}
-        spaceType={space.type}
-      />
+      {canWrite ? (
+        <AddExpenseButton
+          spaceId={space.id}
+          currentUserId={session.userId}
+          members={members}
+          currency={space.currency}
+          spaceType={space.type}
+        />
+      ) : null}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import DatePicker, { DateObject } from "react-multi-date-picker";
+import { Calendar, DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
@@ -30,35 +30,36 @@ function toGregorianIso(date: DateObject): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Shamsi date picker — value is Gregorian yyyy-mm-dd. */
+/**
+ * Inline Shamsi calendar (Calendar, not portaled DatePicker).
+ * Portal + Vaul drawer blocked day clicks via body pointer-events.
+ */
 export function JalaliDatePicker({
   value,
   onChange,
   className,
 }: JalaliDatePickerProps) {
+  const selected = value ? toPersianDateObject(value) : undefined;
+  const label = selected
+    ? selected.format("D MMMM YYYY")
+    : "یک روز انتخاب کنید";
+
   return (
     <div className={cn("jalali-date-picker w-full", className)} dir="rtl">
-      <DatePicker
-        value={value ? toPersianDateObject(value) : null}
+      <p className="mb-2 rounded-xl border border-border/60 bg-white px-3 py-2.5 text-center text-[13px] font-semibold text-foreground">
+        {label}
+      </p>
+      <Calendar
+        value={selected}
         onChange={(date) => {
           if (!date || Array.isArray(date)) return;
           onChange(toGregorianIso(date));
         }}
         calendar={persian}
         locale={persian_fa}
-        format="D MMMM YYYY"
-        editable={false}
         highlightToday
         weekStartDayIndex={6}
         className="teal"
-        containerClassName="w-full"
-        inputClass={cn(
-          "rmdp-input h-11 w-full rounded-xl! border border-border/70 bg-white px-3!",
-          "text-[13px]! font-semibold text-foreground outline-none",
-        )}
-        calendarPosition="bottom-center"
-        portal
-        zIndex={200}
       />
     </div>
   );

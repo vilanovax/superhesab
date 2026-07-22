@@ -27,7 +27,9 @@ function SettingsIcon({ className }: { className?: string }) {
 }
 
 function roleLabel(role: string) {
-  return role === "OWNER" ? "مالک" : "عضو";
+  if (role === "OWNER") return "مالک";
+  if (role === "VIEWER") return "ناظر";
+  return "ویرایشگر";
 }
 
 function Chevron({ className }: { className?: string }) {

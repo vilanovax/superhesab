@@ -9,7 +9,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-full w-full flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-16">
+    <main className="mx-auto flex min-h-full w-full flex-1 flex-col items-center justify-center bg-background px-6 py-16">
       <LoginForm />
     </main>
   );

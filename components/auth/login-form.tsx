@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { requestOtp, verifyOtp } from "@/app/actions/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Step = "phone" | "otp";
 
@@ -42,15 +45,15 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm space-y-8">
+    <div className="w-full max-w-sm space-y-8 rounded-lg border border-border bg-card p-6 shadow-none">
       <header className="space-y-2 text-center">
-        <p className="text-sm font-medium tracking-wide text-zinc-500">
+        <p className="text-sm font-medium tracking-wide text-muted-foreground">
           SuperHesab
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           ورود با موبایل
         </h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           {step === "phone"
             ? "شماره موبایل خود را وارد کنید."
             : `کد ارسال‌شده به ${phone} را وارد کنید.`}
@@ -59,9 +62,10 @@ export function LoginForm() {
 
       {step === "phone" ? (
         <form onSubmit={onRequestOtp} className="space-y-4">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-zinc-700">موبایل</span>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="phone">موبایل</Label>
+            <Input
+              id="phone"
               type="tel"
               inputMode="tel"
               autoComplete="tel"
@@ -69,28 +73,24 @@ export function LoginForm() {
               placeholder="09123456789"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none ring-zinc-900/10 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2"
               required
             />
-          </label>
+          </div>
           {error ? (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-destructive" role="alert">
               {error}
             </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition enabled:hover:bg-zinc-800 disabled:opacity-60"
-          >
+          <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "در حال ارسال…" : "دریافت کد"}
-          </button>
+          </Button>
         </form>
       ) : (
         <form onSubmit={onVerifyOtp} className="space-y-4">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-zinc-700">کد تأیید</span>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="otp">کد تأیید</Label>
+            <Input
+              id="otp"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -99,38 +99,39 @@ export function LoginForm() {
               maxLength={6}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-center text-lg tracking-[0.35em] text-zinc-900 outline-none ring-zinc-900/10 placeholder:tracking-normal placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2"
+              className="text-center text-lg tracking-[0.35em] placeholder:tracking-normal"
               required
             />
-            <span className="block text-xs text-zinc-500">
-              Use <span className="font-mono text-zinc-700">123456</span> for
+            <p className="text-xs text-muted-foreground">
+              Use <span className="font-mono text-foreground">123456</span> for
               testing
-            </span>
-          </label>
+            </p>
+          </div>
           {error ? (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-destructive" role="alert">
               {error}
             </p>
           ) : null}
-          <button
+          <Button
             type="submit"
+            className="w-full"
             disabled={pending || otp.length < 6}
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition enabled:hover:bg-zinc-800 disabled:opacity-60"
           >
             {pending ? "در حال ورود…" : "تأیید و ورود"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            className="w-full"
             disabled={pending}
             onClick={() => {
               setStep("phone");
               setOtp("");
               setError(null);
             }}
-            className="w-full rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
           >
             تغییر شماره
-          </button>
+          </Button>
         </form>
       )}
     </div>

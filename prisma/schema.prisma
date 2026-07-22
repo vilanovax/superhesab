@@ -55,10 +55,11 @@ model Space {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  owner        User          @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner        User            @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      SpaceMember[]
   expenses     Expense[]
   settlements  Settlement[]
+  checklist    ChecklistItem[]
 
   @@index([ownerId])
   @@index([type])
@@ -134,4 +135,17 @@ model Settlement {
   @@index([fromUserId])
   @@index([toUserId])
   @@index([status])
+}
+
+model ChecklistItem {
+  id          String   @id @default(cuid())
+  spaceId     String
+  title       String
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId])
+  @@index([createdAt])
 }

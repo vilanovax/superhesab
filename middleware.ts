@@ -2,14 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
 /**
- * Protects `/app` and `/dashboard`.
- * Note: Next.js 16 prefers renaming this file to `proxy.ts` (export `proxy`).
- * Kept as `middleware.ts` per MVP auth spec; migrate when convenient.
+ * Protects `/app`, `/dashboard`, and `/spaces`.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected =
-    pathname.startsWith("/app") || pathname.startsWith("/dashboard");
+    pathname.startsWith("/app") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/spaces");
 
   if (!isProtected) {
     return NextResponse.next();
@@ -28,5 +28,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/dashboard/:path*"],
+  matcher: ["/app/:path*", "/dashboard/:path*", "/spaces/:path*"],
 };

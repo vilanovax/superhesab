@@ -109,10 +109,10 @@
 
 1. Scaffold + Postgres + Prisma schema (هسته) ✅
 2. Auth (Mock Mobile OTP) ✅
-3. Spaces + Invite links + RBAC
-4. Expense + Equal/Exact split
-5. Net Balance + Debt Simplification + Settlement confirm
-6. Shared Checklist
+3. Spaces + Invite links + RBAC — Spaces create/list ✅ (invite links بعدی)
+4. Expense + Equal/Exact split ✅
+5. Net Balance + Debt Simplification + Settlement confirm ✅
+6. Shared Checklist ✅
 7. Trip template UI shell
 8. Partner template UI shell (reuse core)
 9. PWA polish (manifest, offline shell حداقلی)

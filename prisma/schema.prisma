@@ -33,6 +33,15 @@ enum SpaceCurrency {
   RIAL
 }
 
+enum ExpenseCategory {
+  FOOD
+  TRANSPORT
+  ACCOMMODATION
+  ENTERTAINMENT
+  SHOPPING
+  OTHER
+}
+
 model User {
   id        String   @id @default(cuid())
   phone     String   @unique
@@ -47,6 +56,8 @@ model User {
   ownedSpaces      Space[]         @relation("SpaceOwner")
   memberships      SpaceMember[]
   paidExpenses     Expense[]       @relation("ExpensePayer")
+  createdExpenses  Expense[]       @relation("ExpenseCreatedBy")
+  updatedExpenses  Expense[]       @relation("ExpenseUpdatedBy")
   expenseSplits    ExpenseSplit[]
   settlementsFrom  Settlement[]    @relation("SettlementFrom")
   settlementsTo    Settlement[]    @relation("SettlementTo")
@@ -78,12 +89,14 @@ model Space {
 }
 
 model SpaceMember {
-  id        String    @id @default(cuid())
-  spaceId   String
-  userId    String
-  role      SpaceRole @default(EDITOR)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  spaceId      String
+  userId       String
+  role         SpaceRole @default(EDITOR)
+  /// Default weight for EQUAL splits in this space (e.g. 2 = couple)
+  defaultShare Int       @default(1)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -94,23 +107,35 @@ model SpaceMember {
 }
 
 model Expense {
-  id          String   @id @default(cuid())
-  spaceId     String
-  title       String
+  id               String          @id @default(cuid())
+  spaceId          String
+  title            String
   /// Amount in smallest currency unit (never Float)
-  totalAmount Int
-  paidById    String
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  totalAmount      Int
+  paidById         String
+  /// Who first logged the expense (audit)
+  createdById      String?
+  /// Who last edited the expense (audit)
+  updatedById      String?
+  category         ExpenseCategory @default(OTHER)
+  /// When true, title-based auto-categorization will not overwrite category
+  isCategoryLocked Boolean         @default(false)
+  date             DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  space  Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  paidBy User           @relation("ExpensePayer", fields: [paidById], references: [id], onDelete: Restrict)
-  splits ExpenseSplit[]
+  space     Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  paidBy    User           @relation("ExpensePayer", fields: [paidById], references: [id], onDelete: Restrict)
+  createdBy User?          @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?          @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  splits    ExpenseSplit[]
 
   @@index([spaceId])
   @@index([paidById])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([date])
+  @@index([category])
 }
 
 model ExpenseSplit {
@@ -119,6 +144,8 @@ model ExpenseSplit {
   userId     String
   /// Amount this user owes for the expense (smallest currency unit)
   owedAmount Int
+  /// Weight used at expense time (EQUAL); EXACT rows store 1
+  share      Int    @default(1)
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -82,7 +82,13 @@ function CreateTrigger({
   );
 }
 
-function SheetBody({ error }: { error?: string }) {
+function SheetBody({
+  error,
+  initialType,
+}: {
+  error?: string;
+  initialType?: "TRIP" | "PARTNER";
+}) {
   return (
     <>
       <div className="surface-hero shrink-0 px-5 pb-4 pt-2 md:pt-5">
@@ -94,7 +100,12 @@ function SheetBody({ error }: { error?: string }) {
         </div>
       </div>
       <div className="overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-5 py-5 pb-10">
-        <CreateSpaceForm error={error} compact />
+        <CreateSpaceForm
+          key={initialType ?? "default"}
+          error={error}
+          compact
+          initialType={initialType}
+        />
       </div>
     </>
   );
@@ -103,14 +114,26 @@ function SheetBody({ error }: { error?: string }) {
 export function CreateSpaceSheet({
   error,
   layout = "inline",
+  open: openProp,
+  onOpenChange,
+  initialType,
+  hideTrigger = false,
 }: {
   error?: string;
   layout?: "inline" | "fab";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  initialType?: "TRIP" | "PARTNER";
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(Boolean(error));
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(Boolean(error));
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const isDesktop = useIsDesktop();
 
   if (isDesktop === null) {
+    if (hideTrigger) return null;
     return (
       <CreateTrigger
         layout={layout}
@@ -123,9 +146,11 @@ export function CreateSpaceSheet({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <CreateTrigger layout={layout} />
-        </DialogTrigger>
+        {!hideTrigger ? (
+          <DialogTrigger asChild>
+            <CreateTrigger layout={layout} />
+          </DialogTrigger>
+        ) : null}
         <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-md">
           <DialogHeader className="sr-only">
             <DialogTitle>فضای جدید</DialogTitle>
@@ -133,7 +158,7 @@ export function CreateSpaceSheet({
               یک دفتر مشترک برای سفر، دورهمی یا دونفره
             </DialogDescription>
           </DialogHeader>
-          <SheetBody error={error} />
+          <SheetBody error={error} initialType={initialType} />
         </DialogContent>
       </Dialog>
     );
@@ -141,9 +166,11 @@ export function CreateSpaceSheet({
 
   return (
     <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
-      <DrawerTrigger asChild>
-        <CreateTrigger layout={layout} />
-      </DrawerTrigger>
+      {!hideTrigger ? (
+        <DrawerTrigger asChild>
+          <CreateTrigger layout={layout} />
+        </DrawerTrigger>
+      ) : null}
       <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <DrawerHeader className="sr-only">
           <DrawerTitle>فضای جدید</DrawerTitle>
@@ -151,7 +178,7 @@ export function CreateSpaceSheet({
             یک دفتر مشترک برای سفر، دورهمی یا دونفره
           </DrawerDescription>
         </DrawerHeader>
-        <SheetBody error={error} />
+        <SheetBody error={error} initialType={initialType} />
       </DrawerContent>
     </Drawer>
   );

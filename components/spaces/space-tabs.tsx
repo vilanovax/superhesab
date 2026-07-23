@@ -4,6 +4,7 @@ import type { ChecklistItemDTO } from "@/app/actions/checklist";
 import { ExpenseList, type ExpenseListItem } from "@/components/expenses/expense-list";
 import { SpaceBalances, type BalanceMember } from "@/components/SpaceBalances";
 import { SpaceChecklist } from "@/components/SpaceChecklist";
+import type { InviteMemberRow } from "@/components/spaces/invite-members-button";
 import {
   Tabs,
   TabsContent,
@@ -11,14 +12,17 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
-import type { SpaceType } from "@/types";
+import type { SpaceRole, SpaceType } from "@/types";
 import { cn } from "@/lib/utils";
 
 type SpaceTabsProps = {
   spaceId: string;
+  spaceName: string;
   currentUserId: string;
+  currentUserRole: SpaceRole;
   expenses: ExpenseListItem[];
   members: BalanceMember[];
+  inviteMembers: InviteMemberRow[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
   checklist: ChecklistItemDTO[];
@@ -32,9 +36,12 @@ type SpaceTabsProps = {
 
 export function SpaceTabs({
   spaceId,
+  spaceName,
   currentUserId,
+  currentUserRole,
   expenses,
   members,
+  inviteMembers,
   balances,
   suggestions,
   checklist,
@@ -64,8 +71,11 @@ export function SpaceTabs({
       <TabsContent value="expenses" className="mt-3">
         <ExpenseList
           spaceId={spaceId}
+          spaceName={spaceName}
           currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
           members={members}
+          inviteMembers={inviteMembers}
           expenses={expenses}
           currency={currency}
           spaceType={spaceType}

@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
+import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
+import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
 import { SpaceTabs } from "@/components/spaces/space-tabs";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
@@ -109,8 +112,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
             paidBy: {
               select: { name: true, phone: true, isVirtual: true },
             },
+            createdBy: {
+              select: { id: true, name: true, phone: true, isVirtual: true },
+            },
+            updatedBy: {
+              select: { id: true, name: true, phone: true, isVirtual: true },
+            },
             splits: {
-              select: { userId: true, owedAmount: true },
+              select: { userId: true, owedAmount: true, share: true },
             },
           },
           orderBy: { date: "desc" },
@@ -130,6 +139,10 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const isPartner = space.type === "PARTNER";
   const showChecklist = template.features.checklist;
   const needsPartner = isPartner && space.members.length < 2;
+  const partnerOnboarding =
+    isPartner &&
+    space.members.length === 1 &&
+    space.expenses.length === 0;
   const myRole = membership.role;
   const canWrite = myRole === "OWNER" || myRole === "EDITOR";
   const isOwner = myRole === "OWNER";
@@ -141,6 +154,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
     avatarUrl: m.user.avatarUrl,
     role: m.role,
     isVirtual: m.user.isVirtual,
+    defaultShare: m.defaultShare,
   }));
 
   const members = space.members.map((m) => ({
@@ -148,6 +162,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
     name: m.user.name,
     phone: m.user.phone,
     isVirtual: m.user.isVirtual,
+    defaultShare: m.defaultShare,
   }));
 
   const partner = space.members.find((m) => m.user.id !== session.userId)?.user;
@@ -184,9 +199,21 @@ export default async function SpacePage({ params }: SpacePageProps) {
           </Link>
         </Button>
 
-        <span className="ms-auto max-w-[9.5rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground">
+        <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground">
           {isPartner ? "حساب مشترک" : template.label}
         </span>
+
+        <ShareSummaryIconButton
+          spaceName={space.name}
+          expenses={space.expenses.map((e) => ({
+            category: e.category,
+            totalAmount: e.totalAmount,
+          }))}
+          members={members}
+          suggestions={balanceData.suggestions}
+          currentUserId={session.userId}
+          roundUpToThousand={space.roundUpToThousand}
+        />
 
         <Button
           asChild
@@ -307,7 +334,25 @@ export default async function SpacePage({ params }: SpacePageProps) {
         </div>
       </header>
 
-      {needsPartner && isOwner ? (
+      {partnerOnboarding && isOwner ? (
+        <div className="mb-4">
+          <EmptyState
+            icon="space"
+            title="حساب مشترک شما آماده است"
+            description="برای شروع مدیریت هزینه‌ها، لینک دعوت را برای طرف مقابل بفرستید."
+            actionNode={<CopyInviteLinkButton spaceId={space.id} />}
+            secondaryAction={
+              <InviteMembersButton
+                spaceId={space.id}
+                spaceName={space.name}
+                members={inviteMembers}
+                currentUserRole={myRole}
+                variant="empty"
+              />
+            }
+          />
+        </div>
+      ) : needsPartner && isOwner ? (
         <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-white px-4 py-5 text-center shadow-sm">
           <p className="text-[15px] font-semibold text-foreground">
             طرف مقابل را به این حساب مشترک دعوت کنید
@@ -327,9 +372,12 @@ export default async function SpacePage({ params }: SpacePageProps) {
 
       <SpaceTabs
         spaceId={space.id}
+        spaceName={space.name}
         currentUserId={session.userId}
+        currentUserRole={myRole}
         expenses={space.expenses}
         members={members}
+        inviteMembers={inviteMembers}
         balances={balanceData.balances}
         suggestions={balanceData.suggestions}
         checklist={checklist}

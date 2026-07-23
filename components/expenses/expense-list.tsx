@@ -8,7 +8,13 @@ import {
   type ExpenseInitialValues,
   type ExpenseMember,
 } from "@/components/ExpenseForm";
+import { CategoryIcon } from "@/components/expenses/category-icon";
+import {
+  InviteMembersButton,
+  type InviteMemberRow,
+} from "@/components/spaces/invite-members-button";
 import { Button } from "@/components/ui/button";
+import type { ExpenseCategory } from "@/lib/categorizer";
 import {
   Dialog,
   DialogContent,
@@ -31,23 +37,42 @@ import {
   type SpaceCurrency,
 } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
-import type { SpaceType } from "@/types";
+import type { SpaceRole, SpaceType } from "@/types";
 
 export type ExpenseListItem = {
   id: string;
   title: string;
   totalAmount: number;
   date: Date;
+  createdAt: Date;
+  updatedAt: Date;
   paidById: string;
+  category: ExpenseCategory;
   paidBy: { name: string | null; phone: string; isVirtual?: boolean };
-  splits: { userId: string; owedAmount: number }[];
+  createdBy: {
+    id: string;
+    name: string | null;
+    phone: string;
+    isVirtual?: boolean;
+  } | null;
+  updatedBy: {
+    id: string;
+    name: string | null;
+    phone: string;
+    isVirtual?: boolean;
+  } | null;
+  splits: { userId: string; owedAmount: number; share: number }[];
 };
 
 type ExpenseListProps = {
   spaceId: string;
+  spaceName?: string;
   currentUserId: string;
+  currentUserRole?: SpaceRole;
   members: ExpenseMember[];
+  inviteMembers?: InviteMemberRow[];
   expenses: ExpenseListItem[];
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
@@ -73,8 +98,12 @@ function toInitial(expense: ExpenseListItem): ExpenseInitialValues {
     totalAmount: expense.totalAmount,
     paidById: expense.paidById,
     date: expenseDayKey(expense.date),
+    category: expense.category,
     splitAmounts: Object.fromEntries(
       expense.splits.map((s) => [s.userId, s.owedAmount]),
+    ),
+    splitShares: Object.fromEntries(
+      expense.splits.map((s) => [s.userId, s.share]),
     ),
   };
 }
@@ -96,6 +125,37 @@ function PencilIcon({ className }: { className?: string }) {
       />
     </svg>
   );
+}
+
+function expenseAuditLine(
+  expense: ExpenseListItem,
+  currentUserId: string,
+): string | null {
+  const createdMs = new Date(expense.createdAt).getTime();
+  const updatedMs = new Date(expense.updatedAt).getTime();
+  const wasEdited =
+    updatedMs - createdMs > 2000 ||
+    Boolean(
+      expense.updatedBy &&
+        expense.createdBy &&
+        expense.updatedBy.id !== expense.createdBy.id,
+    );
+
+  if (wasEdited && expense.updatedBy) {
+    const name = payerName(expense.updatedBy, {
+      isCurrentUser: expense.updatedBy.id === currentUserId,
+    });
+    return `ویرایش توسط ${name} · ${formatDateFa(expense.updatedAt)}`;
+  }
+
+  if (expense.createdBy) {
+    const name = payerName(expense.createdBy, {
+      isCurrentUser: expense.createdBy.id === currentUserId,
+    });
+    return `ثبت توسط ${name}`;
+  }
+
+  return null;
 }
 
 function groupExpensesByDay(expenses: ExpenseListItem[]) {
@@ -276,26 +336,51 @@ function EditSheet({
 
 export function ExpenseList({
   spaceId,
+  spaceName = "فضا",
   currentUserId,
+  currentUserRole = "EDITOR",
   members,
+  inviteMembers,
   expenses,
   currency = "TOMAN",
   spaceType = "TRIP",
   canMutate = true,
 }: ExpenseListProps) {
   const [editing, setEditing] = useState<ExpenseListItem | null>(null);
+  const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
+  const isOwner = currentUserRole === "OWNER";
 
   if (expenses.length === 0) {
     return (
       <EmptyState
         icon="expense"
-        title="هنوز هزینه‌ای نیست"
+        title="هنوز هزینه‌ای ثبت نشده"
         description={
           canMutate
-            ? spaceType === "PARTNER"
-              ? "با دکمه «ثبت هزینه» اولین خرج مشترک را اضافه کنید."
-              : "با دکمه «ثبت هزینه» اولین خرج سفر را اضافه کنید تا ترازها زنده شوند."
+            ? "با ثبت اولین هزینه، ترازهای سفر زنده می‌شوند."
             : "هنوز هزینه‌ای ثبت نشده. نقش ناظر فقط مشاهده است."
+        }
+        actionNode={
+          canMutate ? (
+            <Button
+              type="button"
+              className="h-12 w-full rounded-xl text-[13px] font-semibold"
+              onClick={() => setExpenseFormOpen(true)}
+            >
+              ثبت اولین هزینه
+            </Button>
+          ) : undefined
+        }
+        secondaryAction={
+          canMutate && isOwner && spaceType !== "PARTNER" ? (
+            <InviteMembersButton
+              spaceId={spaceId}
+              spaceName={spaceName}
+              members={inviteMembers ?? []}
+              currentUserRole={currentUserRole}
+              variant="empty"
+            />
+          ) : undefined
         }
       />
     );
@@ -330,15 +415,29 @@ export function ExpenseList({
                 rowIndex += 1;
                 const rowBody = (
                   <>
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="truncate font-semibold text-foreground">
-                        {expense.title}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {payerName(expense.paidBy, {
-                          isCurrentUser: expense.paidById === currentUserId,
-                        })}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <CategoryIcon category={expense.category} />
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="truncate font-semibold text-foreground">
+                          {expense.title}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {payerName(expense.paidBy, {
+                            isCurrentUser: expense.paidById === currentUserId,
+                          })}
+                        </p>
+                        {(() => {
+                          const audit = expenseAuditLine(
+                            expense,
+                            currentUserId,
+                          );
+                          return audit ? (
+                            <p className="truncate text-[11px] text-muted-foreground/80">
+                              {audit}
+                            </p>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <p className="rounded-lg bg-secondary/70 px-2 py-0.5 text-[13px] font-bold text-ink tabular-nums">

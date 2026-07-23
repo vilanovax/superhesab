@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { clampShare, MAX_SHARE } from "@/lib/money";
 import type { SpaceRole } from "@/types";
 
 export type MemberActionResult =
@@ -39,6 +40,39 @@ export async function changeMemberRole(
   await prisma.spaceMember.update({
     where: { id: target.id },
     data: { role: newRole },
+  });
+
+  revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/settings`);
+  return { ok: true };
+}
+
+export async function updateMemberDefaultShare(
+  spaceId: string,
+  memberUserId: string,
+  defaultShare: number,
+): Promise<MemberActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership || membership.role !== "OWNER") {
+    return { ok: false, error: "فقط مالک می‌تواند ضریب تسهیم را عوض کند." };
+  }
+
+  const share = clampShare(defaultShare);
+
+  const target = await prisma.spaceMember.findUnique({
+    where: {
+      spaceId_userId: { spaceId, userId: memberUserId },
+    },
+    select: { id: true },
+  });
+  if (!target) {
+    return { ok: false, error: "عضو پیدا نشد." };
+  }
+
+  await prisma.spaceMember.update({
+    where: { id: target.id },
+    data: { defaultShare: share },
   });
 
   revalidatePath(`/spaces/${spaceId}`);
@@ -97,6 +131,16 @@ export async function claimVirtualProfile(
         data: { paidById: realUserId },
       });
 
+      // a2) Audit actors on expenses
+      await tx.expense.updateMany({
+        where: { spaceId, createdById: virtualUserId },
+        data: { createdById: realUserId },
+      });
+      await tx.expense.updateMany({
+        where: { spaceId, updatedById: virtualUserId },
+        data: { updatedById: realUserId },
+      });
+
       // b) Splits — merge if real already has a row on same expense
       const virtualSplits = await tx.expenseSplit.findMany({
         where: {
@@ -117,7 +161,10 @@ export async function claimVirtualProfile(
         if (existing) {
           await tx.expenseSplit.update({
             where: { id: existing.id },
-            data: { owedAmount: existing.owedAmount + split.owedAmount },
+            data: {
+              owedAmount: existing.owedAmount + split.owedAmount,
+              share: Math.min(MAX_SHARE, existing.share + split.share),
+            },
           });
           await tx.expenseSplit.delete({ where: { id: split.id } });
         } else {

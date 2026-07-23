@@ -1,9 +1,12 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type EmptyStateProps = {
   title: string;
   description: string;
-  icon?: "expense" | "balance" | "checklist";
+  icon?: "expense" | "balance" | "checklist" | "space";
+  actionNode?: ReactNode;
+  secondaryAction?: ReactNode;
   className?: string;
 };
 
@@ -69,23 +72,48 @@ function IconChecklist() {
   );
 }
 
+function IconSpace() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-8" fill="none" aria-hidden>
+      <rect x="8" y="12" width="32" height="24" rx="6" fill="currentColor" opacity="0.12" />
+      <path
+        d="M16 28c2.5-4 5.5-6 8-6s5.5 2 8 6"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      />
+      <circle cx="24" cy="20" r="3.5" stroke="currentColor" strokeWidth="2.25" />
+      <path
+        d="M12 36h24"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
+    </svg>
+  );
+}
+
 const icons = {
   expense: IconExpense,
   balance: IconBalance,
   checklist: IconChecklist,
+  space: IconSpace,
 };
 
 export function EmptyState({
   title,
   description,
   icon = "expense",
+  actionNode,
+  secondaryAction,
   className,
 }: EmptyStateProps) {
   const Icon = icons[icon];
   return (
     <div
       className={cn(
-        "animate-fade-up flex flex-col items-center gap-2.5 rounded-2xl border border-border/70 bg-card/80 px-5 py-10 text-center",
+        "animate-fade-up flex flex-col items-center gap-3 rounded-2xl border border-border/70 bg-card/80 px-5 py-10 text-center",
         className,
       )}
     >
@@ -98,6 +126,12 @@ export function EmptyState({
           {description}
         </p>
       </div>
+      {actionNode || secondaryAction ? (
+        <div className="mt-1 flex w-full max-w-sm flex-col items-stretch gap-2">
+          {actionNode}
+          {secondaryAction}
+        </div>
+      ) : null}
     </div>
   );
 }

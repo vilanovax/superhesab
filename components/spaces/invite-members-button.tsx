@@ -31,8 +31,8 @@ type InviteMembersButtonProps = {
   spaceName: string;
   members: InviteMemberRow[];
   currentUserRole: SpaceRole;
-  /** icon = hero +; banner = partner empty-state CTA */
-  variant?: "icon" | "banner";
+  /** icon = hero +; banner = partner empty-state CTA; empty = expense empty secondary */
+  variant?: "icon" | "banner" | "empty";
 };
 
 function useIsDesktop() {
@@ -88,6 +88,14 @@ export function InviteMembersButton({
         className="mt-4 h-11 w-full rounded-xl text-[14px] font-semibold"
       >
         دعوت طرف مقابل
+      </Button>
+    ) : variant === "empty" ? (
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full rounded-xl border-border/70 bg-white text-[13px] font-semibold"
+      >
+        دعوت همسفر
       </Button>
     ) : (
       <Button

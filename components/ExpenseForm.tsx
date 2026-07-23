@@ -29,7 +29,19 @@ import {
   type SpaceCurrency,
 } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
-import { asMoney, splitEqual } from "@/lib/money";
+import {
+  asMoney,
+  calculateWeightedSplits,
+  clampShare,
+  MAX_SHARE,
+  MIN_SHARE,
+  splitEqual,
+} from "@/lib/money";
+import {
+  CATEGORY_LABELS,
+  EXPENSE_CATEGORIES,
+  type ExpenseCategory,
+} from "@/lib/categorizer";
 import {
   expenseSchema,
   type ExpenseFormValues,
@@ -54,6 +66,7 @@ export type ExpenseMember = {
   name: string | null;
   phone: string;
   isVirtual?: boolean;
+  defaultShare?: number;
 };
 
 export type ExpenseInitialValues = {
@@ -63,6 +76,8 @@ export type ExpenseInitialValues = {
   paidById: string;
   date: string;
   splitAmounts: Record<string, number>;
+  splitShares?: Record<string, number>;
+  category: ExpenseCategory;
 };
 
 type ExpenseFormProps = {
@@ -79,6 +94,49 @@ function personLabel(member: ExpenseMember, currentUserId: string): string {
   return payerName(member, {
     isCurrentUser: member.userId === currentUserId,
   });
+}
+
+/** True when amounts match a weighted equal split for the given shares. */
+function looksLikeWeightedEqual(
+  rows: { amount: number; share: number }[],
+): boolean {
+  if (rows.length === 0) return true;
+  const total = rows.reduce((acc, r) => acc + r.amount, 0);
+  if (total <= 0) return true;
+  try {
+    const parts = calculateWeightedSplits(
+      total,
+      rows.map((r, i) => ({
+        userId: `u${i}`,
+        share: clampShare(r.share),
+      })),
+    );
+    return rows.every((r, i) => r.amount === parts[i]?.amount);
+  } catch {
+    return false;
+  }
+}
+
+function redistributeAmongSelected(
+  rows: ExpenseFormValues["splits"],
+  total: number,
+  selectedIndexes: number[],
+): ExpenseFormValues["splits"] {
+  if (selectedIndexes.length === 0 || total <= 0) {
+    return rows.map((row) =>
+      row.selected ? row : { ...row, amount: 0 },
+    );
+  }
+  try {
+    const parts = splitEqual(asMoney(total), selectedIndexes.length);
+    return rows.map((row, index) => {
+      const pos = selectedIndexes.indexOf(index);
+      if (pos < 0) return { ...row, amount: 0 };
+      return { ...row, amount: parts[pos] ?? 0 };
+    });
+  } catch {
+    return rows;
+  }
 }
 
 function buildDefaultValues(
@@ -99,22 +157,39 @@ function buildDefaultValues(
         userId: m.userId,
         amount: 0,
         selected: true,
+        share: clampShare(m.defaultShare ?? MIN_SHARE),
       })),
     };
   }
 
   const selectedIds = new Set(Object.keys(initialExpense.splitAmounts));
+  const priorRows = Object.entries(initialExpense.splitAmounts).map(
+    ([userId, amount]) => ({
+      amount,
+      share: clampShare(
+        initialExpense.splitShares?.[userId] ?? MIN_SHARE,
+      ),
+    }),
+  );
+  const splitMode = looksLikeWeightedEqual(priorRows) ? "EQUAL" : "EXACT";
+
   return {
     spaceId,
     title: initialExpense.title,
     totalAmount: initialExpense.totalAmount,
     paidById: initialExpense.paidById,
     date: initialExpense.date || todayIsoDateTehran(),
-    splitMode: "EXACT",
+    splitMode,
+    category: initialExpense.category,
     splits: members.map((m) => ({
       userId: m.userId,
       amount: initialExpense.splitAmounts[m.userId] ?? 0,
       selected: selectedIds.has(m.userId),
+      share: clampShare(
+        initialExpense.splitShares?.[m.userId] ??
+          m.defaultShare ??
+          MIN_SHARE,
+      ),
     })),
   };
 }
@@ -161,28 +236,48 @@ export function ExpenseForm({
     [splits],
   );
 
-  const equalShares = useMemo(() => {
-    if (!totalAmount || selectedIndexes.length === 0) return [] as number[];
+  const weightedParts = useMemo(() => {
+    if (!totalAmount || selectedIndexes.length === 0) {
+      return [] as { userId: string; amount: number; share: number }[];
+    }
     try {
-      return splitEqual(asMoney(totalAmount), selectedIndexes.length);
+      const selected = selectedIndexes.map((i) => {
+        const row = splits![i]!;
+        return {
+          userId: row.userId,
+          share: clampShare(row.share ?? MIN_SHARE),
+        };
+      });
+      return calculateWeightedSplits(asMoney(totalAmount), selected).map(
+        (row) => ({
+          userId: row.userId,
+          amount: row.amount,
+          share: row.share,
+        }),
+      );
     } catch {
       return [];
     }
-  }, [totalAmount, selectedIndexes.length]);
+  }, [totalAmount, selectedIndexes, splits]);
+
+  const amountByUserId = useMemo(() => {
+    return Object.fromEntries(
+      weightedParts.map((p) => [p.userId, p.amount]),
+    ) as Record<string, number>;
+  }, [weightedParts]);
 
   useEffect(() => {
     if (splitMode !== "EQUAL") return;
     const current = form.getValues("splits");
-    const next = current.map((row, index) => {
+    const next = current.map((row) => {
       if (!row.selected) return { ...row, amount: 0 };
-      const pos = selectedIndexes.indexOf(index);
-      return { ...row, amount: equalShares[pos] ?? 0 };
+      return { ...row, amount: amountByUserId[row.userId] ?? 0 };
     });
     const changed = next.some((row, i) => row.amount !== current[i]?.amount);
     if (changed) {
       form.setValue("splits", next, { shouldValidate: false });
     }
-  }, [splitMode, equalShares, selectedIndexes, form]);
+  }, [splitMode, amountByUserId, form]);
 
   const exactAllocated = useMemo(() => {
     return (splits ?? [])
@@ -192,10 +287,13 @@ export function ExpenseForm({
 
   const remaining = totalAmount - exactAllocated;
   const selectedCount = selectedIndexes.length;
-  const perPerson =
-    totalAmount > 0 && selectedCount > 0
-      ? Math.floor(totalAmount / selectedCount)
-      : 0;
+  const totalShareWeight = useMemo(
+    () =>
+      (splits ?? [])
+        .filter((s) => s.selected)
+        .reduce((acc, s) => acc + clampShare(s.share ?? MIN_SHARE), 0),
+    [splits],
+  );
 
   const datePreview = formatDateFa(
     watchedDate ? `${watchedDate}T12:00:00+03:30` : new Date(),
@@ -215,6 +313,7 @@ export function ExpenseForm({
               userId: m.userId,
               amount: 0,
               selected: true,
+              share: MIN_SHARE,
             })),
           }
         : {
@@ -266,6 +365,41 @@ export function ExpenseForm({
               </FormItem>
             )}
           />
+
+          {isEdit ? (
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="text-[12px] text-muted-foreground">
+                    دسته‌بندی
+                  </FormLabel>
+                  <Select
+                    value={field.value ?? "OTHER"}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="h-11 rounded-xl border-border/70 bg-[#f7fafb]">
+                        <SelectValue placeholder="دسته" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {EXPENSE_CATEGORIES.map((code) => (
+                        <SelectItem key={code} value={code}>
+                          {CATEGORY_LABELS[code]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    اگر عوض کنید، همین دسته قفل می‌شود و با تغییر عنوان عوض نمی‌شود.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : null}
 
           <FormField
             control={form.control}
@@ -433,8 +567,8 @@ export function ExpenseForm({
             <p className="text-[13px] font-semibold text-foreground">چه کسانی</p>
             <p className="text-[11px] text-muted-foreground">
               {selectedCount} نفر
-              {splitMode === "EQUAL" && perPerson > 0
-                ? ` · هر نفر ${formatCurrency(perPerson)}`
+              {splitMode === "EQUAL" && totalShareWeight > 0
+                ? ` · ${totalShareWeight} سهم`
                 : ""}
             </p>
           </div>
@@ -442,9 +576,12 @@ export function ExpenseForm({
           <ul className="divide-y divide-border/45">
             {members.map((member, index) => {
               const selected = splits?.[index]?.selected ?? false;
-              const equalPos = selectedIndexes.indexOf(index);
-              const equalAmount =
-                equalPos >= 0 ? equalShares[equalPos] : undefined;
+              const equalAmount = selected
+                ? amountByUserId[member.userId]
+                : undefined;
+              const shareValue = clampShare(
+                splits?.[index]?.share ?? member.defaultShare ?? MIN_SHARE,
+              );
 
               return (
                 <li key={member.userId} className="py-2.5 first:pt-0 last:pb-0">
@@ -457,9 +594,35 @@ export function ExpenseForm({
                           <FormControl>
                             <Checkbox
                               checked={field.value}
-                              onCheckedChange={(v) =>
-                                field.onChange(v === true)
-                              }
+                              onCheckedChange={(v) => {
+                                const nextSelected = v === true;
+                                field.onChange(nextSelected);
+
+                                if (form.getValues("splitMode") !== "EXACT") {
+                                  return;
+                                }
+                                const total = asAmount(
+                                  form.getValues("totalAmount"),
+                                );
+                                const current = form.getValues("splits");
+                                const nextRows = current.map((row, i) =>
+                                  i === index
+                                    ? { ...row, selected: nextSelected }
+                                    : row,
+                                );
+                                const nextIndexes = nextRows
+                                  .map((row, i) => (row.selected ? i : -1))
+                                  .filter((i) => i >= 0);
+                                form.setValue(
+                                  "splits",
+                                  redistributeAmongSelected(
+                                    nextRows,
+                                    total,
+                                    nextIndexes,
+                                  ),
+                                  { shouldValidate: true },
+                                );
+                              }}
                               className="size-5 rounded-md data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                             />
                           </FormControl>
@@ -494,6 +657,52 @@ export function ExpenseForm({
                       </span>
                     ) : null}
                   </div>
+
+                  {splitMode === "EQUAL" && selected ? (
+                    <FormField
+                      control={form.control}
+                      name={`splits.${index}.share`}
+                      render={({ field }) => (
+                        <FormItem className="mt-2 ps-8">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground">
+                              ضریب
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="size-8 rounded-lg"
+                              disabled={shareValue <= MIN_SHARE}
+                              onClick={() =>
+                                field.onChange(clampShare(shareValue - 1))
+                              }
+                              aria-label="کاهش ضریب"
+                            >
+                              −
+                            </Button>
+                            <span className="min-w-8 text-center text-[13px] font-semibold tabular-nums">
+                              ×{shareValue}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="size-8 rounded-lg"
+                              disabled={shareValue >= MAX_SHARE}
+                              onClick={() =>
+                                field.onChange(clampShare(shareValue + 1))
+                              }
+                              aria-label="افزایش ضریب"
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : null}
 
                   {splitMode === "EXACT" && selected ? (
                     <FormField

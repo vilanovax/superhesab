@@ -20,6 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import type { SpaceCurrency } from "@/lib/format";
 import type { SpaceType } from "@/types";
@@ -124,12 +125,20 @@ export function AddExpenseButton({
   currency = "TOMAN",
   spaceType = "TRIP",
 }: AddExpenseButtonProps) {
-  const [open, setOpen] = useState(false);
+  const expenseFormOpen = useUiStore((s) => s.expenseFormOpen);
+  const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
+  const [localOpen, setLocalOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const isPartner = spaceType === "PARTNER";
   const description = isPartner
     ? "عنوان و مبلغ — تسهیم مساوی"
     : "عنوان، مبلغ و سهم‌ها";
+
+  const open = expenseFormOpen || localOpen;
+  function setOpen(next: boolean) {
+    setLocalOpen(next);
+    setExpenseFormOpen(next);
+  }
 
   const form = (
     <ExpenseForm

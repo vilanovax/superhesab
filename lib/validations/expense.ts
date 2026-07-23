@@ -1,11 +1,23 @@
 import { z } from "zod";
+import { MAX_SHARE, MIN_SHARE } from "@/lib/money";
 
 export const splitModeSchema = z.enum(["EQUAL", "EXACT"]);
+
+export const expenseCategorySchema = z.enum([
+  "FOOD",
+  "TRANSPORT",
+  "ACCOMMODATION",
+  "ENTERTAINMENT",
+  "SHOPPING",
+  "OTHER",
+]);
 
 export const expenseSplitRowSchema = z.object({
   userId: z.string().min(1),
   amount: z.number().int().min(0),
   selected: z.boolean(),
+  /** Weight for EQUAL mode; EXACT stores 1 on the server. */
+  share: z.number().int().min(MIN_SHARE).max(MAX_SHARE),
 });
 
 const isoDateSchema = z
@@ -22,6 +34,8 @@ export const expenseSchema = z
     date: isoDateSchema,
     splitMode: splitModeSchema,
     splits: z.array(expenseSplitRowSchema).min(1),
+    /** Edit only — omit on create so server infers silently. */
+    category: expenseCategorySchema.optional(),
   })
   .superRefine((data, ctx) => {
     const selected = data.splits.filter((s) => s.selected);
@@ -35,15 +49,32 @@ export const expenseSchema = z
       return;
     }
 
-    if (data.splitMode === "EXACT") {
-      const sum = selected.reduce((acc, s) => acc + s.amount, 0);
-      if (sum !== data.totalAmount) {
+    if (data.splitMode === "EQUAL") {
+      if (selected.some((row) => row.share < MIN_SHARE)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `جمع سهم‌ها (${sum}) باید برابر مبلغ کل (${data.totalAmount}) باشد.`,
+          message: `ضریب تسهیم باید حداقل ${MIN_SHARE} باشد.`,
           path: ["splits"],
         });
       }
+      return;
+    }
+
+    if (selected.some((row) => row.amount < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "سهم هر نفر انتخاب‌شده باید بیشتر از صفر باشد.",
+        path: ["splits"],
+      });
+      return;
+    }
+    const sum = selected.reduce((acc, s) => acc + s.amount, 0);
+    if (sum !== data.totalAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `جمع سهم‌ها (${sum}) باید برابر مبلغ کل (${data.totalAmount}) باشد.`,
+        path: ["splits"],
+      });
     }
   });
 

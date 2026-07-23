@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { guessCategoryFromTitle } from "@/lib/categorizer";
 import { parseExpenseDateInput } from "@/lib/format";
-import { asMoney, splitEqual } from "@/lib/money";
+import {
+  asMoney,
+  calculateWeightedSplits,
+  clampShare,
+  MIN_SHARE,
+} from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
 import {
   expenseSchema,
@@ -15,7 +21,7 @@ export type ExpenseActionResult =
   | { ok: true; expenseId: string }
   | { ok: false; error: string };
 
-type OwedRow = { userId: string; owedAmount: number };
+type OwedRow = { userId: string; owedAmount: number; share: number };
 
 async function assertCanMutateExpense(spaceId: string, userId: string) {
   const membership = await requireSpaceMember(spaceId, userId);
@@ -59,15 +65,29 @@ async function resolveOwedRows(
   let owedByUser: OwedRow[];
 
   if (input.splitMode === "EQUAL") {
-    const ordered = [...selected].sort((a, b) =>
-      a.userId.localeCompare(b.userId),
-    );
-    const parts = splitEqual(total, ordered.length);
-    owedByUser = ordered.map((s, i) => ({
-      userId: s.userId,
-      owedAmount: parts[i],
-    }));
+    try {
+      const ordered = [...selected]
+        .map((s) => ({
+          userId: s.userId,
+          share: clampShare(s.share ?? MIN_SHARE),
+        }))
+        .sort((a, b) => a.userId.localeCompare(b.userId));
+      const parts = calculateWeightedSplits(total, ordered);
+      owedByUser = parts.map((row) => ({
+        userId: row.userId,
+        owedAmount: row.amount,
+        share: row.share,
+      }));
+    } catch {
+      return { ok: false, error: "ضریب تسهیم نامعتبر است." };
+    }
   } else {
+    if (selected.some((s) => s.amount < 1)) {
+      return {
+        ok: false,
+        error: "سهم هر نفر انتخاب‌شده باید بیشتر از صفر باشد.",
+      };
+    }
     const sum = selected.reduce((acc, s) => acc + s.amount, 0);
     if (sum !== input.totalAmount) {
       return {
@@ -78,6 +98,7 @@ async function resolveOwedRows(
     owedByUser = selected.map((s) => ({
       userId: s.userId,
       owedAmount: s.amount,
+      share: MIN_SHARE,
     }));
   }
 
@@ -104,6 +125,8 @@ export async function addExpense(
   const resolved = await resolveOwedRows(input);
   if (!resolved.ok) return resolved;
 
+  const inferredCategory = guessCategoryFromTitle(input.title);
+
   try {
     const expense = await prisma.$transaction(async (tx) => {
       const created = await tx.expense.create({
@@ -112,7 +135,11 @@ export async function addExpense(
           title: input.title,
           totalAmount: input.totalAmount,
           paidById: input.paidById,
+          createdById: session.userId,
+          updatedById: session.userId,
           date: parseExpenseDateInput(input.date),
+          category: inferredCategory,
+          isCategoryLocked: false,
         },
       });
 
@@ -121,6 +148,7 @@ export async function addExpense(
           expenseId: created.id,
           userId: row.userId,
           owedAmount: row.owedAmount,
+          share: row.share,
         })),
       });
 
@@ -156,7 +184,11 @@ export async function updateExpense(
 
   const existing = await prisma.expense.findFirst({
     where: { id: expenseId, spaceId: input.spaceId },
-    select: { id: true },
+    select: {
+      id: true,
+      category: true,
+      isCategoryLocked: true,
+    },
   });
   if (!existing) {
     return { ok: false, error: "هزینه پیدا نشد." };
@@ -164,6 +196,16 @@ export async function updateExpense(
 
   const resolved = await resolveOwedRows(input);
   if (!resolved.ok) return resolved;
+
+  let category = existing.category;
+  let isCategoryLocked = existing.isCategoryLocked;
+
+  if (input.category !== undefined && input.category !== existing.category) {
+    category = input.category;
+    isCategoryLocked = true;
+  } else if (!existing.isCategoryLocked) {
+    category = guessCategoryFromTitle(input.title);
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -174,6 +216,9 @@ export async function updateExpense(
           totalAmount: input.totalAmount,
           paidById: input.paidById,
           date: parseExpenseDateInput(input.date),
+          category,
+          isCategoryLocked,
+          updatedById: session.userId,
         },
       });
 
@@ -183,6 +228,7 @@ export async function updateExpense(
           expenseId,
           userId: row.userId,
           owedAmount: row.owedAmount,
+          share: row.share,
         })),
       });
     });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
+import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireUser } from "@/lib/auth/guards";
@@ -178,10 +179,11 @@ export default async function AppHomePage({
 
         {memberships.length === 0 ? (
           <EmptyState
-            icon="expense"
-            title="هنوز دفتری نداری"
-            description="از دکمه پایین صفحه یک فضای جدید بساز — سفر یا حساب دونفره."
-            className="flex-1"
+            icon="space"
+            title="هیچ حساب و کتابی ندارید"
+            description="برای شروع، یک سفر گروهی جدید بسازید یا حساب مشترک دونفره خود را ایجاد کنید."
+            className="flex-1 justify-center"
+            actionNode={<HomeEmptyActions error={error} />}
           />
         ) : (
           <ul className="space-y-2.5">

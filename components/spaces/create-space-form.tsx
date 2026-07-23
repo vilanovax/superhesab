@@ -26,12 +26,14 @@ const TEMPLATES = [
 export function CreateSpaceForm({
   error,
   compact = false,
+  initialType = "TRIP",
 }: {
   error?: string;
   compact?: boolean;
+  initialType?: "TRIP" | "PARTNER";
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
-  const [type, setType] = useState<"TRIP" | "PARTNER">("TRIP");
+  const [type, setType] = useState<"TRIP" | "PARTNER">(initialType);
 
   return (
     <form action={createSpaceAndRedirect} className="space-y-5">

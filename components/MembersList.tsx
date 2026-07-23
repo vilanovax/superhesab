@@ -2,7 +2,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { changeMemberRole } from "@/app/actions/members";
+import {
+  changeMemberRole,
+  updateMemberDefaultShare,
+} from "@/app/actions/members";
 import { addVirtualMember } from "@/app/actions/virtualMember";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { memberLabel } from "@/lib/format";
+import { clampShare, MAX_SHARE, MIN_SHARE } from "@/lib/money";
 import { roleLabelFa } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import type { SpaceRole } from "@/types";
@@ -25,6 +29,7 @@ export type MembersListRow = {
   avatarUrl: string | null;
   role: SpaceRole;
   isVirtual?: boolean;
+  defaultShare?: number;
 };
 
 type MembersListProps = {
@@ -142,6 +147,23 @@ export function MembersList({
     setRoleError(null);
     startTransition(async () => {
       const result = await changeMemberRole(spaceId, memberUserId, newRole);
+      if (!result.ok) {
+        setRoleError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function onChangeShare(memberUserId: string, next: number) {
+    if (!isOwner) return;
+    setRoleError(null);
+    startTransition(async () => {
+      const result = await updateMemberDefaultShare(
+        spaceId,
+        memberUserId,
+        next,
+      );
       if (!result.ok) {
         setRoleError(result.error);
         return;
@@ -312,6 +334,55 @@ export function MembersList({
                   </span>
                 )}
               </div>
+
+              {isOwner ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-2.5 py-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    ضریب پیش‌فرض تسهیم مساوی
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-lg"
+                      disabled={pending || (m.defaultShare ?? 1) <= MIN_SHARE}
+                      onClick={() =>
+                        onChangeShare(
+                          m.userId,
+                          clampShare((m.defaultShare ?? 1) - 1),
+                        )
+                      }
+                      aria-label="کاهش ضریب"
+                    >
+                      −
+                    </Button>
+                    <span className="min-w-8 text-center text-[13px] font-semibold tabular-nums">
+                      ×{m.defaultShare ?? 1}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-lg"
+                      disabled={pending || (m.defaultShare ?? 1) >= MAX_SHARE}
+                      onClick={() =>
+                        onChangeShare(
+                          m.userId,
+                          clampShare((m.defaultShare ?? 1) + 1),
+                        )
+                      }
+                      aria-label="افزایش ضریب"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+              ) : (m.defaultShare ?? 1) > 1 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  ضریب تسهیم: ×{m.defaultShare}
+                </p>
+              ) : null}
 
               {isOwner && m.isVirtual ? (
                 <Button

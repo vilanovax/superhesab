@@ -606,3 +606,13 @@ body::before {
 .jalali-date-picker .rmdp-header {
   margin-bottom: 0.25rem;
 }
+
+/* Compact drawer picker — slightly denser grid */
+.jalali-date-picker.jalali-date-picker--compact .rmdp-day {
+  width: 2rem;
+  height: 2rem;
+}
+
+.jalali-date-picker.jalali-date-picker--compact .rmdp-wrapper {
+  border-radius: 0.875rem;
+}

@@ -19,7 +19,7 @@ import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
 import { maybeCeilToThousand } from "@/lib/money";
-import { tehranCivilMonth, tehranCivilYear, formatJalaliYear } from "@/lib/building";
+import { tehranCivilMonth, tehranCivilYear, formatJalaliYear, monthLabelFa } from "@/lib/building";
 import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
 import { tehranMonthRange } from "@/lib/personal";
 import type { ExpenseCategory } from "@/lib/categorizer";
@@ -36,7 +36,7 @@ import type { ReactNode } from "react";
 
 type SpacePageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ year?: string; tab?: string }>;
+  searchParams: Promise<{ year?: string; tab?: string; rm?: string }>;
 };
 
 function BackChevron({ className }: { className?: string }) {
@@ -100,7 +100,8 @@ function HeroStat({
 
 export default async function SpacePage({ params, searchParams }: SpacePageProps) {
   const { id } = await params;
-  const { year: yearParam } = await searchParams;
+  const { year: yearParam, tab: tabParam, rm: reportMonthParam } =
+    await searchParams;
   const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
 
@@ -142,13 +143,35 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     spaceYearMeta?.defaultPlanYear ??
     tehranCivilYear();
 
+  const reportMonthRaw = Number.parseInt(
+    String(reportMonthParam ?? "").replace(/\D/g, ""),
+    10,
+  );
+  const reportMonth =
+    features.buildingCharges &&
+    Number.isFinite(reportMonthRaw) &&
+    reportMonthRaw >= 1 &&
+    reportMonthRaw <= 12
+      ? reportMonthRaw
+      : null;
+
   const monthRange = features.buildingCharges
     ? jalaliMonthBounds(tehranCivilYear(), tehranCivilMonth())
     : tehranMonthRange();
 
   const reportRange = features.buildingCharges
-    ? jalaliYearBounds(planYear)
+    ? reportMonth != null
+      ? jalaliMonthBounds(planYear, reportMonth)
+      : jalaliYearBounds(planYear)
     : null;
+
+  const initialTab =
+    tabParam === "report" ||
+    tabParam === "charges" ||
+    tabParam === "expenses" ||
+    tabParam === "debts"
+      ? tabParam
+      : undefined;
 
   if (features.recurring) {
     await ensureRecurringExpenses(id);
@@ -643,13 +666,29 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         )}
         buildingDashboard={buildingDashboard}
         isOwner={isOwner}
+        initialTab={initialTab}
+        reportPlanYear={features.buildingCharges ? planYear : undefined}
+        reportMonth={features.buildingCharges ? reportMonth : null}
         reportPeriodLabel={
           features.buildingCharges
-            ? `هزینه مشاع سال ${formatJalaliYear(planYear)}`
+            ? reportMonth != null
+              ? `هزینه مشاع ${monthLabelFa(reportMonth)} ${formatJalaliYear(planYear)}`
+              : `هزینه مشاع سال ${formatJalaliYear(planYear)}`
+            : undefined
+        }
+        reportTotalLabel={
+          features.buildingCharges
+            ? reportMonth != null
+              ? "جمع ماه"
+              : "جمع سال"
             : undefined
         }
         reportEmptyTitle={
-          features.buildingCharges ? "گزارش سال خالی است" : undefined
+          features.buildingCharges
+            ? reportMonth != null
+              ? `گزارش ${monthLabelFa(reportMonth)} خالی است`
+              : "گزارش سال خالی است"
+            : undefined
         }
         reportEmptyHint={
           features.buildingCharges

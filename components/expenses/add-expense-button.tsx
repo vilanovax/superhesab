@@ -54,15 +54,16 @@ function Fab({
     <Button
       {...props}
       className={cn(
-        "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 h-12 min-h-12 -translate-x-1/2 gap-1.5 rounded-2xl px-5 text-sm font-semibold",
-        "bg-primary text-primary-foreground shadow-fab",
+        "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 h-12 min-h-12 -translate-x-1/2 gap-1.5 rounded-2xl px-5 text-sm font-semibold shadow-fab",
         "transition-transform duration-150 ease-out hover:scale-[1.02] active:scale-[0.97]",
+        // Hero ink — always light on brand fill (independent of theme fg tokens).
+        "bg-primary text-on-hero hover:bg-primary/90 hover:text-on-hero",
         props.className,
       )}
     >
       {children ?? (
         <>
-          <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none">
+          <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
             +
           </span>
           ثبت هزینه
@@ -180,7 +181,7 @@ export function AddExpenseButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Fab className={cn(open && "pointer-events-none opacity-0")}>
-            <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none">
+            <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
               +
             </span>
             {fabLabel}
@@ -203,7 +204,7 @@ export function AddExpenseButton({
     <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
       <DrawerTrigger asChild>
         <Fab className={cn(open && "pointer-events-none opacity-0")}>
-          <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none">
+          <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
             +
           </span>
           {fabLabel}

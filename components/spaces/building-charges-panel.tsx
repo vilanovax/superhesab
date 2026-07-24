@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/building";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Drawer,
   DrawerContent,
@@ -57,12 +58,13 @@ export function BuildingChargesPanel({
   );
   const [debtorsOpen, setDebtorsOpen] = useState(false);
   const [payUnit, setPayUnit] = useState<UnitDTO | null>(null);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
   const [status, setStatus] = useState<ChargeStatusValue>("PAID");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayIsoDateTehran());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const unitLabel = currencyLabel(currency);
 
@@ -83,13 +85,10 @@ export function BuildingChargesPanel({
   function openPay(unit: UnitDTO) {
     const existing = paymentByUnit.get(unit.id);
     setPayUnit(unit);
-    setAmount(
-      existing
-        ? String(existing.amount)
-        : String(unit.monthlyCharge || ""),
-    );
+    setAmount(existing?.amount ?? unit.monthlyCharge ?? 0);
     setStatus(existing?.status ?? "PAID");
     setNote(existing?.note ?? "");
+    setNoteOpen(Boolean(existing?.note));
     setDate(existing?.date ?? todayIsoDateTehran());
     setError(null);
   }
@@ -104,7 +103,7 @@ export function BuildingChargesPanel({
         unitId: payUnit.id,
         year: dashboard.year,
         month,
-        amount: Math.trunc(Number(amount)) || 0,
+        amount: Math.trunc(amount) || 0,
         status,
         note: note || null,
         date,
@@ -313,7 +312,10 @@ export function BuildingChargesPanel({
                       type="button"
                       variant={settled ? "outline" : "default"}
                       size="sm"
-                      className="h-9 shrink-0 rounded-xl px-3 text-caption font-semibold"
+                      className={cn(
+                        "h-9 shrink-0 rounded-xl px-3.5 text-caption font-semibold",
+                        !settled && "text-primary-foreground",
+                      )}
                       onClick={() => openPay(unit)}
                     >
                       {payment ? "ویرایش" : "ثبت"}
@@ -333,13 +335,13 @@ export function BuildingChargesPanel({
         }}
         repositionInputs={false}
       >
-        <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-5 pb-3.5 pt-2">
-            <DrawerHeader className="space-y-0.5 p-0 text-start">
-              <DrawerTitle className="text-lg font-bold text-on-hero">
-                وصول شارژ — واحد {payUnit?.name}
+        <DrawerContent className="mt-0! flex max-h-[88dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-4 pb-3 pt-1.5">
+            <DrawerHeader className="space-y-0 p-0 text-start">
+              <DrawerTitle className="text-body font-bold text-on-hero">
+                وصول — واحد {payUnit?.name}
               </DrawerTitle>
-              <DrawerDescription className="text-body-sm text-on-hero/70">
+              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
                 {monthLabelFa(month)} {formatJalaliYear(dashboard.year)}
                 {payUnit
                   ? ` · مقرر ${formatCurrency(payUnit.monthlyCharge, currency)}`
@@ -347,70 +349,114 @@ export function BuildingChargesPanel({
               </DrawerDescription>
             </DrawerHeader>
           </div>
+
           <form
             onSubmit={onSavePayment}
-            className="surface-sheet-canvas space-y-3 overflow-y-auto px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1">
-              {(
-                ["PAID", "PARTIAL", "DUE", "WAIVED"] as const
-              ).map((s) => (
+            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+              <div
+                role="group"
+                aria-label="وضعیت پرداخت"
+                className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {(
+                  ["PAID", "PARTIAL", "DUE", "WAIVED"] as const
+                ).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setStatus(s);
+                      if (s === "PAID" && payUnit && amount <= 0) {
+                        setAmount(payUnit.monthlyCharge);
+                      }
+                      if (s === "WAIVED") setAmount(0);
+                    }}
+                    className={cn(
+                      "h-9 shrink-0 rounded-xl px-3 text-caption font-semibold transition-colors",
+                      status === s
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {CHARGE_STATUS_LABELS[s]}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-label text-muted-foreground">
+                    مبلغ ({unitLabel})
+                  </label>
+                  {payUnit &&
+                  payUnit.monthlyCharge > 0 &&
+                  amount !== payUnit.monthlyCharge ? (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(payUnit.monthlyCharge)}
+                      className="text-micro font-semibold text-primary"
+                    >
+                      پر کردن مقرر
+                    </button>
+                  ) : null}
+                </div>
+                <MoneyInput
+                  value={amount}
+                  onValueChange={setAmount}
+                  className="h-12 rounded-xl text-lg font-bold"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-label text-muted-foreground">تاریخ</label>
+                <JalaliDatePicker
+                  value={date}
+                  onChange={setDate}
+                  variant="compact"
+                />
+              </div>
+
+              {noteOpen ? (
+                <div className="space-y-1.5">
+                  <label className="text-label text-muted-foreground">
+                    یادداشت
+                  </label>
+                  <Input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="اختیاری"
+                    className="h-11 rounded-xl"
+                    maxLength={200}
+                  />
+                </div>
+              ) : (
                 <button
-                  key={s}
                   type="button"
-                  onClick={() => setStatus(s)}
-                  className={cn(
-                    "h-9 rounded-lg text-caption font-semibold",
-                    status === s
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground",
-                  )}
+                  onClick={() => setNoteOpen(true)}
+                  className="text-caption font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
-                  {CHARGE_STATUS_LABELS[s]}
+                  + افزودن یادداشت
                 </button>
-              ))}
+              )}
+
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">
-                مبلغ ({unitLabel})
-              </label>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) =>
-                  setAmount(e.target.value.replace(/[^\d]/g, ""))
-                }
-                className="h-12 rounded-xl text-lg font-bold tabular-nums"
-                required
-              />
+
+            <div className="shrink-0 border-t border-border/50 bg-card px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3">
+              <Button
+                type="submit"
+                className="h-12 w-full rounded-2xl text-primary-foreground"
+                disabled={pending}
+              >
+                {pending ? "…" : "ذخیره وصول"}
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">تاریخ</label>
-              <JalaliDatePicker value={date} onChange={setDate} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">یادداشت</label>
-              <Input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="اختیاری"
-                className="h-11 rounded-xl"
-                maxLength={200}
-              />
-            </div>
-            {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <Button
-              type="submit"
-              className="h-12 w-full rounded-2xl"
-              disabled={pending}
-            >
-              {pending ? "…" : "ذخیره"}
-            </Button>
           </form>
         </DrawerContent>
       </Drawer>

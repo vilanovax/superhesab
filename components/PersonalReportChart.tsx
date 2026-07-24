@@ -30,6 +30,8 @@ type PersonalReportChartProps = {
   periodLabel?: string;
   emptyTitle?: string;
   emptyHint?: string;
+  /** Donut center caption — e.g. "جمع سال" / "جمع ماه" */
+  totalCenterLabel?: string;
 };
 
 function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
@@ -62,6 +64,7 @@ export function PersonalReportChart({
   periodLabel = "هزینه ماه",
   emptyTitle = "گزارش ماه خالی است",
   emptyHint = "با ثبت چند هزینه، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید.",
+  totalCenterLabel = "جمع ماه",
 }: PersonalReportChartProps) {
   const total = data.reduce((sum, row) => sum + row.amount, 0);
 
@@ -183,7 +186,7 @@ export function PersonalReportChart({
                         y={(viewBox.cy ?? 0) - 10}
                         className="fill-muted-foreground text-[11px]"
                       >
-                        جمع ماه
+                        {totalCenterLabel}
                       </tspan>
                       <tspan
                         x={viewBox.cx}

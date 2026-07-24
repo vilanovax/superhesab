@@ -50,7 +50,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         type={asChild ? undefined : type}
-        className={cn(buttonVariants({ variant, size, className }))}
+        // Merge className outside cva so size tokens don't fight variant colors.
+        className={cn(buttonVariants({ variant, size }), className)}
         ref={ref}
         {...props}
       />

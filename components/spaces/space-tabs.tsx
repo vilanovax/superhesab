@@ -24,6 +24,7 @@ import type { DebtDTO } from "@/app/actions/debt";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
 import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
+import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
@@ -58,6 +59,11 @@ type SpaceTabsProps = {
   reportPeriodLabel?: string;
   reportEmptyTitle?: string;
   reportEmptyHint?: string;
+  reportTotalLabel?: string;
+  /** Building: Jalali report period chips. */
+  reportPlanYear?: number;
+  reportMonth?: number | null;
+  initialTab?: string;
 };
 
 export function SpaceTabs({
@@ -87,6 +93,10 @@ export function SpaceTabs({
   reportPeriodLabel,
   reportEmptyTitle,
   reportEmptyHint,
+  reportTotalLabel,
+  reportPlanYear,
+  reportMonth = null,
+  initialTab,
 }: SpaceTabsProps) {
   const template = getTemplate(spaceType);
   const { features } = template;
@@ -101,9 +111,20 @@ export function SpaceTabs({
     const extraTabs =
       (showDebts ? 1 : 0) + (showBuilding ? 1 : 0);
     const tabCount = 2 + extraTabs;
+    const defaultTab =
+      initialTab &&
+      (initialTab === "report" ||
+        initialTab === "charges" ||
+        initialTab === "expenses" ||
+        initialTab === "debts")
+        ? initialTab
+        : showBuilding
+          ? "charges"
+          : "expenses";
     return (
       <Tabs
-        defaultValue={showBuilding ? "charges" : "expenses"}
+        key={defaultTab}
+        defaultValue={defaultTab}
         className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList
@@ -176,14 +197,24 @@ export function SpaceTabs({
               initialReport={personalReportData}
             />
           ) : (
-            <PersonalReportChart
-              data={personalReportData}
-              currency={currency}
-              categoryBudgets={categoryBudgets}
-              periodLabel={reportPeriodLabel}
-              emptyTitle={reportEmptyTitle}
-              emptyHint={reportEmptyHint}
-            />
+            <>
+              {showBuilding && reportPlanYear != null ? (
+                <BuildingReportPeriodFilter
+                  spaceId={spaceId}
+                  year={reportPlanYear}
+                  month={reportMonth}
+                />
+              ) : null}
+              <PersonalReportChart
+                data={personalReportData}
+                currency={currency}
+                categoryBudgets={categoryBudgets}
+                periodLabel={reportPeriodLabel}
+                emptyTitle={reportEmptyTitle}
+                emptyHint={reportEmptyHint}
+                totalCenterLabel={reportTotalLabel}
+              />
+            </>
           )}
         </TabsContent>
         {showDebts ? (

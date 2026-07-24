@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Calendar, DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
@@ -12,6 +13,11 @@ type JalaliDatePickerProps = {
   value: string;
   onChange: (isoYmd: string) => void;
   className?: string;
+  /**
+   * `inline` — always-open calendar (expense forms).
+   * `compact` — closed by default; tap label to expand (drawers).
+   */
+  variant?: "inline" | "compact";
 };
 
 function toPersianDateObject(isoYmd: string): DateObject {
@@ -31,36 +37,81 @@ function toGregorianIso(date: DateObject): string {
 }
 
 /**
- * Inline Shamsi calendar (Calendar, not portaled DatePicker).
+ * Shamsi calendar (Calendar, not portaled DatePicker).
  * Portal + Vaul drawer blocked day clicks via body pointer-events.
  */
 export function JalaliDatePicker({
   value,
   onChange,
   className,
+  variant = "inline",
 }: JalaliDatePickerProps) {
   const selected = value ? toPersianDateObject(value) : undefined;
   const label = selected
     ? selected.format("D MMMM YYYY")
     : "یک روز انتخاب کنید";
+  const [open, setOpen] = useState(variant === "inline");
+
+  useEffect(() => {
+    if (variant === "inline") setOpen(true);
+  }, [variant]);
+
+  // Reset compact picker when the bound date changes from outside.
+  useEffect(() => {
+    if (variant === "compact") setOpen(false);
+  }, [variant, value]);
 
   return (
-    <div className={cn("jalali-date-picker w-full", className)} dir="rtl">
-      <p className="mb-2 rounded-xl border border-border/60 bg-card px-3 py-2.5 text-center text-body-sm font-semibold text-foreground">
-        {label}
-      </p>
-      <Calendar
-        value={selected}
-        onChange={(date) => {
-          if (!date || Array.isArray(date)) return;
-          onChange(toGregorianIso(date));
-        }}
-        calendar={persian}
-        locale={persian_fa}
-        highlightToday
-        weekStartDayIndex={6}
-        className="teal"
-      />
+    <div
+      className={cn(
+        "jalali-date-picker w-full",
+        variant === "compact" && "jalali-date-picker--compact",
+        className,
+      )}
+      dir="rtl"
+    >
+      {variant === "compact" ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className={cn(
+            "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-3 text-start transition-colors",
+            open
+              ? "border-primary/40 ring-2 ring-primary/20"
+              : "hover:bg-muted/40",
+          )}
+        >
+          <span className="text-body-sm font-semibold text-foreground">
+            {label}
+          </span>
+          <span className="text-caption text-muted-foreground">
+            {open ? "بستن" : "تغییر"}
+          </span>
+        </button>
+      ) : (
+        <p className="mb-2 rounded-xl border border-border/60 bg-card px-3 py-2.5 text-center text-body-sm font-semibold text-foreground">
+          {label}
+        </p>
+      )}
+
+      {open ? (
+        <div className={cn(variant === "compact" && "mt-2")}>
+          <Calendar
+            value={selected}
+            onChange={(date) => {
+              if (!date || Array.isArray(date)) return;
+              onChange(toGregorianIso(date));
+              if (variant === "compact") setOpen(false);
+            }}
+            calendar={persian}
+            locale={persian_fa}
+            highlightToday
+            weekStartDayIndex={6}
+            className="teal"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

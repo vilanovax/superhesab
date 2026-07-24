@@ -26,6 +26,10 @@ type PersonalReportChartProps = {
   currency?: SpaceCurrency;
   /** Cap per ExpenseCategory (builtin only). */
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
+  /** e.g. "سال ۱۴۰۵" or "هزینه ماه" */
+  periodLabel?: string;
+  emptyTitle?: string;
+  emptyHint?: string;
 };
 
 function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
@@ -55,6 +59,9 @@ export function PersonalReportChart({
   data,
   currency = "TOMAN",
   categoryBudgets,
+  periodLabel = "هزینه ماه",
+  emptyTitle = "گزارش ماه خالی است",
+  emptyHint = "با ثبت چند هزینه، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید.",
 }: PersonalReportChartProps) {
   const total = data.reduce((sum, row) => sum + row.amount, 0);
 
@@ -80,10 +87,10 @@ export function PersonalReportChart({
           </svg>
         </div>
         <p className="mt-3 text-body font-semibold text-foreground">
-          گزارش ماه خالی است
+          {emptyTitle}
         </p>
         <p className="mx-auto mt-1 max-w-[16rem] text-body-sm leading-relaxed text-muted-foreground">
-          با ثبت چند هزینه، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید.
+          {emptyHint}
         </p>
       </div>
     );
@@ -98,7 +105,7 @@ export function PersonalReportChart({
           سهم دسته‌ها
         </h2>
         <p className="mt-0.5 text-caption text-muted-foreground">
-          هزینه ماه · {formatCurrency(total, currency)}
+          {periodLabel} · {formatCurrency(total, currency)}
         </p>
       </div>
 

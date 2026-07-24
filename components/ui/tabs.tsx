@@ -81,11 +81,12 @@ export function TabsTrigger({
       aria-selected={selected}
       onClick={() => setValue(value)}
       className={cn(
-        "inline-flex h-8 items-center justify-center rounded-lg text-body-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
-        selected
-          ? "bg-primary text-primary-foreground shadow-none"
-          : "text-muted-foreground hover:bg-card/80 hover:text-foreground",
+        "inline-flex h-8 items-center justify-center rounded-lg text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
         className,
+        // Color utilities must come after className — text-body-sm merges with text-* and would wipe them.
+        selected
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "bg-transparent text-muted-foreground hover:bg-card/80 hover:text-foreground",
       )}
     >
       {children}

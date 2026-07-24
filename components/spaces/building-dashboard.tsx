@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
 import { formatJalaliYear } from "@/lib/building";
-import { currencyLabel, type SpaceCurrency } from "@/lib/format";
-import { formatCurrency } from "@/lib/formatters";
+import { currencyLabel, formatMoney, type SpaceCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type BuildingMonthHeroProps = {
@@ -39,51 +38,43 @@ export function BuildingMonthHero({
     expected > 0 ? Math.min(100, Math.round((collected * 100) / expected)) : 0;
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 text-start">
-          <p className="text-[0.6875rem] font-semibold tracking-[0.06em] text-on-hero/55">
+          <p className="text-micro font-semibold tracking-[0.08em] text-on-hero/55">
             مدیریت ساختمان
           </p>
-          <h1 className="mt-1 truncate text-[1.35rem] font-bold leading-tight tracking-tight text-on-hero">
+          <h1 className="mt-1 truncate text-[1.35rem] font-bold leading-none tracking-tight text-on-hero">
             {spaceName}
           </h1>
           <p className="mt-1.5 text-caption text-on-hero/65">
-            {activeUnits > 0 ? `${activeUnits} واحد فعال` : "بدون واحد"}
+            {activeUnits > 0 ? `${activeUnits} واحد` : "بدون واحد"}
             {" · "}
             {memberCount} مدیر
-            {expenseCount > 0
-              ? ` · ${expenseCount} هزینه مشاع`
-              : " · دفتر مشاع خالی"}
+            {expenseCount > 0 ? ` · ${expenseCount} هزینه` : ""}
           </p>
         </div>
         {year != null ? (
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <span className="rounded-full bg-on-hero/12 px-2.5 py-1 text-caption font-semibold tabular-nums text-on-hero/85 ring-1 ring-on-hero/15">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-on-hero/10 p-0.5 ring-1 ring-on-hero/15">
+            <Link
+              href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
+              className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
+              aria-label="سال قبل"
+            >
+              ‹
+            </Link>
+            <span className="min-w-[2.75rem] text-center text-caption font-bold tabular-nums text-on-hero">
               {formatJalaliYear(year)}
             </span>
-            <div className="flex items-center gap-1">
-              <Link
-                href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
-                className="rounded-lg bg-on-hero/10 px-2 py-0.5 text-micro font-semibold text-on-hero/80 ring-1 ring-on-hero/10 hover:bg-on-hero/20"
-                title="سال قبل"
-              >
-                {formatJalaliYear(year - 1)}
-              </Link>
-              <Link
-                href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
-                className="rounded-lg bg-on-hero/10 px-2 py-0.5 text-micro font-semibold text-on-hero/80 ring-1 ring-on-hero/10 hover:bg-on-hero/20"
-                title="سال بعد"
-              >
-                {formatJalaliYear(year + 1)}
-              </Link>
-            </div>
+            <Link
+              href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
+              className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
+              aria-label="سال بعد"
+            >
+              ›
+            </Link>
           </div>
-        ) : (
-          <span className="shrink-0 rounded-full bg-on-hero/12 px-2.5 py-1 text-caption font-semibold text-on-hero/85 ring-1 ring-on-hero/15">
-            —
-          </span>
-        )}
+        ) : null}
       </div>
 
       {!hasPlan ? (
@@ -100,11 +91,11 @@ export function BuildingMonthHero({
           </span>
           <span className="min-w-0 flex-1 text-start">
             <span className="block text-body-sm font-bold text-primary">
-              تعریف پلن شارژ سال{" "}
+              تعریف پلن شارژ{" "}
               {year != null ? formatJalaliYear(year) : ""}
             </span>
             <span className="mt-0.5 block text-caption text-primary/70">
-              مبلغ پایه ماهانه و سال پیش‌فرض را در تنظیمات بگذارید
+              مبلغ پایه و سال پیش‌فرض در تنظیمات
             </span>
           </span>
           <span className="text-body font-bold text-primary/80" aria-hidden>
@@ -112,50 +103,71 @@ export function BuildingMonthHero({
           </span>
         </Link>
       ) : (
-        <>
-          <div className="rounded-2xl bg-black/15 px-3.5 py-3 backdrop-blur-[2px]">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-caption font-medium text-on-hero/70">
-                وصول سال تا این ماه
-              </p>
-              <p className="text-caption font-bold tabular-nums text-on-hero">
-                {collectPct}٪
-              </p>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-on-hero/15">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-[width] duration-500 ease-out",
-                  arrears > 0 ? "bg-amber-200" : "bg-on-hero",
-                )}
-                style={{ width: `${collectPct}%` }}
-              />
-            </div>
-            <div className="mt-2.5 flex justify-between gap-2 text-caption text-on-hero/70">
-              <span>
-                وصول: {formatCurrency(collected, currency)} {unit}
-              </span>
-              <span>
-                معوق: {formatCurrency(arrears, currency)} {unit}
-              </span>
-            </div>
+        <div className="rounded-2xl bg-black/15 px-3.5 py-3 backdrop-blur-[2px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-caption font-medium text-on-hero/70">
+              پیشرفت وصول سال
+            </p>
+            <p className="text-caption font-bold tabular-nums text-on-hero">
+              {collectPct}٪
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-on-hero-soft px-3 py-2.5">
-              <p className="text-caption text-on-hero/65">هزینه مشاع ماه</p>
-              <p className="mt-1 text-body font-bold tabular-nums text-on-hero">
-                {formatCurrency(monthExpense, currency)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-on-hero-soft px-3 py-2.5">
-              <p className="text-caption text-on-hero/65">انتظار تا ماه</p>
-              <p className="mt-1 text-body font-bold tabular-nums text-on-hero">
-                {formatCurrency(expected, currency)}
-              </p>
-            </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-on-hero/15">
+            <div
+              className={cn(
+                "h-full rounded-full transition-[width] duration-500 ease-out",
+                arrears > 0 ? "bg-amber-200" : "bg-on-hero",
+              )}
+              style={{ width: `${collectPct}%` }}
+            />
           </div>
-        </>
+          <div className="mt-2.5 grid grid-cols-3 gap-2">
+            <HeroMini
+              label="وصول"
+              value={formatMoney(collected)}
+              unit={unit}
+            />
+            <HeroMini
+              label="معوق"
+              value={formatMoney(arrears)}
+              unit={unit}
+              warn={arrears > 0}
+            />
+            <HeroMini
+              label="مشاع ماه"
+              value={formatMoney(monthExpense)}
+              unit={unit}
+            />
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
+
+function HeroMini({
+  label,
+  value,
+  unit,
+  warn,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  warn?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl bg-on-hero/10 px-2 py-2 text-center">
+      <p className="text-micro text-on-hero/60">{label}</p>
+      <p
+        className={cn(
+          "mt-0.5 truncate text-caption font-bold tabular-nums text-on-hero",
+          warn && "text-amber-100",
+        )}
+      >
+        {value}
+      </p>
+      <p className="truncate text-micro text-on-hero/50">{unit}</p>
     </div>
   );
 }

@@ -25,7 +25,11 @@ import {
   monthLabelFa,
   type ChargeStatusValue,
 } from "@/lib/building";
-import type { SpaceCurrency } from "@/lib/format";
+import {
+  currencyLabel,
+  formatMoney,
+  type SpaceCurrency,
+} from "@/lib/format";
 import { todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -51,6 +55,7 @@ export function BuildingChargesPanel({
   const [month, setMonth] = useState(
     Math.max(1, dashboard.throughMonth || 1),
   );
+  const [debtorsOpen, setDebtorsOpen] = useState(false);
   const [payUnit, setPayUnit] = useState<UnitDTO | null>(null);
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState<ChargeStatusValue>("PAID");
@@ -58,6 +63,8 @@ export function BuildingChargesPanel({
   const [date, setDate] = useState(todayIsoDateTehran());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const unitLabel = currencyLabel(currency);
 
   const paymentByUnit = useMemo(() => {
     const map = new Map<string, ChargePaymentDTO>();
@@ -68,6 +75,10 @@ export function BuildingChargesPanel({
   }, [dashboard.payments, month]);
 
   const activeUnits = dashboard.units.filter((u) => u.isActive);
+  const paidThisMonth = activeUnits.filter((u) => {
+    const s = paymentByUnit.get(u.id)?.status;
+    return s === "PAID" || s === "WAIVED";
+  }).length;
 
   function openPay(unit: UnitDTO) {
     const existing = paymentByUnit.get(unit.id);
@@ -141,107 +152,171 @@ export function BuildingChargesPanel({
   }
 
   const { totals } = dashboard;
+  const visibleDebtors = debtorsOpen
+    ? dashboard.debtors
+    : dashboard.debtors.slice(0, 3);
 
   return (
     <div className="space-y-4">
+      {/* Compact KPI strip */}
       <div className="grid grid-cols-3 gap-2">
         <StatCard
-          label="مقرر تا الان"
-          value={formatCurrency(totals.expectedYtd, currency)}
+          label="مقرر"
+          amount={totals.expectedYtd}
+          unit={unitLabel}
         />
         <StatCard
-          label="وصول‌شده"
-          value={formatCurrency(totals.collectedYtd, currency)}
+          label="وصول"
+          amount={totals.collectedYtd}
+          unit={unitLabel}
           tone="success"
         />
         <StatCard
           label="معوق"
-          value={formatCurrency(totals.arrearsTotal, currency)}
+          amount={totals.arrearsTotal}
+          unit={unitLabel}
           tone={totals.arrearsTotal > 0 ? "danger" : "default"}
         />
       </div>
 
+      {/* Debtors — compact, expandable */}
       {dashboard.debtors.length > 0 ? (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive-soft/40 px-3.5 py-3">
-          <p className="text-body-sm font-semibold text-destructive">
-            بدهکاران ({dashboard.debtors.length})
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {dashboard.debtors.slice(0, 6).map((u) => (
+        <div className="overflow-hidden rounded-2xl border border-destructive/20 bg-destructive-soft/35">
+          <button
+            type="button"
+            onClick={() => setDebtorsOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-start"
+          >
+            <span className="text-body-sm font-semibold text-destructive">
+              بدهکاران · {dashboard.debtors.length} واحد
+            </span>
+            <span className="text-micro font-medium text-destructive/75">
+              {debtorsOpen ? "بستن" : "مشاهده"}
+            </span>
+          </button>
+          <ul className="space-y-0 border-t border-destructive/15 px-3.5 pb-2.5 pt-2">
+            {visibleDebtors.map((u) => (
               <li
                 key={u.id}
-                className="flex justify-between gap-2 text-caption text-destructive/90"
+                className="flex items-center justify-between gap-2 py-1 text-caption"
               >
-                <span>واحد {u.name}</span>
-                <span className="tabular-nums font-semibold">
-                  {formatCurrency(u.arrears, currency)}
+                <span className="text-destructive/85">واحد {u.name}</span>
+                <span className="tabular-nums font-semibold text-destructive">
+                  {formatMoney(u.arrears)}
                 </span>
               </li>
             ))}
           </ul>
+          {!debtorsOpen && dashboard.debtors.length > 3 ? (
+            <p className="border-t border-destructive/10 px-3.5 py-1.5 text-center text-micro text-destructive/70">
+              و {dashboard.debtors.length - 3} واحد دیگر
+            </p>
+          ) : null}
         </div>
       ) : (
-        <p className="rounded-xl bg-success-soft/50 px-3 py-2 text-center text-caption font-medium text-success">
-          معوق فعالی نیست
+        <p className="rounded-xl bg-success-soft/60 px-3 py-2 text-center text-caption font-medium text-success">
+          معوق فعالی نیست ✓
         </p>
       )}
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-caption font-semibold text-muted-foreground">
-            وصول ماه — {formatJalaliYear(dashboard.year)}
-          </p>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="h-9 rounded-xl border border-border/60 bg-card px-2 text-caption outline-none"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>
+      {/* Month collection */}
+      <div className="space-y-2.5">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-body-sm font-semibold text-foreground">
+              وصول {monthLabelFa(month)}
+            </p>
+            <p className="mt-0.5 text-micro text-muted-foreground">
+              {formatJalaliYear(dashboard.year)} · {paidThisMonth} از{" "}
+              {activeUnits.length} واحد تسویه
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+            const on = month === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMonth(m)}
+                className={cn(
+                  "shrink-0 rounded-xl px-2.5 py-1.5 text-caption font-semibold transition-colors",
+                  on
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
                 {monthLabelFa(m)}
-              </option>
-            ))}
-          </select>
+              </button>
+            );
+          })}
         </div>
 
         <ul className="space-y-2">
           {activeUnits.map((unit) => {
             const payment = paymentByUnit.get(unit.id);
-            const status = payment?.status;
+            const payStatus = payment?.status;
+            const settled =
+              payStatus === "PAID" || payStatus === "WAIVED";
             return (
               <li
                 key={unit.id}
-                className="rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm"
+                className={cn(
+                  "rounded-2xl border bg-card px-3.5 py-3",
+                  settled
+                    ? "border-border/40"
+                    : unit.arrears > 0
+                      ? "border-destructive/25"
+                      : "border-border/55",
+                )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-body font-semibold text-foreground">
-                      واحد {unit.name}
-                    </p>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "flex size-10 shrink-0 items-center justify-center rounded-xl text-caption font-bold",
+                      settled
+                        ? "bg-success-soft text-success"
+                        : "bg-secondary text-secondary-foreground",
+                    )}
+                  >
+                    {unit.name}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-body-sm font-semibold text-foreground">
+                        واحد {unit.name}
+                      </p>
+                      {payStatus ? (
+                        <StatusPill status={payStatus} />
+                      ) : (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                          ثبت نشده
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-caption text-muted-foreground">
-                      مقرر {formatCurrency(unit.monthlyCharge, currency)}
-                      {status
-                        ? ` · ${CHARGE_STATUS_LABELS[status]}`
-                        : " · ثبت نشده"}
+                      مقرر {formatMoney(unit.monthlyCharge)} {unitLabel}
                       {payment
-                        ? ` · ${formatCurrency(payment.amount, currency)}`
+                        ? ` · پرداخت ${formatMoney(payment.amount)}`
                         : ""}
                     </p>
                     {unit.arrears > 0 ? (
-                      <p className="mt-1 text-micro font-medium text-destructive">
-                        معوق کل: {formatCurrency(unit.arrears, currency)}
+                      <p className="mt-0.5 text-micro font-medium text-destructive">
+                        معوق {formatMoney(unit.arrears)} {unitLabel}
                       </p>
                     ) : null}
                   </div>
                   {canMutate ? (
                     <Button
                       type="button"
-                      variant="outline"
+                      variant={settled ? "outline" : "default"}
                       size="sm"
-                      className="h-9 shrink-0 rounded-xl"
+                      className="h-9 shrink-0 rounded-xl px-3 text-caption font-semibold"
                       onClick={() => openPay(unit)}
                     >
-                      {payment ? "ویرایش" : "ثبت وصول"}
+                      {payment ? "ویرایش" : "ثبت"}
                     </Button>
                   ) : null}
                 </div>
@@ -278,12 +353,7 @@ export function BuildingChargesPanel({
           >
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1">
               {(
-                [
-                  "PAID",
-                  "PARTIAL",
-                  "DUE",
-                  "WAIVED",
-                ] as const
+                ["PAID", "PARTIAL", "DUE", "WAIVED"] as const
               ).map((s) => (
                 <button
                   key={s}
@@ -301,7 +371,9 @@ export function BuildingChargesPanel({
               ))}
             </div>
             <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">مبلغ</label>
+              <label className="text-label text-muted-foreground">
+                مبلغ ({unitLabel})
+              </label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -346,28 +418,50 @@ export function BuildingChargesPanel({
   );
 }
 
+function StatusPill({ status }: { status: ChargeStatusValue }) {
+  const tone =
+    status === "PAID" || status === "WAIVED"
+      ? "bg-success-soft text-success"
+      : status === "PARTIAL"
+        ? "bg-secondary text-secondary-foreground"
+        : "bg-destructive-soft text-destructive";
+  return (
+    <span
+      className={cn(
+        "rounded-md px-1.5 py-0.5 text-micro font-medium",
+        tone,
+      )}
+    >
+      {CHARGE_STATUS_LABELS[status]}
+    </span>
+  );
+}
+
 function StatCard({
   label,
-  value,
+  amount,
+  unit,
   tone = "default",
 }: {
   label: string;
-  value: string;
+  amount: number;
+  unit: string;
   tone?: "default" | "success" | "danger";
 }) {
   return (
     <div className="rounded-2xl border border-border/50 bg-card px-2.5 py-2.5 text-center">
-      <p className="text-micro text-muted-foreground">{label}</p>
+      <p className="text-micro font-medium text-muted-foreground">{label}</p>
       <p
         className={cn(
-          "mt-1 truncate text-caption font-bold tabular-nums",
+          "mt-1 text-body-sm font-bold leading-tight tabular-nums tracking-tight",
           tone === "success" && "text-success",
           tone === "danger" && "text-destructive",
           tone === "default" && "text-foreground",
         )}
       >
-        {value}
+        {formatMoney(amount)}
       </p>
+      <p className="mt-0.5 text-micro text-muted-foreground">{unit}</p>
     </div>
   );
 }

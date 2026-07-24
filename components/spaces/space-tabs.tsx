@@ -54,6 +54,10 @@ type SpaceTabsProps = {
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
   buildingDashboard?: BuildingDashboardDTO | null;
   isOwner?: boolean;
+  /** Report chart period copy (e.g. سال ۱۴۰۵ for building). */
+  reportPeriodLabel?: string;
+  reportEmptyTitle?: string;
+  reportEmptyHint?: string;
 };
 
 export function SpaceTabs({
@@ -80,6 +84,9 @@ export function SpaceTabs({
   categoryBudgets,
   buildingDashboard = null,
   isOwner = false,
+  reportPeriodLabel,
+  reportEmptyTitle,
+  reportEmptyHint,
 }: SpaceTabsProps) {
   const template = getTemplate(spaceType);
   const { features } = template;
@@ -109,31 +116,19 @@ export function SpaceTabs({
                 : "grid-cols-2",
           )}
         >
-          <TabsTrigger
-            value="expenses"
-            className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
-          >
+          <TabsTrigger value="expenses" className="rounded-xl">
             {showBuilding ? "هزینه مشاع" : "تراکنش‌ها"}
           </TabsTrigger>
           {showBuilding ? (
-            <TabsTrigger
-              value="charges"
-              className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
-            >
+            <TabsTrigger value="charges" className="rounded-xl">
               شارژ
             </TabsTrigger>
           ) : null}
-          <TabsTrigger
-            value="report"
-            className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
-          >
+          <TabsTrigger value="report" className="rounded-xl">
             گزارش
           </TabsTrigger>
           {showDebts ? (
-            <TabsTrigger
-              value="debts"
-              className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
-            >
+            <TabsTrigger value="debts" className="rounded-xl">
               بدهی / طلب
             </TabsTrigger>
           ) : null}
@@ -185,6 +180,9 @@ export function SpaceTabs({
               data={personalReportData}
               currency={currency}
               categoryBudgets={categoryBudgets}
+              periodLabel={reportPeriodLabel}
+              emptyTitle={reportEmptyTitle}
+              emptyHint={reportEmptyHint}
             />
           )}
         </TabsContent>

@@ -19,9 +19,14 @@ import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
 import { maybeCeilToThousand } from "@/lib/money";
+import { tehranCivilMonth, tehranCivilYear, formatJalaliYear } from "@/lib/building";
+import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
 import { tehranMonthRange } from "@/lib/personal";
 import type { ExpenseCategory } from "@/lib/categorizer";
-import { getExpensesByCategory } from "@/lib/reports-server";
+import {
+  getExpensesByCategory,
+  getExpensesByCategoryInRange,
+} from "@/lib/reports-server";
 import {
   getTemplate,
   getTemplateDataset,
@@ -113,9 +118,11 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
 
   const template = getTemplate(spaceTypeRow.type);
   const { features } = template;
-  const monthRange = tehranMonthRange();
 
-  const yearOverrideRaw = Number.parseInt(String(yearParam ?? "").replace(/\D/g, ""), 10);
+  const yearOverrideRaw = Number.parseInt(
+    String(yearParam ?? "").replace(/\D/g, ""),
+    10,
+  );
   const yearOverride =
     Number.isFinite(yearOverrideRaw) &&
     yearOverrideRaw >= 1390 &&
@@ -123,13 +130,35 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       ? yearOverrideRaw
       : undefined;
 
+  const spaceYearMeta = features.buildingCharges
+    ? await prisma.space.findUnique({
+        where: { id },
+        select: { defaultPlanYear: true },
+      })
+    : null;
+
+  const planYear =
+    yearOverride ??
+    spaceYearMeta?.defaultPlanYear ??
+    tehranCivilYear();
+
+  const monthRange = features.buildingCharges
+    ? jalaliMonthBounds(tehranCivilYear(), tehranCivilMonth())
+    : tehranMonthRange();
+
+  const reportRange = features.buildingCharges
+    ? jalaliYearBounds(planYear)
+    : null;
+
   if (features.recurring) {
     await ensureRecurringExpenses(id);
   }
 
   const emptyBalances = {
     balances: {} as Record<string, number>,
-    suggestions: [] as Awaited<ReturnType<typeof getSpaceBalances>>["suggestions"],
+    suggestions: [] as Awaited<
+      ReturnType<typeof getSpaceBalances>
+    >["suggestions"],
   };
 
   const [space, balanceData, checklist, monthRows, personalReportData, debts, categoryBudgetRows, buildingDashboard] =
@@ -191,7 +220,13 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           })
         : Promise.resolve([]),
       features.incomeExpense
-        ? getExpensesByCategory(id, new Date())
+        ? reportRange
+          ? getExpensesByCategoryInRange(
+              id,
+              reportRange.start,
+              reportRange.end,
+            )
+          : getExpensesByCategory(id, new Date())
         : Promise.resolve([]),
       features.debts ? listSpaceDebts(id) : Promise.resolve([]),
       features.categoryBudgets
@@ -201,7 +236,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           })
         : Promise.resolve([]),
       features.buildingCharges
-        ? getBuildingDashboard(id, yearOverride)
+        ? getBuildingDashboard(id, planYear)
         : Promise.resolve(null),
     ]);
 
@@ -608,6 +643,19 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         )}
         buildingDashboard={buildingDashboard}
         isOwner={isOwner}
+        reportPeriodLabel={
+          features.buildingCharges
+            ? `هزینه مشاع سال ${formatJalaliYear(planYear)}`
+            : undefined
+        }
+        reportEmptyTitle={
+          features.buildingCharges ? "گزارش سال خالی است" : undefined
+        }
+        reportEmptyHint={
+          features.buildingCharges
+            ? "با ثبت چند هزینه مشاع، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید."
+            : undefined
+        }
       />
 
       {canWrite ? (

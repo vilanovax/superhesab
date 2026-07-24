@@ -12,32 +12,13 @@ import {
   type CategoryExpenseRow,
 } from "@/lib/reports";
 
-/**
- * Aggregate EXPENSE transactions for a space in the given calendar month
- * (Asia/Tehran), grouped by ExpenseCategory or custom categoryLabel.
- * Server-only — must not be imported from Client Components.
- */
-export async function getExpensesByCategory(
-  spaceId: string,
-  month: Date = new Date(),
-  paidById?: string | null,
-): Promise<CategoryExpenseRow[]> {
-  const { start, end } = tehranMonthRange(month);
-
-  const rows = await prisma.expense.findMany({
-    where: {
-      spaceId,
-      transactionType: "EXPENSE",
-      date: { gte: start, lte: end },
-      ...(paidById ? { paidById } : {}),
-    },
-    select: {
-      category: true,
-      categoryLabel: true,
-      totalAmount: true,
-    },
-  });
-
+function aggregateCategoryRows(
+  rows: {
+    category: ExpenseCategory;
+    categoryLabel: string | null;
+    totalAmount: number;
+  }[],
+): CategoryExpenseRow[] {
   type Acc = {
     category: ExpenseCategory;
     amount: number;
@@ -84,4 +65,44 @@ export async function getExpensesByCategory(
       label: row.label,
     }))
     .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Aggregate EXPENSE transactions for a space in an explicit date window.
+ * Server-only — must not be imported from Client Components.
+ */
+export async function getExpensesByCategoryInRange(
+  spaceId: string,
+  start: Date,
+  end: Date,
+  paidById?: string | null,
+): Promise<CategoryExpenseRow[]> {
+  const rows = await prisma.expense.findMany({
+    where: {
+      spaceId,
+      transactionType: "EXPENSE",
+      date: { gte: start, lte: end },
+      ...(paidById ? { paidById } : {}),
+    },
+    select: {
+      category: true,
+      categoryLabel: true,
+      totalAmount: true,
+    },
+  });
+
+  return aggregateCategoryRows(rows);
+}
+
+/**
+ * Aggregate EXPENSE transactions for a space in the given Gregorian
+ * calendar month (Asia/Tehran), grouped by category.
+ */
+export async function getExpensesByCategory(
+  spaceId: string,
+  month: Date = new Date(),
+  paidById?: string | null,
+): Promise<CategoryExpenseRow[]> {
+  const { start, end } = tehranMonthRange(month);
+  return getExpensesByCategoryInRange(spaceId, start, end, paidById);
 }

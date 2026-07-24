@@ -17,20 +17,20 @@
   --popover: #ffffff;
   --popover-foreground: #12202a;
 
-  /* Deep teal ink — brand */
-  --primary: #0f5c57;
-  --primary-foreground: #f3fbfa;
+  /* Ocean blue — default brand */
+  --primary: #1a5f8a;
+  --primary-foreground: #f3f9fc;
 
-  --secondary: #d7e6e4;
-  --secondary-foreground: #163833;
+  --secondary: #d5e4ee;
+  --secondary-foreground: #16324a;
   --muted: #dfe8eb;
   --muted-foreground: #5b6b75;
-  --accent: #c8e6e2;
-  --accent-foreground: #0f5c57;
+  --accent: #c5dceb;
+  --accent-foreground: #1a5f8a;
 
   --border: #c9d6dc;
   --input: #c9d6dc;
-  --ring: #0f5c57;
+  --ring: #1a5f8a;
 
   --success: #1b7f4a;
   --success-foreground: #ecfdf3;
@@ -40,9 +40,9 @@
   --destructive-soft: #fee2e2;
 
   /* Atmosphere */
-  --mist: #d4e8e5;
-  --ink: #0a3d3a;
-  --highlight: #2a9d8f;
+  --mist: #d0e2ef;
+  --ink: #0c3a58;
+  --highlight: #3d8fbf;
   --surface-elevated: rgba(255, 255, 255, 0.78);
 
   /*
@@ -112,19 +112,19 @@ html[data-theme="dark"] {
   --popover: #162024;
   --popover-foreground: #e8eef0;
 
-  --primary: #2a9d8f;
-  --primary-foreground: #062422;
+  --primary: #4da3d4;
+  --primary-foreground: #062033;
 
-  --secondary: #1c2c30;
-  --secondary-foreground: #c8e6e2;
+  --secondary: #1a2a36;
+  --secondary-foreground: #b8d4e8;
   --muted: #1a262a;
   --muted-foreground: #8fa3ab;
-  --accent: #1e3533;
-  --accent-foreground: #9fd8d0;
+  --accent: #1c303e;
+  --accent-foreground: #9ec8e0;
 
   --border: #2a3a40;
   --input: #2a3a40;
-  --ring: #2a9d8f;
+  --ring: #4da3d4;
 
   --success: #34d399;
   --success-foreground: #052e1c;
@@ -133,9 +133,9 @@ html[data-theme="dark"] {
   --destructive-foreground: #450a0a;
   --destructive-soft: #3f1515;
 
-  --mist: #1a2e2c;
-  --ink: #9fd8d0;
-  --highlight: #3db8a8;
+  --mist: #1a2a36;
+  --ink: #9ec8e0;
+  --highlight: #5eb0d8;
   --surface-elevated: rgba(22, 32, 36, 0.86);
 
   --sheet: #121c1f;
@@ -163,9 +163,24 @@ html[data-theme="dark"] {
 
 /*
   User accent packs — brand color for light (and matching dark).
-  Applied via html[data-accent]. Default teal lives on :root.
+  Applied via html[data-accent]. Default ocean lives on :root.
   Does not touch success/destructive.
 */
+html[data-accent="teal"] {
+  --primary: #0f5c57;
+  --primary-foreground: #f3fbfa;
+  --secondary: #d7e6e4;
+  --secondary-foreground: #163833;
+  --accent: #c8e6e2;
+  --accent-foreground: #0f5c57;
+  --highlight: #2a9d8f;
+  --ink: #0a3d3a;
+  --mist: #d4e8e5;
+  --ring: #0f5c57;
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 28%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
 html[data-accent="ocean"] {
   --primary: #1a5f8a;
   --primary-foreground: #f3f9fc;
@@ -213,6 +228,19 @@ html[data-accent="slate"] {
   --body-glow-accent: transparent;
 }
 
+html[data-theme="dark"][data-accent="teal"] {
+  --primary: #2a9d8f;
+  --primary-foreground: #062422;
+  --secondary: #1c2c30;
+  --secondary-foreground: #c8e6e2;
+  --accent: #1e3533;
+  --accent-foreground: #9fd8d0;
+  --highlight: #3db8a8;
+  --ink: #9fd8d0;
+  --mist: #1a2e2c;
+  --ring: #2a9d8f;
+}
+
 html[data-theme="dark"][data-accent="ocean"] {
   --primary: #4da3d4;
   --primary-foreground: #062033;
@@ -220,9 +248,9 @@ html[data-theme="dark"][data-accent="ocean"] {
   --secondary-foreground: #b8d4e8;
   --accent: #1c303e;
   --accent-foreground: #9ec8e0;
-  --highlight: #6bb8e0;
+  --highlight: #5eb0d8;
   --ink: #9ec8e0;
-  --mist: #1a2c38;
+  --mist: #1a2a36;
   --ring: #4da3d4;
 }
 
@@ -319,6 +347,21 @@ html[data-theme="dark"] [data-template="family"] {
   --radius: 1rem;
   --sheet: color-mix(in srgb, var(--sheet) 88%, #0d1519 12%);
   --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #121a1e 12%);
+}
+
+/* Building — apartment charge ledger */
+html[data-template="building"],
+[data-template="building"] {
+  --radius: 0.875rem;
+  --sheet: color-mix(in srgb, var(--sheet) 72%, #eef1f5 28%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 78%, #f4f6f8 22%);
+}
+
+html[data-theme="dark"][data-template="building"],
+html[data-theme="dark"] [data-template="building"] {
+  --radius: 0.875rem;
+  --sheet: color-mix(in srgb, var(--sheet) 88%, #10151a 12%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #151b21 12%);
 }
 
 @theme inline {

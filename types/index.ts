@@ -1,4 +1,9 @@
-export type SpaceType = "TRIP" | "PARTNER" | "PERSONAL" | "FAMILY";
+export type SpaceType =
+  | "TRIP"
+  | "PARTNER"
+  | "PERSONAL"
+  | "FAMILY"
+  | "BUILDING";
 export type SpaceRole = "OWNER" | "EDITOR" | "VIEWER";
 export type SettlementStatus = "PENDING" | "COMPLETED";
 export type { SpaceCurrency } from "@/lib/format";

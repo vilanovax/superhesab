@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { createSpaceAndRedirect } from "@/app/actions/space";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,32 +9,154 @@ import { useAppSettingsStore } from "@/lib/stores/settings-store";
 import { cn } from "@/lib/utils";
 import type { SpaceType } from "@/types";
 
-const TEMPLATES = [
+function IconTrip({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M10 8V5.5A1.5 1.5 0 0 1 11.5 4h1A1.5 1.5 0 0 1 14 5.5V8" />
+      <rect x="6" y="8" width="12" height="12" rx="2" />
+      <path d="M6 13h12" />
+    </svg>
+  );
+}
+
+function IconPartner({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="9" cy="8" r="3.25" />
+      <circle cx="16.5" cy="9.5" r="2.5" />
+      <path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" />
+      <path d="M14 14.2c1.7-.3 3.5.4 4.5 2.8" />
+    </svg>
+  );
+}
+
+function IconFamily({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 10.5 12 4l8 6.5" />
+      <path d="M6.5 9.5V20h11V9.5" />
+      <path d="M10 20v-5h4v5" />
+    </svg>
+  );
+}
+
+function IconBuilding({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 20h16" />
+      <path d="M6 20V6.5A1.5 1.5 0 0 1 7.5 5h5A1.5 1.5 0 0 1 14 6.5V20" />
+      <path d="M14 10h3.5A1.5 1.5 0 0 1 19 11.5V20" />
+      <path d="M8.5 9h2M8.5 12.5h2M8.5 16h2" />
+    </svg>
+  );
+}
+
+function IconPersonal({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="8" r="3.25" />
+      <path d="M5.5 19.5c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5" />
+    </svg>
+  );
+}
+
+const TEMPLATES: {
+  value: SpaceType;
+  label: string;
+  hint: string;
+  icon: (props: { className?: string }) => ReactNode;
+}[] = [
   {
-    value: "TRIP" as const,
-    label: "سفر و دورهمی",
-    hint: "خرج گروهی، چک‌لیست، تسویه",
-    mark: "سفر",
+    value: "TRIP",
+    label: "سفر",
+    hint: "خرج گروهی",
+    icon: IconTrip,
   },
   {
-    value: "PARTNER" as const,
-    label: "حساب مشترک",
-    hint: "دونفره با تسویه",
-    mark: "۲نفر",
+    value: "PARTNER",
+    label: "مشترک",
+    hint: "دونفره",
+    icon: IconPartner,
   },
   {
-    value: "FAMILY" as const,
+    value: "FAMILY",
     label: "خانواده",
-    hint: "لجر مشترک بدون بدهی",
-    mark: "خانه",
+    hint: "لجر خانوار",
+    icon: IconFamily,
   },
   {
-    value: "PERSONAL" as const,
-    label: "حسابداری شخصی",
-    hint: "درآمد، هزینه، بودجه ماه",
-    mark: "من",
+    value: "BUILDING",
+    label: "ساختمان",
+    hint: "واحد و شارژ",
+    icon: IconBuilding,
   },
-] as const;
+  {
+    value: "PERSONAL",
+    label: "شخصی",
+    hint: "بودجه و بدهی",
+    icon: IconPersonal,
+  },
+];
+
+function placeholderFor(type: SpaceType): string {
+  switch (type) {
+    case "PERSONAL":
+      return "مثلاً هزینه شخصی ۱۴۰۵";
+    case "FAMILY":
+      return "مثلاً خانه ما";
+    case "BUILDING":
+      return "مثلاً برج آسمان";
+    case "PARTNER":
+      return "مثلاً حساب مشترک";
+    default:
+      return "مثلاً سفر شمال";
+  }
+}
 
 export function CreateSpaceForm({
   error,
@@ -47,66 +169,71 @@ export function CreateSpaceForm({
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
   const [type, setType] = useState<SpaceType>(initialType);
+  const selected = TEMPLATES.find((t) => t.value === type) ?? TEMPLATES[0];
 
   return (
-    <form action={createSpaceAndRedirect} className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">نام فضا</p>
+    <form action={createSpaceAndRedirect} className="flex flex-col gap-3.5">
+      <div className="space-y-1.5">
+        <label
+          htmlFor="name"
+          className="text-caption font-medium text-muted-foreground"
+        >
+          نام فضا
+        </label>
         <Input
           id="name"
           name="name"
           required
           minLength={2}
-          placeholder={
-            type === "PERSONAL"
-              ? "مثلاً هزینه شخصی ۱۴۰۵"
-              : type === "FAMILY"
-                ? "مثلاً خانه ما"
-                : type === "PARTNER"
-                  ? "مثلاً حساب مشترک"
-                  : "مثلاً سفر شمال"
-          }
-          className="h-12 rounded-xl border-border/70 bg-card text-base"
+          placeholder={placeholderFor(type)}
+          className="h-11 rounded-2xl border-border/60 bg-card text-base shadow-none"
           autoFocus={!compact}
         />
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">قالب</p>
+        <p className="text-caption font-medium text-muted-foreground">قالب</p>
         <input type="hidden" name="type" value={type} />
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2">
           {TEMPLATES.map((t) => {
-            const selected = type === t.value;
+            const on = type === t.value;
+            const Icon = t.icon;
             return (
               <button
                 key={t.value}
                 type="button"
                 onClick={() => setType(t.value)}
+                aria-pressed={on}
                 className={cn(
-                  "flex flex-col items-start gap-1 rounded-xl border px-3 py-3 text-start transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.98]",
-                  selected
-                    ? "border-primary bg-primary text-primary-foreground shadow-none"
-                    : "border-border/70 bg-card text-foreground hover:border-primary/30",
+                  "group flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-start transition-[transform,background-color,border-color,box-shadow,color] duration-150 ease-out active:scale-[0.97]",
+                  t.value === "PERSONAL" && "col-span-2",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.55)]"
+                    : "border-border/50 bg-card/90 text-foreground hover:border-primary/30 hover:bg-card",
                 )}
               >
                 <span
                   className={cn(
-                    "rounded-md px-1.5 py-0.5 text-micro font-bold",
-                    selected ? "bg-on-hero/15" : "bg-primary/10 text-primary",
+                    "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+                    on
+                      ? "bg-on-hero/15 text-on-hero"
+                      : "bg-muted/80 text-primary group-hover:bg-primary/10",
                   )}
                 >
-                  {t.mark}
+                  <Icon className="size-[1.125rem]" />
                 </span>
-                <span className="text-sm font-semibold leading-tight">
-                  {t.label}
-                </span>
-                <span
-                  className={cn(
-                    "text-caption leading-snug",
-                    selected ? "text-on-hero/70" : "text-muted-foreground",
-                  )}
-                >
-                  {t.hint}
+                <span className="min-w-0">
+                  <span className="block text-body-sm font-semibold leading-tight tracking-tight">
+                    {t.label}
+                  </span>
+                  <span
+                    className={cn(
+                      "mt-0.5 block truncate text-micro leading-none",
+                      on ? "text-on-hero/65" : "text-muted-foreground",
+                    )}
+                  >
+                    {t.hint}
+                  </span>
                 </span>
               </button>
             );
@@ -115,13 +242,11 @@ export function CreateSpaceForm({
       </div>
 
       <input type="hidden" name="currency" value={preferredCurrency} />
-      <p className="text-caption leading-relaxed text-muted-foreground">
+      <p className="-mt-0.5 text-micro leading-relaxed text-muted-foreground">
         واحد پول:{" "}
         <span className="font-medium text-foreground">
           {CURRENCY_LABELS[preferredCurrency as SpaceCurrency]}
         </span>
-        {" · "}
-        از تنظیمات قابل تغییر است
       </p>
 
       {error ? (
@@ -132,9 +257,9 @@ export function CreateSpaceForm({
 
       <Button
         type="submit"
-        className="h-12 w-full rounded-xl text-base font-semibold"
+        className="h-11 w-full rounded-2xl text-base font-semibold"
       >
-        ساخت فضا
+        ساخت «{selected.label}»
       </Button>
     </form>
   );

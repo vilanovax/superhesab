@@ -2,11 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { listSpaceDebts } from "@/app/actions/debt";
+import { getBuildingDashboard } from "@/app/actions/building";
+import { ensureRecurringExpenses } from "@/app/actions/recurring";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
+import { BuildingMonthHero } from "@/components/spaces/building-dashboard";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { SpaceTabs } from "@/components/spaces/space-tabs";
@@ -17,6 +20,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
 import { maybeCeilToThousand } from "@/lib/money";
 import { tehranMonthRange } from "@/lib/personal";
+import type { ExpenseCategory } from "@/lib/categorizer";
 import { getExpensesByCategory } from "@/lib/reports-server";
 import {
   getTemplate,
@@ -27,6 +31,7 @@ import type { ReactNode } from "react";
 
 type SpacePageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ year?: string; tab?: string }>;
 };
 
 function BackChevron({ className }: { className?: string }) {
@@ -88,8 +93,9 @@ function HeroStat({
   );
 }
 
-export default async function SpacePage({ params }: SpacePageProps) {
+export default async function SpacePage({ params, searchParams }: SpacePageProps) {
   const { id } = await params;
+  const { year: yearParam } = await searchParams;
   const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
 
@@ -109,12 +115,24 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const { features } = template;
   const monthRange = tehranMonthRange();
 
+  const yearOverrideRaw = Number.parseInt(String(yearParam ?? "").replace(/\D/g, ""), 10);
+  const yearOverride =
+    Number.isFinite(yearOverrideRaw) &&
+    yearOverrideRaw >= 1390 &&
+    yearOverrideRaw <= 1500
+      ? yearOverrideRaw
+      : undefined;
+
+  if (features.recurring) {
+    await ensureRecurringExpenses(id);
+  }
+
   const emptyBalances = {
     balances: {} as Record<string, number>,
     suggestions: [] as Awaited<ReturnType<typeof getSpaceBalances>>["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, debts] =
+  const [space, balanceData, checklist, monthRows, personalReportData, debts, categoryBudgetRows, buildingDashboard] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -176,6 +194,15 @@ export default async function SpacePage({ params }: SpacePageProps) {
         ? getExpensesByCategory(id, new Date())
         : Promise.resolve([]),
       features.debts ? listSpaceDebts(id) : Promise.resolve([]),
+      features.categoryBudgets
+        ? prisma.categoryBudget.findMany({
+            where: { spaceId: id },
+            select: { category: true, amount: true },
+          })
+        : Promise.resolve([]),
+      features.buildingCharges
+        ? getBuildingDashboard(id, yearOverride)
+        : Promise.resolve(null),
     ]);
 
   if (!space) {
@@ -186,6 +213,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const isPartner = space.type === "PARTNER";
   const isPersonalShell = features.solo;
   const isFamilyShell = features.householdLedger;
+  const isBuildingShell = features.buildingCharges;
   const showChecklist = features.checklist;
   const needsPartner = isPartner && space.members.length < 2;
   const partnerOnboarding =
@@ -260,10 +288,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
           </Link>
         </Button>
 
-        {isPersonalShell || isFamilyShell ? (
+        {isPersonalShell || isFamilyShell || isBuildingShell ? (
           <div className="ms-auto flex items-center gap-1.5">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
-              {isFamilyShell ? "خانواده" : "شخصی"}
+              {isBuildingShell
+                ? "ساختمان"
+                : isFamilyShell
+                  ? "خانواده"
+                  : "شخصی"}
             </span>
             <Button
               asChild
@@ -313,7 +345,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
       <header
         className={cn(
           "surface-hero animate-fade-up relative mb-4 overflow-hidden px-4",
-          isPersonalShell
+          isPersonalShell || isBuildingShell
             ? "rounded-[1.4rem] pb-4 pt-4 shadow-md"
             : "rounded-2xl pb-4 pt-4",
         )}
@@ -326,9 +358,34 @@ export default async function SpacePage({ params }: SpacePageProps) {
           aria-hidden
           className="pointer-events-none absolute -inset-e-8 -bottom-14 size-36 rounded-full bg-black/15 blur-2xl"
         />
+        {isBuildingShell ? (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 opacity-[0.12]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to left, transparent 0%, transparent 48%, rgba(255,255,255,0.35) 48%, rgba(255,255,255,0.35) 49%, transparent 49%), linear-gradient(to bottom, transparent 0%, transparent 48%, rgba(255,255,255,0.25) 48%, rgba(255,255,255,0.25) 49%, transparent 49%)",
+                backgroundSize: "28px 28px",
+              }}
+            />
+          </>
+        ) : null}
 
-        <div className={cn("relative", isPersonalShell ? "space-y-3.5" : "space-y-3.5")}>
-          {isPersonalShell ? (
+        <div className="relative space-y-3.5">
+          {isBuildingShell ? (
+            <BuildingMonthHero
+              spaceId={space.id}
+              spaceName={space.name}
+              memberCount={space.members.length}
+              expenseCount={space.expenses.length}
+              monthExpense={monthExpense}
+              dashboard={buildingDashboard}
+              currency={space.currency}
+              settingsHref={`/spaces/${space.id}/settings`}
+              isOwner={isOwner}
+            />
+          ) : isPersonalShell ? (
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 text-start">
                 <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-on-hero/50">
@@ -376,7 +433,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
             </div>
           )}
 
-          {!isPersonalShell && features.invites ? (
+          {!isPersonalShell && !isBuildingShell && features.invites ? (
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2 space-x-reverse">
                 {space.members.slice(0, 4).map((m) => (
@@ -411,7 +468,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
             </div>
           ) : null}
 
-          {isPersonalShell || isFamilyShell ? (
+          {isBuildingShell ? null : isPersonalShell || isFamilyShell ? (
             <PersonalMonthHero
               income={monthIncome}
               expenses={monthExpense}
@@ -543,6 +600,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
         }))}
         monthlyBudget={space.monthlyBudget}
         debts={debts}
+        categoryBudgets={Object.fromEntries(
+          categoryBudgetRows.map((r) => [
+            r.category as ExpenseCategory,
+            r.amount,
+          ]),
+        )}
+        buildingDashboard={buildingDashboard}
+        isOwner={isOwner}
       />
 
       {canWrite ? (

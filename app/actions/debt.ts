@@ -40,6 +40,8 @@ export type DebtDTO = {
   initialAmount: number;
   dueDate: string | null;
   status: DebtStatusValue;
+  createdById: string;
+  createdByName: string;
   paidTotal: number;
   remaining: number;
   progressPercent: number;
@@ -79,6 +81,8 @@ function toDebtDTO(row: {
   initialAmount: number;
   dueDate: Date | null;
   status: DebtStatusValue;
+  createdById: string;
+  createdBy: { name: string | null };
   payments: { id: string; amount: number; date: Date; note: string | null }[];
 }): DebtDTO {
   const paidTotal = debtPaidTotal(row.payments);
@@ -98,6 +102,8 @@ function toDebtDTO(row: {
       ? row.dueDate.toISOString().slice(0, 10)
       : null,
     status: row.status,
+    createdById: row.createdById,
+    createdByName: row.createdBy.name?.trim() || "عضو",
     paidTotal,
     remaining,
     progressPercent,
@@ -119,6 +125,7 @@ export async function listSpaceDebts(spaceId: string): Promise<DebtDTO[]> {
     where: { spaceId },
     include: {
       payments: { orderBy: { date: "desc" } },
+      createdBy: { select: { name: true } },
     },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
   });

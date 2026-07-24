@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/formatters";
 import {
   budgetRemaining,
   budgetUsedPercent,
+  paceVsBudget,
 } from "@/lib/personal";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +70,7 @@ export function PersonalMonthHero({
   const remaining = budgetRemaining(expenses, monthlyBudget);
   const overBudget = remaining != null && remaining < 0;
   const hasBudget = monthlyBudget != null && monthlyBudget > 0 && usedPct != null;
+  const pace = paceVsBudget(expenses, monthlyBudget);
   const unit = currencyLabel(currency);
 
   return (
@@ -150,6 +152,19 @@ export function PersonalMonthHero({
               </>
             )}
           </p>
+          {expenses > 0 ? (
+            <p
+              className={cn(
+                "mt-1.5 text-caption leading-relaxed",
+                pace.overBudget ? "text-rose-200/95" : "text-on-hero/60",
+              )}
+            >
+              با این آهنگ ≈ {formatMoney(pace.projected)} {unit} تا پایان ماه
+              {pace.overBudget && pace.overBy != null
+                ? ` · حدود ${formatMoney(pace.overBy)} بیش از سقف`
+                : ""}
+            </p>
+          ) : null}
         </div>
       ) : (
         <Link

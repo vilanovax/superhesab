@@ -19,7 +19,7 @@ const spaceCurrencySchema = z.enum([
 
 const createSpaceSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  type: z.enum(["TRIP", "PARTNER", "PERSONAL", "FAMILY"]),
+  type: z.enum(["TRIP", "PARTNER", "PERSONAL", "FAMILY", "BUILDING"]),
   currency: spaceCurrencySchema.optional(),
 });
 
@@ -33,6 +33,8 @@ const updateSpaceSchema = z.object({
   currency: spaceCurrencySchema,
   roundUpToThousand: z.boolean(),
   monthlyBudget: z.number().int().min(0).nullable().optional(),
+  /** Jalali year for BUILDING charge dashboard default */
+  defaultPlanYear: z.number().int().min(1390).max(1500).nullable().optional(),
 });
 
 export async function updateSpaceSettings(input: {
@@ -41,6 +43,7 @@ export async function updateSpaceSettings(input: {
   currency: SpaceCurrency;
   roundUpToThousand: boolean;
   monthlyBudget?: number | null;
+  defaultPlanYear?: number | null;
 }): Promise<SpaceActionResult> {
   const session = await requireUser();
   const parsed = updateSpaceSchema.safeParse(input);
@@ -66,19 +69,32 @@ export async function updateSpaceSettings(input: {
     select: { type: true },
   });
 
+  const features = getTemplate(space?.type ?? "TRIP").features;
+
   await prisma.space.update({
     where: { id: parsed.data.spaceId },
     data: {
       name: parsed.data.name,
       currency: parsed.data.currency,
       roundUpToThousand: parsed.data.roundUpToThousand,
-      ...(getTemplate(space?.type ?? "TRIP").features.budget
+      ...(features.budget
         ? {
             monthlyBudget:
               parsed.data.monthlyBudget === undefined
                 ? undefined
                 : parsed.data.monthlyBudget && parsed.data.monthlyBudget > 0
                   ? parsed.data.monthlyBudget
+                  : null,
+          }
+        : {}),
+      ...(features.buildingCharges
+        ? {
+            defaultPlanYear:
+              parsed.data.defaultPlanYear === undefined
+                ? undefined
+                : parsed.data.defaultPlanYear &&
+                    parsed.data.defaultPlanYear >= 1390
+                  ? parsed.data.defaultPlanYear
                   : null,
           }
         : {}),
@@ -104,6 +120,11 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
     budgetRaw === ""
       ? null
       : Number.parseInt(budgetRaw.replace(/\D/g, ""), 10);
+  const planYearRaw = String(formData.get("defaultPlanYear") ?? "").trim();
+  const defaultPlanYear =
+    planYearRaw === ""
+      ? null
+      : Number.parseInt(planYearRaw.replace(/\D/g, ""), 10);
   const result = await updateSpaceSettings({
     spaceId,
     name,
@@ -112,6 +133,10 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
     monthlyBudget:
       monthlyBudget != null && Number.isFinite(monthlyBudget)
         ? monthlyBudget
+        : null,
+    defaultPlanYear:
+      defaultPlanYear != null && Number.isFinite(defaultPlanYear)
+        ? defaultPlanYear
         : null,
   });
   if (!result.ok) {
@@ -175,4 +200,98 @@ export async function createSpaceAndRedirect(formData: FormData) {
     redirect(`/app?error=${encodeURIComponent(result.error)}`);
   }
   redirect(`/spaces/${result.spaceId}`);
+}
+
+export type SpaceLifecycleResult =
+  | { ok: true; spaceId: string; name: string }
+  | { ok: false; error: string };
+
+async function requireOwnerMembership(spaceId: string, userId: string) {
+  const membership = await prisma.spaceMember.findUnique({
+    where: { spaceId_userId: { spaceId, userId } },
+    include: {
+      space: {
+        select: { id: true, name: true, archivedAt: true, ownerId: true },
+      },
+    },
+  });
+  if (!membership || membership.role !== "OWNER") {
+    return null;
+  }
+  return membership;
+}
+
+/** Soft-archive: hide from home; space routes become inaccessible. */
+export async function archiveSpace(
+  spaceId: string,
+): Promise<SpaceLifecycleResult> {
+  const session = await requireUser();
+  const membership = await requireOwnerMembership(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "فقط مالک می‌تواند دفتر را آرشیو کند." };
+  }
+  if (membership.space.archivedAt) {
+    return { ok: false, error: "این دفتر از قبل آرشیو شده است." };
+  }
+
+  await prisma.space.update({
+    where: { id: spaceId },
+    data: { archivedAt: new Date() },
+  });
+
+  revalidatePath("/app");
+  revalidatePath("/app/archive");
+  revalidatePath(`/spaces/${spaceId}`);
+  return { ok: true, spaceId, name: membership.space.name };
+}
+
+/** Restore archived space back to the active list. */
+export async function restoreSpace(
+  spaceId: string,
+): Promise<SpaceLifecycleResult> {
+  const session = await requireUser();
+  const membership = await requireOwnerMembership(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "فقط مالک می‌تواند دفتر را از آرشیو برگرداند." };
+  }
+  if (!membership.space.archivedAt) {
+    return { ok: false, error: "این دفتر در آرشیو نیست." };
+  }
+
+  await prisma.space.update({
+    where: { id: spaceId },
+    data: { archivedAt: null },
+  });
+
+  revalidatePath("/app");
+  revalidatePath("/app/archive");
+  revalidatePath(`/spaces/${spaceId}`);
+  return { ok: true, spaceId, name: membership.space.name };
+}
+
+/**
+ * Permanent delete — only allowed after archive (safety gate).
+ * Cascades expenses / units / charges via Prisma relations.
+ */
+export async function permanentlyDeleteSpace(
+  spaceId: string,
+): Promise<SpaceLifecycleResult> {
+  const session = await requireUser();
+  const membership = await requireOwnerMembership(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "فقط مالک می‌تواند دفتر را حذف کند." };
+  }
+  if (!membership.space.archivedAt) {
+    return {
+      ok: false,
+      error: "برای امنیت بیشتر، اول دفتر را آرشیو کنید؛ حذف فقط از صفحه آرشیو ممکن است.",
+    };
+  }
+
+  const name = membership.space.name;
+  await prisma.space.delete({ where: { id: spaceId } });
+
+  revalidatePath("/app");
+  revalidatePath("/app/archive");
+  return { ok: true, spaceId, name };
 }

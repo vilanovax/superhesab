@@ -12,7 +12,7 @@ import {
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useAppSettingsStore((s) => s.theme);
-  const accent = useAppSettingsStore((s) => s.accent) ?? "teal";
+  const accent = useAppSettingsStore((s) => s.accent) ?? "ocean";
 
   useEffect(() => {
     applyDocumentTheme(theme);

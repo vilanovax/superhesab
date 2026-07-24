@@ -31,6 +31,7 @@ export async function getInviteSpace(spaceId: string) {
       name: true,
       type: true,
       currency: true,
+      archivedAt: true,
       _count: { select: { members: true } },
     },
   });
@@ -44,11 +45,15 @@ export async function joinSpace(
 
   const space = await prisma.space.findUnique({
     where: { id: spaceId },
-    select: { id: true, type: true },
+    select: { id: true, type: true, archivedAt: true },
   });
 
   if (!space) {
     return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  if (space.archivedAt) {
+    return { ok: false, error: "این دفتر آرشیو شده و دعوت‌پذیر نیست." };
   }
 
   const template = getTemplate(space.type);

@@ -20,19 +20,33 @@ export async function requireUser() {
   return session;
 }
 
-export async function requireSpaceMember(spaceId: string, userId: string) {
+export async function requireSpaceMember(
+  spaceId: string,
+  userId: string,
+  opts?: { allowArchived?: boolean },
+) {
   const membership = await prisma.spaceMember.findUnique({
     where: {
       spaceId_userId: { spaceId, userId },
     },
     include: {
       space: {
-        select: { id: true, name: true, type: true, ownerId: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          ownerId: true,
+          archivedAt: true,
+        },
       },
     },
   });
 
   if (!membership) {
+    return null;
+  }
+
+  if (membership.space.archivedAt && !opts?.allowArchived) {
     return null;
   }
 

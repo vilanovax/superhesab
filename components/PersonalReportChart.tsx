@@ -11,6 +11,8 @@ import {
   categoryChartLabel,
   type CategoryExpenseRow,
 } from "@/lib/reports";
+import { categoryBudgetProgress } from "@/lib/personal";
+import { cn } from "@/lib/utils";
 import {
   ChartContainer,
   ChartTooltip,
@@ -22,6 +24,8 @@ import { Label, Pie, PieChart, Cell } from "recharts";
 type PersonalReportChartProps = {
   data: CategoryExpenseRow[];
   currency?: SpaceCurrency;
+  /** Cap per ExpenseCategory (builtin only). */
+  categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
 };
 
 function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
@@ -50,6 +54,7 @@ function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
 export function PersonalReportChart({
   data,
   currency = "TOMAN",
+  categoryBudgets,
 }: PersonalReportChartProps) {
   const total = data.reduce((sum, row) => sum + row.amount, 0);
 
@@ -197,25 +202,62 @@ export function PersonalReportChart({
             CATEGORY_CHART_COLORS[row.category] ??
             "#64748b";
           const isCustom = row.key.startsWith("custom-");
+          const cap =
+            !isCustom && categoryBudgets
+              ? categoryBudgets[row.category]
+              : undefined;
+          const progress =
+            cap != null && cap > 0
+              ? categoryBudgetProgress(row.amount, cap)
+              : null;
           return (
             <li
               key={row.key}
-              className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-2.5 py-2 text-body-sm"
+              className="rounded-xl bg-muted/40 px-2.5 py-2 text-body-sm"
             >
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: color as string }}
-                aria-hidden
-              />
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                {isCustom ? "🏷️" : CATEGORY_EMOJI[row.category]} {row.label}
-              </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {pct}%
-              </span>
-              <span className="shrink-0 tabular-nums font-semibold text-foreground">
-                {formatCurrency(row.amount, currency)}
-              </span>
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: color as string }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {isCustom ? "🏷️" : CATEGORY_EMOJI[row.category]} {row.label}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {pct}%
+                </span>
+                <span className="shrink-0 tabular-nums font-semibold text-foreground">
+                  {formatCurrency(row.amount, currency)}
+                </span>
+              </div>
+              {progress ? (
+                <div className="mt-2 ps-5">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-[width]",
+                        progress.over ? "bg-destructive" : "bg-primary",
+                      )}
+                      style={{
+                        width: `${Math.min(100, progress.percent)}%`,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-1 text-micro",
+                      progress.over
+                        ? "text-destructive"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {progress.over
+                      ? `${formatCurrency(Math.abs(progress.remaining), currency)} بیش از سقف ${formatCurrency(cap!, currency)}`
+                      : `${formatCurrency(progress.remaining, currency)} باقی از ${formatCurrency(cap!, currency)} · ${progress.percent}٪`}
+                  </p>
+                </div>
+              ) : null}
             </li>
           );
         })}

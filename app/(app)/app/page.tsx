@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { listDueSoonDebtsForUser } from "@/app/actions/debt";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
+import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireUser } from "@/lib/auth/guards";
@@ -53,6 +54,14 @@ function Chevron({ className }: { className?: string }) {
   );
 }
 
+const HERO_CHIPS = [
+  "سفر",
+  "مشترک",
+  "خانواده",
+  "ساختمان",
+  "شخصی",
+] as const;
+
 export default async function AppHomePage({
   searchParams,
 }: {
@@ -67,12 +76,14 @@ export default async function AppHomePage({
   });
 
   if (!user) {
-    // requireUser already clears stale sessions; belt-and-suspenders
     redirect("/login");
   }
 
   const memberships = await prisma.spaceMember.findMany({
-    where: { userId: session.userId },
+    where: {
+      userId: session.userId,
+      space: { archivedAt: null },
+    },
     include: {
       space: {
         select: {
@@ -87,6 +98,13 @@ export default async function AppHomePage({
     orderBy: { createdAt: "desc" },
   });
 
+  const archivedCount = await prisma.spaceMember.count({
+    where: {
+      userId: session.userId,
+      space: { archivedAt: { not: null } },
+    },
+  });
+
   const dueSoonDebts = await listDueSoonDebtsForUser(session.userId);
 
   const displayName = user.name?.trim() || user.phone;
@@ -98,8 +116,8 @@ export default async function AppHomePage({
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
-      {/* Slim identity bar */}
-      <div className="mb-3 flex items-center gap-2.5">
+      {/* Identity */}
+      <div className="mb-4 flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={
@@ -107,23 +125,23 @@ export default async function AppHomePage({
             `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(user.phone)}`
           }
           alt=""
-          width={36}
-          height={36}
-          className="size-9 rounded-full ring-2 ring-white/80"
+          width={40}
+          height={40}
+          className="size-10 rounded-full ring-2 ring-white/90 shadow-sm"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-body-sm font-semibold text-foreground">
+          <p className="truncate text-body font-semibold tracking-tight text-foreground">
             سلام، {displayName}
           </p>
           <p className="text-caption text-muted-foreground">
-            {spaceCount === 0 ? "دفترت خالی است" : `${spaceCount} دفتر فعال`}
+            {spaceCount === 0 ? "اولین دفترت را بساز" : `${spaceCount} دفتر فعال`}
           </p>
         </div>
         <Button
           asChild
           variant="outline"
           size="icon"
-          className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+          className="size-10 shrink-0 rounded-2xl border-border/60 bg-card shadow-sm"
           aria-label="تنظیمات اپ"
         >
           <Link href="/app/settings">
@@ -166,50 +184,62 @@ export default async function AppHomePage({
         </div>
       ) : null}
 
-      {/* Full-bleed brand thesis — not a form */}
-      <header className="surface-hero animate-fade-up relative mb-6 overflow-hidden rounded-[1.35rem] px-5 pb-5 pt-6">
+      {/* Brand hero — سوپرحساب */}
+      <header className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-[1.5rem] px-5 pb-4 pt-5 shadow-md">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-30"
+          className="pointer-events-none absolute inset-0 opacity-[0.22]"
           style={{
             backgroundImage:
-              "linear-gradient(var(--on-hero-soft) 1px, transparent 1px), linear-gradient(90deg, var(--on-hero-soft) 1px, transparent 1px)",
-            backgroundSize: "22px 22px",
+              "radial-gradient(circle at 1px 1px, var(--on-hero-soft) 1px, transparent 0)",
+            backgroundSize: "18px 18px",
             maskImage:
-              "radial-gradient(ellipse at 70% 20%, black 20%, transparent 70%)",
+              "radial-gradient(ellipse at 80% 0%, black 15%, transparent 65%)",
           }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-e-10 -top-16 size-44 rounded-full bg-on-hero/10 blur-3xl"
+          className="pointer-events-none absolute -end-8 -top-14 size-40 rounded-full bg-on-hero/15 blur-3xl"
         />
-        <div className="relative space-y-4">
-          <div className="space-y-1.5">
-            <p className="text-caption font-medium tracking-[0.14em] text-on-hero/55">
-              دفتر سفر
-            </p>
-            <h1 className="text-display font-bold tracking-tight text-on-hero">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -start-12 bottom-[-2rem] size-36 rounded-full bg-highlight/25 blur-3xl"
+        />
+
+        <div className="relative">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-on-hero/12 px-2.5 py-1 text-micro font-semibold tracking-wide text-on-hero/80 ring-1 ring-on-hero/15">
+              <span
+                className="size-1.5 rounded-full bg-highlight"
+                aria-hidden
+              />
+              حساب‌وکتاب مشترک
+            </span>
+            <span className="text-micro font-medium tracking-[0.12em] text-on-hero/45">
               SuperHesab
-            </h1>
-            <p className="max-w-[17rem] text-body-sm leading-relaxed text-on-hero/78">
-              خرج‌ها را با هم ثبت کن؛ تراز و تسویه خودش سر جایش می‌نشیند.
-            </p>
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
-              سفر
-            </span>
-            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
-              دورهمی
-            </span>
-            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
-              دونفره
-            </span>
+
+          <h1 className="text-[2.15rem] font-bold leading-none tracking-tight text-on-hero sm:text-display">
+            سوپرحساب
+          </h1>
+          <p className="mt-2.5 max-w-[18rem] text-body-sm leading-relaxed text-on-hero/75">
+            خرج‌ها را ثبت کن؛ تراز و تسویه خودش جور می‌شود.
+          </p>
+
+          <div className="mt-4 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {HERO_CHIPS.map((chip) => (
+              <span
+                key={chip}
+                className="shrink-0 rounded-lg bg-on-hero/10 px-2.5 py-1 text-caption font-medium text-on-hero/85 ring-1 ring-on-hero/10"
+              >
+                {chip}
+              </span>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Spaces list is the product */}
       <section className="flex min-h-0 flex-1 flex-col">
         <div className="mb-3 flex items-end justify-between gap-2">
           <div>
@@ -217,8 +247,22 @@ export default async function AppHomePage({
               فضاهای من
             </h2>
             <p className="mt-0.5 text-caption text-muted-foreground">
-              دفاتر مشترک حساب‌وکتاب
+              دفاتر فعال حساب‌وکتاب
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/app/archive"
+              className="rounded-lg bg-muted/80 px-2.5 py-1 text-micro font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
+            >
+              آرشیو
+              {archivedCount > 0 ? ` (${archivedCount})` : ""}
+            </Link>
+            {spaceCount > 0 ? (
+              <span className="rounded-lg bg-secondary px-2 py-1 text-micro font-semibold tabular-nums text-secondary-foreground">
+                {spaceCount}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -231,7 +275,7 @@ export default async function AppHomePage({
             actionNode={<HomeEmptyActions error={error} />}
           />
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="space-y-2">
             {memberships.map(({ space, role }, index) => {
               const template = getTemplate(space.type);
               const mark =
@@ -241,7 +285,9 @@ export default async function AppHomePage({
                     ? "۲نفر"
                     : space.type === "FAMILY"
                       ? "خانه"
-                      : "من";
+                      : space.type === "BUILDING"
+                        ? "برج"
+                        : "من";
               const accent =
                 space.type === "TRIP"
                   ? "bg-primary"
@@ -249,7 +295,9 @@ export default async function AppHomePage({
                     ? "bg-highlight"
                     : space.type === "FAMILY"
                       ? "bg-ink"
-                      : "bg-success";
+                      : space.type === "BUILDING"
+                        ? "bg-primary"
+                        : "bg-success";
               const chip =
                 space.type === "TRIP"
                   ? "bg-secondary text-primary"
@@ -257,55 +305,66 @@ export default async function AppHomePage({
                     ? "bg-accent text-ink"
                     : space.type === "FAMILY"
                       ? "bg-secondary text-primary"
-                      : "bg-success-soft text-success";
+                      : space.type === "BUILDING"
+                        ? "bg-muted text-foreground"
+                        : "bg-success-soft text-success";
               return (
                 <li
                   key={space.id}
                   className="animate-fade-up"
                   style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
                 >
-                  <Link
-                    href={`/spaces/${space.id}`}
+                  <div
                     className={cn(
-                      "group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/55 bg-card px-3.5 py-3.5",
-                      "transition-[transform,box-shadow,border-color] duration-150 ease-out",
+                      "group relative flex items-center gap-2 overflow-hidden rounded-2xl border border-border/50 bg-card pe-2 ps-3.5 py-3",
+                      "transition-[box-shadow,border-color] duration-150 ease-out",
                       "hover:border-primary/25 hover:shadow-md",
-                      "active:scale-[0.985]",
                     )}
                   >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "absolute inset-y-3 start-0 w-[3px] rounded-full",
-                        accent,
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "flex size-12 shrink-0 flex-col items-center justify-center rounded-2xl text-caption font-bold leading-tight",
-                        chip,
-                      )}
+                    <Link
+                      href={`/spaces/${space.id}`}
+                      className="flex min-w-0 flex-1 items-center gap-3 active:opacity-90"
                     >
-                      {mark}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-body font-semibold text-foreground">
-                        {space.name}
-                      </p>
-                      <p className="mt-1 text-caption text-muted-foreground">
-                        {template.label}
-                        <span className="mx-1.5 text-border">·</span>
-                        {roleLabel(role)}
-                        <span className="mx-1.5 text-border">·</span>
-                        {space._count.members} عضو
-                        <span className="mx-1.5 text-border">·</span>
-                        {space._count.expenses} هزینه
-                      </p>
-                    </div>
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                      <Chevron className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
-                    </span>
-                  </Link>
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute inset-y-3 start-0 w-[3px] rounded-full",
+                          accent,
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "flex size-11 shrink-0 flex-col items-center justify-center rounded-2xl text-caption font-bold leading-tight",
+                          chip,
+                        )}
+                      >
+                        {mark}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-body font-semibold text-foreground">
+                          {space.name}
+                        </p>
+                        <p className="mt-0.5 text-caption text-muted-foreground">
+                          {template.label}
+                          <span className="mx-1.5 text-border">·</span>
+                          {roleLabel(role)}
+                          <span className="mx-1.5 text-border">·</span>
+                          {space._count.members} عضو
+                          <span className="mx-1.5 text-border">·</span>
+                          {space._count.expenses} هزینه
+                        </p>
+                      </div>
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                        <Chevron className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
+                      </span>
+                    </Link>
+                    {role === "OWNER" ? (
+                      <SpaceArchiveButton
+                        spaceId={space.id}
+                        spaceName={space.name}
+                      />
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
@@ -313,9 +372,9 @@ export default async function AppHomePage({
         )}
       </section>
 
-      {/* Create CTA — fixed, not a form block on the page */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="pointer-events-auto w-full max-w-lg">
+      {/* Circular FAB — create space */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-auto">
           <CreateSpaceSheet error={error} layout="fab" />
         </div>
       </div>

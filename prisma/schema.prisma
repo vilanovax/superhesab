@@ -17,6 +17,7 @@ enum SpaceType {
   PARTNER
   PERSONAL
   FAMILY
+  BUILDING
 }
 
 enum TransactionType {
@@ -77,6 +78,8 @@ model User {
   settlementsTo    Settlement[]    @relation("SettlementTo")
   debtsCreated     Debt[]          @relation("DebtCreatedBy")
   debtPayments     DebtPayment[]   @relation("DebtPaymentCreatedBy")
+  recurringRules   RecurringRule[] @relation("RecurringRuleCreatedBy")
+  chargePayments   ChargePayment[] @relation("ChargePaymentCreatedBy")
 
   @@index([phone])
   @@index([email])
@@ -92,19 +95,28 @@ model Space {
   roundUpToThousand  Boolean       @default(false)
   /// Monthly spend target (PERSONAL). Null = no budget tracking.
   monthlyBudget      Int?
+  /// When set, space is hidden from home and blocked until restored or permanently deleted.
+  archivedAt         DateTime?
+  /// BUILDING: preferred Jalali plan year (e.g. 1405). Null = current Jalali year.
+  defaultPlanYear    Int?
   ownerId            String
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  owner        User            @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner        User             @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      SpaceMember[]
   expenses     Expense[]
   settlements  Settlement[]
   checklist    ChecklistItem[]
   debts        Debt[]
+  categoryBudgets CategoryBudget[]
+  recurringRules  RecurringRule[]
+  units           Unit[]
+  chargePlans     ChargePlan[]
 
   @@index([ownerId])
   @@index([type])
+  @@index([archivedAt])
 }
 
 model SpaceMember {
@@ -152,6 +164,7 @@ model Expense {
   createdBy User?          @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?          @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   splits    ExpenseSplit[]
+  recurringOccurrence RecurringOccurrence?
 
   @@index([spaceId])
   @@index([paidById])
@@ -266,4 +279,133 @@ model DebtPayment {
   @@index([debtId])
   @@index([createdById])
   @@index([date])
+}
+
+/// PERSONAL depth: per-category monthly spend caps (see personal-depth-prd).
+model CategoryBudget {
+  id        String          @id @default(cuid())
+  spaceId   String
+  category  ExpenseCategory
+  /// Monthly cap in smallest currency unit
+  amount    Int
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, category])
+  @@index([spaceId])
+}
+
+/// PERSONAL depth: monthly recurring → Expense on space open.
+model RecurringRule {
+  id              String          @id @default(cuid())
+  spaceId         String
+  title           String
+  /// Amount in smallest currency unit
+  amount          Int
+  transactionType TransactionType @default(EXPENSE)
+  category        ExpenseCategory @default(OTHER)
+  /// Day of Tehran month to fire (1–28)
+  dayOfMonth      Int
+  active          Boolean         @default(true)
+  createdById     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  space        Space                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy    User                  @relation("RecurringRuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  occurrences  RecurringOccurrence[]
+
+  @@index([spaceId])
+  @@index([spaceId, active])
+  @@index([createdById])
+}
+
+model RecurringOccurrence {
+  id        String   @id @default(cuid())
+  ruleId    String
+  /// Tehran calendar month key yyyy-mm
+  monthKey  String
+  expenseId String   @unique
+  createdAt DateTime @default(now())
+
+  rule    RecurringRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  expense Expense       @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, monthKey])
+  @@index([ruleId])
+  @@index([monthKey])
+}
+
+/// Building charge payment status (see building-template-prd).
+enum ChargeStatus {
+  DUE
+  PARTIAL
+  PAID
+  WAIVED
+}
+
+/// BUILDING: apartment / unit under a space (additive; not a User).
+model Unit {
+  id         String   @id @default(cuid())
+  spaceId    String
+  /// Display name / unit number (e.g. "۱۲")
+  name       String
+  /// Optional area in whole square meters
+  area       Int?
+  /// Charge coefficient in thousandths (1000 = 1.0×). Never Float.
+  multiplier Int      @default(1000)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  space    Space           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  payments ChargePayment[]
+
+  @@index([spaceId])
+  @@index([spaceId, isActive])
+}
+
+/// BUILDING: annual base charge plan for a space.
+model ChargePlan {
+  id         String   @id @default(cuid())
+  spaceId    String
+  /// Jalali year used as plan key (e.g. 1405)
+  year       Int
+  /// Monthly base charge in smallest currency unit
+  baseCharge Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, year])
+  @@index([spaceId])
+}
+
+/// BUILDING: one recorded charge outcome per unit × year × month (no pre-allocation).
+model ChargePayment {
+  id          String       @id @default(cuid())
+  unitId      String
+  year        Int
+  /// Calendar month 1–12
+  month       Int
+  /// Amount received / credited in smallest currency unit
+  amount      Int
+  status      ChargeStatus @default(PAID)
+  date        DateTime     @default(now())
+  note        String?
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  unit      Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdBy User @relation("ChargePaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([unitId, year, month])
+  @@index([unitId])
+  @@index([year, month])
+  @@index([status])
+  @@index([createdById])
 }

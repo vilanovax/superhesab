@@ -194,7 +194,10 @@ export async function addExpense(
     { ...input, paidById },
     {
       forcePersonalUserId: features.solo ? session.userId : undefined,
-      householdPaidById: features.householdLedger ? paidById : undefined,
+      householdPaidById:
+        features.householdLedger || features.buildingCharges
+          ? paidById
+          : undefined,
     },
   );
   if (!resolved.ok) return resolved;
@@ -318,7 +321,10 @@ export async function updateExpense(
     { ...input, paidById },
     {
       forcePersonalUserId: features.solo ? session.userId : undefined,
-      householdPaidById: features.householdLedger ? paidById : undefined,
+      householdPaidById:
+        features.householdLedger || features.buildingCharges
+          ? paidById
+          : undefined,
     },
   );
   if (!resolved.ok) return resolved;

@@ -62,23 +62,31 @@ function CreateTrigger({
   return (
     <Button
       type="button"
+      size={isFab ? "icon" : "default"}
+      aria-label="فضای جدید"
       className={cn(
         isFab
-          ? "h-12 w-full gap-2 rounded-2xl text-sm font-semibold shadow-fab"
-          : "h-10 shrink-0 gap-1.5 rounded-xl bg-card px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-card/90",
+          ? [
+              "size-14 min-h-14 rounded-full shadow-fab",
+              "bg-primary text-primary-foreground",
+              "transition-transform duration-150 ease-out hover:scale-105 active:scale-95",
+              "ring-4 ring-background/80",
+            ]
+          : "h-10 min-h-10 shrink-0 gap-1.5 rounded-xl bg-card px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-card/90",
         className,
       )}
       {...props}
     >
-      <span
-        className={cn(
-          "flex items-center justify-center rounded-md",
-          isFab ? "size-6 bg-on-hero/15" : "size-5",
-        )}
-      >
-        <PlusIcon className="size-4" />
-      </span>
-      فضای جدید
+      {isFab ? (
+        <PlusIcon className="size-6" />
+      ) : (
+        <>
+          <span className="flex size-5 items-center justify-center">
+            <PlusIcon className="size-4" />
+          </span>
+          فضای جدید
+        </>
+      )}
     </Button>
   );
 }
@@ -91,16 +99,26 @@ function SheetBody({
   initialType?: SpaceType;
 }) {
   return (
-    <>
-      <div className="surface-hero shrink-0 px-5 pb-4 pt-2 md:pt-5">
-        <div className="space-y-1 text-start">
-          <h2 className="text-xl font-bold text-on-hero">فضای جدید</h2>
-          <p className="text-sm text-on-hero/75">
-            سفر، مشترک، خانواده یا شخصی
+    <div className="flex max-h-[min(82dvh,560px)] flex-col">
+      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-3.5 pt-1.5 md:pt-3">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -end-8 -top-10 size-32 rounded-full bg-on-hero/10 blur-2xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -start-10 bottom-0 size-24 rounded-full bg-on-hero/5 blur-xl"
+        />
+        <div className="relative space-y-0.5 text-start">
+          <h2 className="text-lg font-bold tracking-tight text-on-hero">
+            فضای جدید
+          </h2>
+          <p className="text-caption text-on-hero/70">
+            نام بگذار، قالب را بزن، بساز
           </p>
         </div>
       </div>
-      <div className="surface-sheet-canvas overflow-y-auto overscroll-contain px-5 py-5 pb-10">
+      <div className="surface-sheet-canvas min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <CreateSpaceForm
           key={initialType ?? "default"}
           error={error}
@@ -108,7 +126,7 @@ function SheetBody({
           initialType={initialType}
         />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -172,11 +190,11 @@ export function CreateSpaceSheet({
           <CreateTrigger layout={layout} />
         </DrawerTrigger>
       ) : null}
-      <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <DrawerContent className="mt-0! max-h-[min(82dvh,560px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <DrawerHeader className="sr-only">
           <DrawerTitle>فضای جدید</DrawerTitle>
           <DrawerDescription>
-            یک دفتر مشترک برای سفر، دورهمی یا دونفره
+            انتخاب قالب و ساخت فضای حساب‌وکتاب
           </DrawerDescription>
         </DrawerHeader>
         <SheetBody error={error} initialType={initialType} />

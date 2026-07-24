@@ -225,7 +225,8 @@ export function ExpenseForm({
   const showIncomeExpense = features.incomeExpense;
   const showManualSplits = features.manualSplits;
   const isSoloLedger = features.solo;
-  const isHouseholdLedger = features.householdLedger;
+  const isHouseholdLedger =
+    features.householdLedger || features.buildingCharges;
   const isPartnerEqual = spaceType === "PARTNER";
   const hideSplits = !showManualSplits;
   const showPaidByPicker = !hideSplits || isHouseholdLedger;

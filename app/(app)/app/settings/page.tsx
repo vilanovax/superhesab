@@ -26,37 +26,32 @@ export default async function AppSettingsPage() {
           asChild
           variant="outline"
           size="sm"
-          className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
+          className="h-9 gap-1 rounded-xl border-border/60 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
         >
           <Link href="/app">← بازگشت</Link>
         </Button>
-        <span className="ms-auto truncate rounded-lg bg-ink px-2.5 py-1.5 text-caption font-medium text-primary-foreground">
-          تنظیمات اپ
-        </span>
       </div>
 
-      <header className="surface-hero animate-fade-up relative mb-3 overflow-hidden rounded-[1.35rem] px-4 py-3.5 shadow-md">
+      <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-[1.35rem] px-4 py-4 shadow-md">
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-s-8 -top-10 size-28 rounded-full bg-on-hero-soft blur-2xl"
+          className="pointer-events-none absolute -end-8 -top-10 size-28 rounded-full bg-on-hero/15 blur-2xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-e-6 -bottom-12 size-32 rounded-full bg-black/20 blur-2xl"
+          className="pointer-events-none absolute -start-10 bottom-[-2rem] size-24 rounded-full bg-black/15 blur-2xl"
         />
         <div className="relative flex items-center gap-3">
           <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-on-hero/15 text-title font-bold text-on-hero ring-1 ring-on-hero/20"
+            className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-on-hero/15 text-lg font-bold text-on-hero ring-1 ring-on-hero/20"
             aria-hidden
           >
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-caption font-medium tracking-wide text-on-hero/65">
-              SuperHesab
-            </p>
-            <h1 className="truncate text-title font-bold tracking-tight text-on-hero">
-              تنظیمات کلی
+            <p className="text-caption font-medium text-on-hero/65">سوپرحساب</p>
+            <h1 className="truncate text-lg font-bold tracking-tight text-on-hero">
+              تنظیمات
             </h1>
             <p className="mt-0.5 truncate text-caption text-on-hero/70">
               {displayName}

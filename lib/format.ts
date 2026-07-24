@@ -67,7 +67,18 @@ export function parseMoneyInput(input: string): number {
 
 export function formatDateFa(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("fa-IR", {
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Tehran",
+  }).format(d);
+}
+
+/** Short Shamsi date (e.g. ۲ مرداد ۱۴۰۵). */
+export function formatDateFaShort(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
     year: "numeric",
     month: "short",
     day: "numeric",

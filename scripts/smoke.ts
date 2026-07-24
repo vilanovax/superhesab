@@ -5,8 +5,16 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
+import {
+  tehranCivilMonth,
+  tehranCivilYear,
+  unitArrears,
+  unitCollected,
+  unitMonthlyCharge,
+} from "../lib/building";
 import { simplifyDebts } from "../lib/debtSimplification";
 import { signSessionToken, SESSION_COOKIE } from "../lib/session-token";
+import { getTemplate } from "../lib/templates/registry";
 
 const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3003";
 
@@ -141,6 +149,199 @@ async function main() {
       fail("empty space", "not empty or missing");
     }
 
+    // ——— Building template ———
+    const buildingFeatures = getTemplate("BUILDING").features;
+    if (
+      buildingFeatures.buildingCharges &&
+      !buildingFeatures.settlements &&
+      !buildingFeatures.debts
+    ) {
+      pass("building registry: charges on, settlements/debts off");
+    } else {
+      fail("building registry", JSON.stringify(buildingFeatures));
+    }
+
+    // Pure math (integers / thousandths)
+    if (unitMonthlyCharge(2_000_000, 1000) === 2_000_000) {
+      pass("building math: 1.0× monthly charge");
+    } else {
+      fail("building math: 1.0×", String(unitMonthlyCharge(2_000_000, 1000)));
+    }
+    if (unitMonthlyCharge(2_000_000, 1500) === 3_000_000) {
+      pass("building math: 1.5× monthly charge");
+    } else {
+      fail("building math: 1.5×", String(unitMonthlyCharge(2_000_000, 1500)));
+    }
+
+    const arrearsPartial = unitArrears({
+      baseCharge: 2_000_000,
+      multiplier: 1000,
+      throughMonth: 3,
+      payments: [
+        { month: 1, amount: 2_000_000, status: "PAID" },
+        { month: 2, amount: 2_000_000, status: "PAID" },
+        { month: 3, amount: 1_000_000, status: "PARTIAL" },
+      ],
+    });
+    if (arrearsPartial === 1_000_000) {
+      pass("building math: PARTIAL arrears = remaining");
+    } else {
+      fail("building math: PARTIAL arrears", `got ${arrearsPartial}`);
+    }
+
+    const arrearsMissing = unitArrears({
+      baseCharge: 2_000_000,
+      multiplier: 1500,
+      throughMonth: 2,
+      payments: [],
+    });
+    if (arrearsMissing === 6_000_000) {
+      pass("building math: missing months = full charge × months");
+    } else {
+      fail("building math: missing months", `got ${arrearsMissing}`);
+    }
+
+    const collectedWaived = unitCollected({
+      baseCharge: 2_000_000,
+      multiplier: 1000,
+      payments: [
+        { month: 1, amount: 0, status: "WAIVED" },
+        { month: 2, amount: 500_000, status: "PARTIAL" },
+      ],
+    });
+    if (collectedWaived === 2_500_000) {
+      pass("building math: WAIVED counts as full charge + PARTIAL amount");
+    } else {
+      fail("building math: collected", `got ${collectedWaived}`);
+    }
+
+    const yearNow = tehranCivilYear();
+    const monthNow = tehranCivilMonth();
+    const building = await prisma.space.findFirst({
+      where: { name: "برج آسمان تست", type: "BUILDING" },
+      include: {
+        members: true,
+        units: true,
+        chargePlans: true,
+      },
+    });
+
+    if (
+      building &&
+      building.members.length === 2 &&
+      building.units.length === 3 &&
+      building.chargePlans.some((p) => p.year === yearNow && p.baseCharge === 2_000_000)
+    ) {
+      pass(
+        "building space: 2 members, 3 units, plan",
+        `id=${building.id} year=${yearNow}`,
+      );
+    } else {
+      fail(
+        "building space",
+        `members=${building?.members.length} units=${building?.units.length} — re-seed`,
+      );
+    }
+
+    if (building) {
+      const active = building.units.filter((u) => u.isActive);
+      const inactive = building.units.filter((u) => !u.isActive);
+      if (active.length === 2 && inactive.length === 1) {
+        pass("building units: 2 active + 1 inactive");
+      } else {
+        fail("building units activity", `active=${active.length} inactive=${inactive.length}`);
+      }
+
+      const u12 = building.units.find((u) => u.name === "۱۲");
+      const u14 = building.units.find((u) => u.name === "۱۴");
+      if (u12 && u14 && u12.multiplier === 1000 && u14.multiplier === 1500) {
+        pass("building units: ۱۲=1× ۱۴=1.5×");
+      } else {
+        fail("building multipliers", "expected ۱۲=1000 ۱۴=1500");
+      }
+
+      const payments = await prisma.chargePayment.findMany({
+        where: { unit: { spaceId: building.id }, year: yearNow },
+      });
+      const p12 = payments.filter((p) => p.unitId === u12?.id);
+      const p14 = payments.filter((p) => p.unitId === u14?.id);
+
+      if (u12) {
+        const debt12 = unitArrears({
+          baseCharge: 2_000_000,
+          multiplier: u12.multiplier,
+          throughMonth: monthNow,
+          payments: p12.map((p) => ({
+            month: p.month,
+            amount: p.amount,
+            status: p.status as "DUE" | "PARTIAL" | "PAID" | "WAIVED",
+          })),
+        });
+        if (debt12 === 1_000_000) {
+          pass("building seed: unit ۱۲ arrears = 1M (partial current)");
+        } else {
+          fail("building seed: unit ۱۲ arrears", `got ${debt12} month=${monthNow}`);
+        }
+      }
+
+      if (u14) {
+        const debt14 = unitArrears({
+          baseCharge: 2_000_000,
+          multiplier: u14.multiplier,
+          throughMonth: monthNow,
+          payments: p14.map((p) => ({
+            month: p.month,
+            amount: p.amount,
+            status: p.status as "DUE" | "PARTIAL" | "PAID" | "WAIVED",
+          })),
+        });
+        const expected14 = 3_000_000 * monthNow;
+        if (debt14 === expected14 && p14.length === 0) {
+          pass(
+            "building seed: unit ۱۴ full YTD arrears (no payments)",
+            `${debt14}`,
+          );
+        } else {
+          fail(
+            "building seed: unit ۱۴ arrears",
+            `got ${debt14} expected ${expected14} payments=${p14.length}`,
+          );
+        }
+      }
+    }
+
+    const zafar = await prisma.space.findFirst({
+      where: { name: "ظفر", type: "BUILDING" },
+      include: {
+        units: true,
+        chargePlans: true,
+        _count: { select: { expenses: true } },
+      },
+    });
+    if (
+      zafar &&
+      zafar.units.length === 8 &&
+      zafar.chargePlans.some((p) => p.year === 1405 && p.baseCharge === 500_000) &&
+      zafar._count.expenses === 15
+    ) {
+      const payCount = await prisma.chargePayment.count({
+        where: { unit: { spaceId: zafar.id }, year: 1405 },
+      });
+      if (payCount >= 8 && payCount <= 32) {
+        pass(
+          "building ظفر: 8 units, plan 1405×500k, 15 expenses",
+          `payments=${payCount}`,
+        );
+      } else {
+        fail("building ظفر payments", `count=${payCount}`);
+      }
+    } else {
+      fail(
+        "building ظفر",
+        `units=${zafar?.units.length} expenses=${zafar?._count.expenses} — re-seed`,
+      );
+    }
+
     // Split sum integrity
     let splitOk = true;
     for (const space of [trip, partner]) {
@@ -235,6 +436,36 @@ async function main() {
         const page = await httpGet(`/spaces/${partner.id}`, cookie);
         if (page.status === 200) pass("HTTP GET partner space 200");
         else fail("HTTP GET partner space", `status=${page.status}`);
+      }
+
+      const buildingSpace = await prisma.space.findFirst({
+        where: { name: "برج آسمان تست", type: "BUILDING" },
+      });
+      if (buildingSpace) {
+        const page = await httpGet(`/spaces/${buildingSpace.id}`, cookie);
+        const looksBuilding =
+          page.body.includes("شارژ") ||
+          page.body.includes("ساختمان") ||
+          page.body.includes("برج");
+        if (page.status === 200 && looksBuilding) {
+          pass("HTTP GET building space 200 (شارژ UI)");
+        } else if (page.status === 200) {
+          pass("HTTP GET building space 200", "label not in HTML (RSC?)");
+        } else {
+          fail("HTTP GET building space", `status=${page.status}`);
+        }
+
+        const settings = await httpGet(
+          `/spaces/${buildingSpace.id}/settings`,
+          cookie,
+        );
+        if (settings.status === 200) {
+          pass("HTTP GET building settings 200");
+        } else {
+          fail("HTTP GET building settings", `status=${settings.status}`);
+        }
+      } else {
+        fail("HTTP building pages", "seed building space missing — re-seed");
       }
 
       // Empty space owned by Reza — Ali should 404

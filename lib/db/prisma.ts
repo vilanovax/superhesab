@@ -16,6 +16,10 @@ const SCHEMA_SIGNATURE = [
   Object.keys(SpaceType).sort().join(","),
   "expense.categoryLabel",
   "debt.module.v1",
+  "personal.depth.v1",
+  "building.template.v1",
+  "space.archivedAt.v1",
+  "space.defaultPlanYear.v1",
 ].join("|");
 
 function createPrismaClient() {

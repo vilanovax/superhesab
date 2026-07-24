@@ -6,13 +6,18 @@
 
 import type { SpaceType } from "@/types";
 
-export type TemplateThemeId = "trip" | "partner" | "personal" | "family";
+export type TemplateThemeId =
+  | "trip"
+  | "partner"
+  | "personal"
+  | "family"
+  | "building";
 
 export type TemplateFeatures = {
   checklist: boolean;
   settlements: boolean;
   invites: boolean;
-  /** Income vs expense ledger (PERSONAL / FAMILY). */
+  /** Income vs expense ledger (PERSONAL / FAMILY / BUILDING common costs). */
   incomeExpense: boolean;
   /** Space-level monthlyBudget settings UI. */
   budget: boolean;
@@ -26,10 +31,19 @@ export type TemplateFeatures = {
    */
   householdLedger: boolean;
   /**
-   * Personal lend/borrow module (Debt + DebtPayment) — isolated from Expense.
-   * Phase 1: PERSONAL only (see debt-module-prd).
+   * Lend/borrow module (Debt + DebtPayment) — isolated from Expense/Settlement.
+   * Enabled on PERSONAL and FAMILY (see debt-module-prd).
    */
   debts: boolean;
+  /** Per-category monthly caps (PERSONAL depth). */
+  categoryBudgets: boolean;
+  /** Monthly recurring rules → Expense on space open (PERSONAL depth). */
+  recurring: boolean;
+  /**
+   * Building charge module (Unit / ChargePlan / ChargePayment).
+   * See building-template-prd.
+   */
+  buildingCharges: boolean;
 };
 
 export type TemplateDefinition = {
@@ -46,6 +60,9 @@ export type TemplateDefinition = {
 const baseExtras = {
   householdLedger: false as const,
   debts: false as const,
+  categoryBudgets: false as const,
+  recurring: false as const,
+  buildingCharges: false as const,
 };
 
 export const templates: Record<SpaceType, TemplateDefinition> = {
@@ -99,6 +116,9 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       manualSplits: false,
       householdLedger: false,
       debts: true,
+      categoryBudgets: true,
+      recurring: true,
+      buildingCharges: false,
     },
   },
   FAMILY: {
@@ -116,7 +136,31 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       solo: false,
       manualSplits: false,
       householdLedger: true,
+      debts: true,
+      categoryBudgets: false,
+      recurring: false,
+      buildingCharges: false,
+    },
+  },
+  BUILDING: {
+    type: "BUILDING",
+    label: "ساختمان",
+    theme: "building",
+    defaultInviteRole: "EDITOR",
+    maxMembers: null,
+    features: {
+      checklist: false,
+      settlements: false,
+      invites: true,
+      incomeExpense: true,
+      budget: true,
+      solo: false,
+      manualSplits: false,
+      householdLedger: false,
       debts: false,
+      categoryBudgets: false,
+      recurring: false,
+      buildingCharges: true,
     },
   },
 };

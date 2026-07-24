@@ -43,6 +43,14 @@ function avatarFor(seed: string): string {
 }
 
 async function clearAll() {
+  await prisma.chargePayment.deleteMany();
+  await prisma.chargePlan.deleteMany();
+  await prisma.unit.deleteMany();
+  await prisma.debtPayment.deleteMany();
+  await prisma.debt.deleteMany();
+  await prisma.recurringOccurrence.deleteMany();
+  await prisma.recurringRule.deleteMany();
+  await prisma.categoryBudget.deleteMany();
   await prisma.expenseSplit.deleteMany();
   await prisma.expense.deleteMany();
   await prisma.settlement.deleteMany();
@@ -315,12 +323,253 @@ async function main() {
     },
   });
 
+  // ——— Building smoke: برج آسمان تست (deterministic) ———
+  console.log("🌱 Creating Building smoke space…");
+  const jalaliParts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(new Date());
+  const planYear = Number(jalaliParts.find((p) => p.type === "year")?.value);
+  const planMonth = Number(jalaliParts.find((p) => p.type === "month")?.value);
+
+  const building = await prisma.space.create({
+    data: {
+      name: "برج آسمان تست",
+      type: "BUILDING",
+      currency: "TOMAN",
+      ownerId: ali.id,
+      members: {
+        create: [
+          { userId: ali.id, role: "OWNER", defaultShare: 2 },
+          { userId: sara.id, role: "EDITOR", defaultShare: 2 },
+        ],
+      },
+    },
+  });
+
+  const smokeBase = 2_000_000;
+  await prisma.chargePlan.create({
+    data: {
+      spaceId: building.id,
+      year: planYear,
+      baseCharge: smokeBase,
+    },
+  });
+
+  const unit12 = await prisma.unit.create({
+    data: {
+      spaceId: building.id,
+      name: "۱۲",
+      area: 95,
+      multiplier: 1000,
+      isActive: true,
+    },
+  });
+  const unit14 = await prisma.unit.create({
+    data: {
+      spaceId: building.id,
+      name: "۱۴",
+      area: 140,
+      multiplier: 1500,
+      isActive: true,
+    },
+  });
+  await prisma.unit.create({
+    data: {
+      spaceId: building.id,
+      name: "۱۵",
+      area: 80,
+      multiplier: 1000,
+      isActive: false,
+    },
+  });
+
+  for (let month = 1; month < planMonth; month++) {
+    await prisma.chargePayment.create({
+      data: {
+        unitId: unit12.id,
+        year: planYear,
+        month,
+        amount: smokeBase,
+        status: "PAID",
+        date: daysAgo(planMonth - month),
+        createdById: ali.id,
+      },
+    });
+  }
+  if (planMonth >= 1) {
+    await prisma.chargePayment.create({
+      data: {
+        unitId: unit12.id,
+        year: planYear,
+        month: planMonth,
+        amount: 1_000_000,
+        status: "PARTIAL",
+        date: daysAgo(0),
+        createdById: ali.id,
+        note: "نیمه‌پرداخت تست",
+      },
+    });
+  }
+
+  // ——— Building demo: ظفر (۸ واحد + شارژ ۱۴۰۵ + ۱۵ هزینه) ———
+  console.log("🌱 Creating Building «ظفر» demo…");
+  const ZAFAR_YEAR = 1405;
+  const ZAFAR_CHARGE = 500_000;
+
+  function randInt(min: number, max: number): number {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+  function pick<T>(items: T[]): T {
+    return items[randInt(0, items.length - 1)]!;
+  }
+  function pickMonths(count: number): number[] {
+    const pool = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+    return pool.slice(0, count).sort((a, b) => a - b);
+  }
+  /** Approximate Gregorian midday for Jalali 1405 month/day (demo dates). */
+  function dateIn1405(month: number, day: number): Date {
+    // 1405/1/1 ≈ 2026-03-21; months ~31/31/31/31/31/31/30/30/30/30/30/29
+    const lengths = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
+    let offset = 0;
+    for (let m = 1; m < month; m++) offset += lengths[m]!;
+    offset += Math.min(Math.max(day, 1), lengths[month]!) - 1;
+    const d = new Date(Date.UTC(2026, 2, 21, 9, 0, 0));
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d;
+  }
+
+  const zafar = await prisma.space.create({
+    data: {
+      name: "ظفر",
+      type: "BUILDING",
+      currency: "TOMAN",
+      ownerId: ali.id,
+      members: {
+        create: [
+          { userId: ali.id, role: "OWNER", defaultShare: 2 },
+          { userId: sara.id, role: "EDITOR", defaultShare: 2 },
+        ],
+      },
+    },
+  });
+
+  await prisma.chargePlan.create({
+    data: {
+      spaceId: zafar.id,
+      year: ZAFAR_YEAR,
+      baseCharge: ZAFAR_CHARGE,
+    },
+  });
+
+  const unitNames = ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸"];
+  const areas = [75, 90, 95, 110, 120, 85, 140, 100];
+  const zafarUnits: { id: string; name: string }[] = [];
+  for (let i = 0; i < 8; i++) {
+    const unit = await prisma.unit.create({
+      data: {
+        spaceId: zafar.id,
+        name: unitNames[i]!,
+        area: areas[i]!,
+        multiplier: 1000,
+        isActive: true,
+      },
+    });
+    zafarUnits.push(unit);
+    const months = pickMonths(randInt(1, 4));
+    for (const month of months) {
+      await prisma.chargePayment.create({
+        data: {
+          unitId: unit.id,
+          year: ZAFAR_YEAR,
+          month,
+          amount: ZAFAR_CHARGE,
+          status: "PAID",
+          date: dateIn1405(month, randInt(5, 25)),
+          createdById: pick([ali.id, sara.id]),
+          note: `وصول واحد ${unit.name}`,
+        },
+      });
+    }
+  }
+
+  const expenseCatalog: {
+    title: string;
+    category:
+      | "FOOD"
+      | "TRANSPORT"
+      | "ACCOMMODATION"
+      | "ENTERTAINMENT"
+      | "SHOPPING"
+      | "OTHER";
+    amount: number;
+  }[] = [
+    { title: "قبض برق مشاع", category: "OTHER", amount: 2_800_000 },
+    { title: "قبض آب مشاع", category: "OTHER", amount: 1_450_000 },
+    { title: "گاز موتورخانه", category: "OTHER", amount: 3_200_000 },
+    { title: "حقوق سرایدار", category: "OTHER", amount: 12_000_000 },
+    { title: "مواد شوینده و نظافت", category: "SHOPPING", amount: 680_000 },
+    { title: "تعمیر آسانسور", category: "OTHER", amount: 4_500_000 },
+    { title: "باغبانی حیاط", category: "OTHER", amount: 1_100_000 },
+    { title: "سم‌پاشی انباری", category: "OTHER", amount: 750_000 },
+    { title: "خرید لامپ راه‌پله", category: "SHOPPING", amount: 420_000 },
+    { title: "حمل نخاله ساختمانی", category: "TRANSPORT", amount: 900_000 },
+    { title: "پذیرایی مجمع عمومی", category: "FOOD", amount: 1_850_000 },
+    { title: "رنگ‌آمیزی لابی", category: "OTHER", amount: 6_700_000 },
+    { title: "بیمه آتش‌سوزی", category: "OTHER", amount: 5_400_000 },
+    { title: "سرویس کولر پشت‌بام", category: "OTHER", amount: 2_200_000 },
+    { title: "دورهمی نگهبانی نوروز", category: "ENTERTAINMENT", amount: 1_300_000 },
+    { title: "تعویض قفل پارکینگ", category: "SHOPPING", amount: 560_000 },
+    { title: "کپسول آتش‌نشانی", category: "SHOPPING", amount: 980_000 },
+    { title: "هزینه اینترنت لابی", category: "OTHER", amount: 450_000 },
+  ];
+
+  const expensePicks = [...expenseCatalog]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 15);
+
+  for (const item of expensePicks) {
+    const month = randInt(1, 4);
+    const payerId = pick([ali.id, sara.id]);
+    await createExpense({
+      spaceId: zafar.id,
+      title: item.title,
+      totalAmount: item.amount,
+      paidById: payerId,
+      createdById: payerId,
+      category: item.category,
+      isCategoryLocked: true,
+      date: dateIn1405(month, randInt(1, 28)),
+      // Building common cost: 100% on payer (same as household ledger)
+      splits: [
+        { userId: payerId, owedAmount: item.amount, share: 2 },
+      ],
+    });
+  }
+
+  const zafarPayments = await prisma.chargePayment.count({
+    where: { unit: { spaceId: zafar.id } },
+  });
+
   console.log("✅ Test data injected successfully. Ready for E2E manual testing.");
   console.log("");
   console.log("Login phones (OTP: 123456):");
-  console.log(`  علی  → ${ali.phone}  (OWNER trip + partner)`);
+  console.log(`  علی  → ${ali.phone}  (OWNER trip + partner + building)`);
   console.log(`  سارا → ${sara.phone}  (EDITOR)`);
   console.log(`  رضا  → ${reza.phone}  (OWNER empty space)`);
+  console.log("");
+  console.log(
+    `Building «برج آسمان تست»: plan ${planYear} base=${smokeBase}, units ۱۲/۱۴/۱۵(inactive), month=${planMonth}`,
+  );
+  console.log(`  unit14 id=${unit14.id} (unpaid — debtor)`);
+  console.log(
+    `Building «ظفر»: year=${ZAFAR_YEAR} charge=${ZAFAR_CHARGE}, units=${zafarUnits.length}, payments=${zafarPayments}, expenses=15`,
+  );
 }
 
 main()

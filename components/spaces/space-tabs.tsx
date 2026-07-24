@@ -21,7 +21,10 @@ import {
   type FamilyReportMember,
 } from "@/components/spaces/family-report-panel";
 import type { DebtDTO } from "@/app/actions/debt";
+import type { BuildingDashboardDTO } from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
+import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
+import type { ExpenseCategory } from "@/lib/categorizer";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
 import { cn } from "@/lib/utils";
@@ -48,6 +51,9 @@ type SpaceTabsProps = {
   familyReportMembers?: FamilyReportMember[];
   monthlyBudget?: number | null;
   debts?: DebtDTO[];
+  categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
+  buildingDashboard?: BuildingDashboardDTO | null;
+  isOwner?: boolean;
 };
 
 export function SpaceTabs({
@@ -71,6 +77,9 @@ export function SpaceTabs({
   familyReportMembers = [],
   monthlyBudget = null,
   debts = [],
+  categoryBudgets,
+  buildingDashboard = null,
+  isOwner = false,
 }: SpaceTabsProps) {
   const template = getTemplate(spaceType);
   const { features } = template;
@@ -79,23 +88,41 @@ export function SpaceTabs({
   const showIncomeReport = features.incomeExpense;
   const isHousehold = features.householdLedger;
   const showDebts = features.debts;
+  const showBuilding = features.buildingCharges;
 
   if (showIncomeReport && !showSettlements) {
-    const tabCount = showDebts ? 3 : 2;
+    const extraTabs =
+      (showDebts ? 1 : 0) + (showBuilding ? 1 : 0);
+    const tabCount = 2 + extraTabs;
     return (
-      <Tabs defaultValue="expenses" className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        defaultValue={showBuilding ? "charges" : "expenses"}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <TabsList
           className={cn(
             "grid h-11 w-full rounded-2xl bg-muted/70 p-1",
-            tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
+            tabCount === 4
+              ? "grid-cols-4"
+              : tabCount === 3
+                ? "grid-cols-3"
+                : "grid-cols-2",
           )}
         >
           <TabsTrigger
             value="expenses"
             className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
           >
-            تراکنش‌ها
+            {showBuilding ? "هزینه مشاع" : "تراکنش‌ها"}
           </TabsTrigger>
+          {showBuilding ? (
+            <TabsTrigger
+              value="charges"
+              className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
+            >
+              شارژ
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger
             value="report"
             className="rounded-xl text-body-sm data-[state=active]:shadow-sm"
@@ -125,6 +152,24 @@ export function SpaceTabs({
             canMutate={canMutate}
           />
         </TabsContent>
+        {showBuilding ? (
+          <TabsContent value="charges" className="mt-3">
+            {buildingDashboard ? (
+              <BuildingChargesPanel
+                spaceId={spaceId}
+                settingsHref={`/spaces/${spaceId}/settings`}
+                dashboard={buildingDashboard}
+                currency={currency}
+                canMutate={canMutate}
+                isOwner={isOwner}
+              />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
+                بارگذاری داشبورد شارژ ممکن نیست.
+              </div>
+            )}
+          </TabsContent>
+        ) : null}
         <TabsContent value="report" className="mt-3">
           {isHousehold ? (
             <FamilyReportPanel
@@ -139,6 +184,7 @@ export function SpaceTabs({
             <PersonalReportChart
               data={personalReportData}
               currency={currency}
+              categoryBudgets={categoryBudgets}
             />
           )}
         </TabsContent>
@@ -149,6 +195,7 @@ export function SpaceTabs({
               debts={debts}
               currency={currency}
               canMutate={canMutate}
+              sharedHousehold={isHousehold}
             />
           </TabsContent>
         ) : null}

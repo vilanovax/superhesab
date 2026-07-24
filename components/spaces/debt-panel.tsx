@@ -7,13 +7,16 @@ import {
   type DebtDTO,
 } from "@/app/actions/debt";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import {
   daysUntilDue,
   debtTypeLabel,
@@ -30,6 +33,8 @@ type DebtPanelProps = {
   debts: DebtDTO[];
   currency: SpaceCurrency;
   canMutate: boolean;
+  /** FAMILY: shared household wording + show who registered each debt. */
+  sharedHousehold?: boolean;
 };
 
 function parseAmount(raw: string): number {
@@ -42,6 +47,7 @@ export function DebtPanel({
   debts,
   currency,
   canMutate,
+  sharedHousehold = false,
 }: DebtPanelProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -53,10 +59,12 @@ export function DebtPanel({
   const [counterparty, setCounterparty] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [hasDueDate, setHasDueDate] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState(todayIsoDateTehran());
   const [payNote, setPayNote] = useState("");
+  const [changePayDate, setChangePayDate] = useState(false);
 
   const active = useMemo(
     () => debts.filter((d) => d.status === "ACTIVE"),
@@ -82,6 +90,7 @@ export function DebtPanel({
     setCounterparty("");
     setAmount("");
     setDueDate("");
+    setHasDueDate(false);
     setError(null);
   }
 
@@ -94,7 +103,7 @@ export function DebtPanel({
         type,
         counterparty,
         initialAmount: parseAmount(amount),
-        dueDate: dueDate || null,
+        dueDate: hasDueDate && dueDate ? dueDate : null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -125,6 +134,7 @@ export function DebtPanel({
       setPayAmount("");
       setPayNote("");
       setPayDate(todayIsoDateTehran());
+      setChangePayDate(false);
     });
   }
 
@@ -175,35 +185,49 @@ export function DebtPanel({
         </Button>
       ) : null}
 
+      {sharedHousehold ? (
+        <p className="text-caption text-muted-foreground">
+          وام و اقساط بیرون از خانواده — جدا از لجر مشترک و بدون تسویه بین اعضا.
+        </p>
+      ) : null}
+
       <DebtSection
-        title="من طلبکارم"
+        title={sharedHousehold ? "طلب‌های خانواده" : "من طلبکارم"}
         tone="lent"
-        empty="طلب فعالی ندارید"
+        empty={
+          sharedHousehold ? "طلب فعالی ثبت نشده" : "طلب فعالی ندارید"
+        }
         items={lent}
         currency={currency}
         canMutate={canMutate}
+        showCreator={sharedHousehold}
         onPay={(d) => {
           setError(null);
           setPayDebt(d);
           setPayAmount("");
           setPayDate(todayIsoDateTehran());
           setPayNote("");
+          setChangePayDate(false);
         }}
       />
 
       <DebtSection
-        title="من بدهکارم"
+        title={sharedHousehold ? "بدهی‌های خانواده" : "من بدهکارم"}
         tone="borrowed"
-        empty="بدهی فعالی ندارید"
+        empty={
+          sharedHousehold ? "بدهی فعالی ثبت نشده" : "بدهی فعالی ندارید"
+        }
         items={borrowed}
         currency={currency}
         canMutate={canMutate}
+        showCreator={sharedHousehold}
         onPay={(d) => {
           setError(null);
           setPayDebt(d);
           setPayAmount("");
           setPayDate(todayIsoDateTehran());
           setPayNote("");
+          setChangePayDate(false);
         }}
       />
 
@@ -224,87 +248,139 @@ export function DebtPanel({
               items={settled}
               currency={currency}
               canMutate={false}
+              showCreator={sharedHousehold}
               onPay={() => {}}
             />
           ) : null}
         </div>
       ) : null}
 
-      <Drawer open={createOpen} onOpenChange={setCreateOpen}>
-        <DrawerContent className="border-border/60 bg-sheet">
-          <DrawerHeader className="text-start">
-            <DrawerTitle>ثبت بدهی / طلب</DrawerTitle>
-          </DrawerHeader>
+      <Drawer
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetCreate();
+        }}
+        repositionInputs={false}
+      >
+        <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-5 pb-3.5 pt-2">
+            <DrawerHeader className="space-y-0.5 p-0 text-start">
+              <DrawerTitle className="text-lg font-bold text-on-hero">
+                ثبت بدهی / طلب
+              </DrawerTitle>
+              <DrawerDescription className="text-body-sm text-on-hero/70">
+                وام، قرض یا قسط — جدا از بودجه ماهانه
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+
           <form
             onSubmit={onCreate}
-            className="space-y-3 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
           >
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/80 p-1">
               {(
                 [
-                  { value: "LENT" as const, label: "طلب (قرض دادم)" },
-                  { value: "BORROWED" as const, label: "بدهی (قرض گرفتم)" },
+                  { value: "LENT" as const, label: "طلب", hint: "قرض دادم" },
+                  {
+                    value: "BORROWED" as const,
+                    label: "بدهی",
+                    hint: "قرض گرفتم",
+                  },
                 ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setType(opt.value)}
-                  className={cn(
-                    "h-10 rounded-lg text-caption font-semibold transition-colors",
-                    type === opt.value
-                      ? opt.value === "LENT"
-                        ? "bg-success text-success-foreground"
-                        : "bg-destructive text-destructive-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              ).map((opt) => {
+                const active = type === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setType(opt.value)}
+                    className={cn(
+                      "flex h-12 flex-col items-center justify-center rounded-xl transition-colors",
+                      active
+                        ? opt.value === "LENT"
+                          ? "bg-success text-success-foreground shadow-sm"
+                          : "bg-destructive text-destructive-foreground shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <span className="text-body-sm font-bold">{opt.label}</span>
+                    <span
+                      className={cn(
+                        "text-micro",
+                        active ? "opacity-85" : "opacity-70",
+                      )}
+                    >
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">طرف حساب</label>
+
+            <div className="space-y-2">
+              <label className="text-label text-muted-foreground">
+                طرف حساب
+              </label>
               <Input
                 value={counterparty}
                 onChange={(e) => setCounterparty(e.target.value)}
                 placeholder="مثلاً علی"
-                className="h-11 rounded-xl"
+                className="h-12 rounded-xl border-border/70 bg-card text-base"
                 required
                 minLength={2}
+                autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">مبلغ اولیه</label>
+
+            <div className="space-y-2">
+              <label className="text-label text-muted-foreground">
+                مبلغ اولیه
+              </label>
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={1}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="h-11 rounded-xl tabular-nums"
+                onChange={(e) =>
+                  setAmount(e.target.value.replace(/[^\d]/g, ""))
+                }
+                placeholder="۰"
+                className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">
-                سررسید (اختیاری)
+
+            <div className="space-y-2 rounded-2xl bg-sheet-muted px-3.5 py-3">
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <Checkbox
+                  checked={hasDueDate}
+                  onCheckedChange={(v) => {
+                    const on = v === true;
+                    setHasDueDate(on);
+                    if (!on) setDueDate("");
+                    else if (!dueDate) setDueDate(todayIsoDateTehran());
+                  }}
+                  className="size-4.5 rounded data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                />
+                <span className="text-label text-foreground">
+                  سررسید دارم
+                </span>
               </label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="h-11 rounded-xl"
-              />
+              {hasDueDate ? (
+                <JalaliDatePicker value={dueDate} onChange={setDueDate} />
+              ) : null}
             </div>
+
             {error ? (
               <p className="text-sm text-destructive" role="alert">
                 {error}
               </p>
             ) : null}
+
             <Button
               type="submit"
-              className="h-11 w-full rounded-xl"
+              className="h-12 w-full rounded-2xl text-base font-semibold"
               disabled={pending}
             >
               {pending ? "…" : "ثبت"}
@@ -316,66 +392,97 @@ export function DebtPanel({
       <Drawer
         open={Boolean(payDebt)}
         onOpenChange={(open) => {
-          if (!open) setPayDebt(null);
+          if (!open) {
+            setPayDebt(null);
+            setError(null);
+            setChangePayDate(false);
+          }
         }}
+        repositionInputs={false}
       >
-        <DrawerContent className="border-border/60 bg-sheet">
-          <DrawerHeader className="text-start">
-            <DrawerTitle>
-              {payDebt?.type === "LENT" ? "ثبت دریافت" : "ثبت پرداخت"}
-              {payDebt ? ` — ${payDebt.counterparty}` : ""}
-            </DrawerTitle>
-            {payDebt ? (
-              <p className="text-body-sm text-muted-foreground">
-                مانده: {formatCurrency(payDebt.remaining, currency)}
-              </p>
-            ) : null}
-          </DrawerHeader>
+        <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-5 pb-3.5 pt-2">
+            <DrawerHeader className="space-y-0.5 p-0 text-start">
+              <DrawerTitle className="text-lg font-bold text-on-hero">
+                {payDebt?.type === "LENT" ? "ثبت دریافت" : "ثبت پرداخت"}
+              </DrawerTitle>
+              <DrawerDescription className="text-body-sm text-on-hero/70">
+                {payDebt
+                  ? `${payDebt.counterparty} · مانده ${formatCurrency(payDebt.remaining, currency)}`
+                  : ""}
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+
           <form
             onSubmit={onPay}
-            className="space-y-3 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-label text-muted-foreground">مبلغ</label>
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={1}
-                max={payDebt?.remaining}
                 value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                className="h-11 rounded-xl tabular-nums"
+                onChange={(e) =>
+                  setPayAmount(e.target.value.replace(/[^\d]/g, ""))
+                }
+                placeholder="۰"
+                className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">تاریخ</label>
-              <Input
-                type="date"
-                value={payDate}
-                onChange={(e) => setPayDate(e.target.value)}
-                className="h-11 rounded-xl"
-                required
-              />
+
+            <div className="space-y-2 rounded-2xl bg-sheet-muted px-3.5 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-label text-muted-foreground">تاریخ</p>
+                <p className="text-body-sm font-semibold text-foreground">
+                  {!changePayDate
+                    ? "امروز"
+                    : formatDateFa(new Date(`${payDate}T12:00:00Z`))}
+                </p>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <Checkbox
+                  checked={changePayDate}
+                  onCheckedChange={(v) => {
+                    const on = v === true;
+                    setChangePayDate(on);
+                    if (!on) setPayDate(todayIsoDateTehran());
+                  }}
+                  className="size-4.5 rounded data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                />
+                <span className="text-label text-foreground">
+                  تاریخ دیگری ثبت کنم
+                </span>
+              </label>
+              {changePayDate ? (
+                <JalaliDatePicker value={payDate} onChange={setPayDate} />
+              ) : null}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-label text-muted-foreground">یادداشت</label>
+
+            <div className="space-y-2">
+              <label className="text-label text-muted-foreground">
+                یادداشت
+              </label>
               <Input
                 value={payNote}
                 onChange={(e) => setPayNote(e.target.value)}
                 placeholder="اختیاری"
-                className="h-11 rounded-xl"
+                className="h-12 rounded-xl border-border/70 bg-card"
                 maxLength={200}
               />
             </div>
+
             {error ? (
               <p className="text-sm text-destructive" role="alert">
                 {error}
               </p>
             ) : null}
+
             <Button
               type="submit"
-              className="h-11 w-full rounded-xl"
+              className="h-12 w-full rounded-2xl text-base font-semibold"
               disabled={pending}
             >
               {pending ? "…" : "ثبت"}
@@ -394,6 +501,7 @@ function DebtSection({
   items,
   currency,
   canMutate,
+  showCreator = false,
   onPay,
 }: {
   title: string;
@@ -402,6 +510,7 @@ function DebtSection({
   items: DebtDTO[];
   currency: SpaceCurrency;
   canMutate: boolean;
+  showCreator?: boolean;
   onPay: (d: DebtDTO) => void;
 }) {
   if (items.length === 0 && empty) {
@@ -427,6 +536,7 @@ function DebtSection({
             tone={tone}
             currency={currency}
             canMutate={canMutate}
+            showCreator={showCreator}
             onPay={() => onPay(d)}
           />
         ))}
@@ -440,12 +550,14 @@ function DebtCard({
   tone,
   currency,
   canMutate,
+  showCreator = false,
   onPay,
 }: {
   debt: DebtDTO;
   tone: "lent" | "borrowed" | "settled";
   currency: SpaceCurrency;
   canMutate: boolean;
+  showCreator?: boolean;
   onPay: () => void;
 }) {
   const days = daysUntilDue(
@@ -486,6 +598,11 @@ function DebtCard({
                   : ` · ${days} روز مانده`
               : ""}
           </p>
+          {showCreator ? (
+            <p className="mt-0.5 text-micro text-muted-foreground">
+              ثبت توسط {debt.createdByName}
+            </p>
+          ) : null}
         </div>
         <div className="shrink-0 text-end">
           <p

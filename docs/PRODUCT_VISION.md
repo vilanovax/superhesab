@@ -114,18 +114,28 @@
 - `Space.monthlyBudget` — سقف هزینه ماهانه (اختیاری)
 - UI: داشبورد ماه + گزارش دسته؛ بدون تسویه / چک‌لیست / اعضا
 - ماژول **بدهی و طلب** (`debts: true`) — جدا از Expense؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
-
-فاز بعد (خارج از MVP شخصی): سقف بودجه per-category، run-rate، تراکنش تکرارپذیر.
+- عمق Personal: بودجه per-category، run-rate، تراکنش تکرارپذیر — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
 
 ---
 
 ## تمپلیت: خانواده (Family)
 
-لجر مشترک خانوار **بدون تسویه**. جزئیات کامل: [`docs/family-template-prd.md`](./family-template-prd.md).
+لجر مشترک خانوار **بدون تسویه بین اعضا**. جزئیات کامل: [`docs/family-template-prd.md`](./family-template-prd.md).
 
 - `Space.type = FAMILY` — ۲ تا ۸ عضو؛ دعوت با نقش EDITOR/VIEWER
 - `incomeExpense` + `budget` + `householdLedger`؛ `settlements: false`
-- Paid By بین اعضا؛ بدون Split UI؛ EDITOR فقط تراکنش خودش را ویرایش می‌کند
+- `debts: true` — وام/اقساط بیرونی (جدا از Expense)؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
+- Paid By بین اعضا؛ بدون Split UI؛ EDITOR فقط تراکنش Expense خودش را ویرایش می‌کند
+
+---
+
+## تمپلیت: ساختمان (Building) — v2
+
+مدیریت شارژ و هزینه مشاع آپارتمان. جزئیات: [`docs/building-template-prd.md`](./building-template-prd.md).
+
+- `Space.type = BUILDING` — واحدها، پلن شارژ سالانه، وصول شارژ (جداول additive)
+- `settlements: false` · `debts: false` · هزینه مشاع روی `Expense`
+- بدهی واحد پویا محاسبه می‌شود؛ ماه‌ها pre-allocate نمی‌شوند
 
 ---
 

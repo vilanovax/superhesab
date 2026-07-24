@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { listCategoryBudgets } from "@/app/actions/categoryBudget";
+import {
+  getChargePlanForYear,
+  listUnitsForSettings,
+} from "@/app/actions/building";
+import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
+import { BuildingSettings } from "@/components/spaces/building-settings";
+import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
+import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { tehranCivilYear } from "@/lib/building";
 import { CURRENCY_LABELS, type SpaceCurrency } from "@/lib/format";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -40,6 +50,7 @@ export default async function SpaceSettingsPage({
       currency: true,
       roundUpToThousand: true,
       monthlyBudget: true,
+      defaultPlanYear: true,
       ownerId: true,
     },
   });
@@ -52,6 +63,19 @@ export default async function SpaceSettingsPage({
   const templateDataset = getTemplateDataset(space.type);
   const isOwner = membership.role === "OWNER";
   const showBudget = template.features.budget;
+  const showCategoryBudgets = template.features.categoryBudgets;
+  const showRecurring = template.features.recurring;
+  const showBuilding = template.features.buildingCharges;
+  const currentJalali = tehranCivilYear();
+  const planYear = space.defaultPlanYear ?? currentJalali;
+
+  const [categoryBudgets, recurringRules, buildingUnits, buildingPlan] =
+    await Promise.all([
+      showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
+      showRecurring ? listRecurringRules(id) : Promise.resolve([]),
+      showBuilding ? listUnitsForSettings(id) : Promise.resolve([]),
+      showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
+    ]);
 
   return (
     <main
@@ -78,7 +102,9 @@ export default async function SpaceSettingsPage({
         <h1 className="mt-1 text-2xl font-bold text-on-hero">{space.name}</h1>
         <p className="mt-2 text-sm text-on-hero/75">
           {showBudget
-            ? "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
+            ? showCategoryBudgets || showRecurring
+              ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
+              : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
             : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
         </p>
       </header>
@@ -169,6 +195,28 @@ export default async function SpaceSettingsPage({
             <input type="hidden" name="monthlyBudget" value="" />
           )}
 
+          {showBuilding ? (
+            <div className="space-y-2">
+              <Label htmlFor="defaultPlanYear">سال پیش‌فرض (شمسی)</Label>
+              <Input
+                id="defaultPlanYear"
+                name="defaultPlanYear"
+                type="text"
+                inputMode="numeric"
+                defaultValue={space.defaultPlanYear ?? currentJalali}
+                placeholder={`مثلاً ${currentJalali}`}
+                disabled={!isOwner}
+                className="rounded-xl tabular-nums"
+              />
+              <p className="text-xs text-muted-foreground">
+                سال مالی پیش‌فرض تب شارژ. برای وارد کردن دادهٔ سال قبل، همین‌جا
+                سال را عوض کنید (مثلاً ۱۴۰۴).
+              </p>
+            </div>
+          ) : (
+            <input type="hidden" name="defaultPlanYear" value="" />
+          )}
+
           <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground">
             قالب:{" "}
             <span className="font-medium text-foreground">{template.label}</span>
@@ -196,6 +244,40 @@ export default async function SpaceSettingsPage({
           )}
         </form>
       </section>
+
+      {showCategoryBudgets ? (
+        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <CategoryBudgetSettings
+            spaceId={space.id}
+            initial={categoryBudgets}
+            disabled={!isOwner}
+          />
+        </section>
+      ) : null}
+
+      {showRecurring ? (
+        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <RecurringSettings
+            spaceId={space.id}
+            initial={recurringRules}
+            currency={space.currency}
+            disabled={!isOwner}
+          />
+        </section>
+      ) : null}
+
+      {showBuilding ? (
+        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <BuildingSettings
+            spaceId={space.id}
+            currency={space.currency}
+            units={buildingUnits}
+            planYear={planYear}
+            planBaseCharge={buildingPlan?.baseCharge ?? null}
+            disabled={!isOwner}
+          />
+        </section>
+      ) : null}
     </main>
   );
 }

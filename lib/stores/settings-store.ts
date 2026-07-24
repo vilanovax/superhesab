@@ -6,8 +6,10 @@ import type { SpaceCurrency } from "@/lib/format";
 
 export type AppTheme = "light" | "dark" | "system";
 
-/** Brand accent packs — teal is the default Travel Ledger look. */
-export type AppAccent = "teal" | "ocean" | "olive" | "slate";
+/** Brand accent packs — ocean is the default brand look. */
+export type AppAccent = "ocean" | "teal" | "olive" | "slate";
+
+export const DEFAULT_ACCENT: AppAccent = "ocean";
 
 export const ACCENT_OPTIONS: {
   value: AppAccent;
@@ -16,8 +18,8 @@ export const ACCENT_OPTIONS: {
   /** Swatch for the picker (light primary) */
   swatch: string;
 }[] = [
-  { value: "teal", label: "فیروزه‌ای", hint: "پیش‌فرض", swatch: "#0f5c57" },
-  { value: "ocean", label: "آبی دریا", hint: "خنک", swatch: "#1a5f8a" },
+  { value: "ocean", label: "آبی دریا", hint: "پیش‌فرض", swatch: "#1a5f8a" },
+  { value: "teal", label: "فیروزه‌ای", hint: "کلاسیک", swatch: "#0f5c57" },
   { value: "olive", label: "زیتونی", hint: "ملایم", swatch: "#4a5d2e" },
   { value: "slate", label: "خاکستری‌آبی", hint: "رسمی", swatch: "#3d4f66" },
 ];
@@ -35,13 +37,26 @@ export const useAppSettingsStore = create<AppSettingsState>()(
   persist(
     (set) => ({
       theme: "light",
-      accent: "teal",
+      accent: DEFAULT_ACCENT,
       preferredCurrency: "TOMAN",
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),
       setPreferredCurrency: (preferredCurrency) => set({ preferredCurrency }),
     }),
-    { name: "superhesab-app-settings" },
+    {
+      name: "superhesab-app-settings",
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<AppSettingsState>;
+        if (version < 2) {
+          // Ship ocean as the new product default for installs still on legacy teal.
+          if (!state.accent || state.accent === "teal") {
+            return { ...state, accent: DEFAULT_ACCENT };
+          }
+        }
+        return state;
+      },
+    },
   ),
 );
 

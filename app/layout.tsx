@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0f5c57" },
-    { media: "(prefers-color-scheme: dark)", color: "#2a9d8f" },
+    { media: "(prefers-color-scheme: light)", color: "#1a5f8a" },
+    { media: "(prefers-color-scheme: dark)", color: "#4da3d4" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -58,6 +58,7 @@ export default function RootLayout({
     <html
       lang="fa"
       dir="rtl"
+      data-accent="ocean"
       className={`${vazirmatn.variable} ${vazirmatn.className} h-full antialiased`}
       suppressHydrationWarning
     >

@@ -36,6 +36,7 @@
 templates/
   trip/     → copy, default invite role EDITOR, checklist enabled
   partner/  → copy, two-person UX hints
+  personal/ → single-player income/expense + monthly budget (no settlements)
   building/ → v2: units, monthly charges, VIEWER (does not rewrite Expense)
 ```
 
@@ -44,7 +45,9 @@ Future template-specific data goes in **additive** tables or JSON metadata keyed
 ## 4. Data model (core)
 
 - `User` — identity
-- `Space` — ledger container (`TRIP` | `PARTNER`)
+- `Space` — ledger container (`TRIP` | `PARTNER` | `PERSONAL` | `FAMILY`)
+- `Expense` / `ExpenseSplit` / `Settlement` — shared money core
+- `Debt` / `DebtPayment` — optional personal lend/borrow (additive; not Expense)
 - `SpaceMember` — RBAC (`OWNER` | `EDITOR`)
 - `Expense` + `ExpenseSplit` — spend + who owes what
 - `Settlement` — proposed/confirmed transfers (`PENDING` | `COMPLETED`)

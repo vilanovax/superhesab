@@ -33,6 +33,8 @@ type InviteMembersButtonProps = {
   currentUserRole: SpaceRole;
   /** icon = hero +; banner = partner empty-state CTA; empty = expense empty secondary */
   variant?: "icon" | "banner" | "empty";
+  /** FAMILY: role picker on invite link */
+  inviteRolePicker?: boolean;
 };
 
 function useIsDesktop() {
@@ -72,6 +74,7 @@ export function InviteMembersButton({
   members,
   currentUserRole,
   variant = "icon",
+  inviteRolePicker = false,
 }: InviteMembersButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
@@ -85,31 +88,35 @@ export function InviteMembersButton({
     variant === "banner" ? (
       <Button
         type="button"
-        className="mt-4 h-11 w-full rounded-xl text-[14px] font-semibold"
+        className="mt-4 h-11 w-full rounded-xl text-sm font-semibold"
       >
-        دعوت طرف مقابل
+        {inviteRolePicker ? "دعوت عضو خانواده" : "دعوت طرف مقابل"}
       </Button>
     ) : variant === "empty" ? (
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-full rounded-xl border-border/70 bg-white text-[13px] font-semibold"
+        className="h-11 w-full rounded-xl border-border/70 bg-card text-body-sm font-semibold"
       >
-        دعوت همسفر
+        {inviteRolePicker ? "دعوت عضو خانواده" : "دعوت همسفر"}
       </Button>
     ) : (
       <Button
         type="button"
         size="icon"
         variant="ghost"
-        className="size-8 rounded-full border border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
+        className="size-8 rounded-full border border-on-hero/30 bg-on-hero/15 text-on-hero hover:bg-on-hero/25 hover:text-on-hero"
         aria-label="دعوت از اعضا"
       >
         <UserPlusIcon className="size-4" />
       </Button>
     );
 
-  const title = variant === "banner" ? "دعوت به حساب مشترک" : "مدیریت اعضا";
+  const title = variant === "banner"
+    ? inviteRolePicker
+      ? "دعوت به خانواده"
+      : "دعوت به حساب مشترک"
+    : "مدیریت اعضا";
   const description =
     variant === "banner"
       ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
@@ -121,6 +128,7 @@ export function InviteMembersButton({
       spaceName={spaceName}
       members={members}
       currentUserRole={currentUserRole}
+      inviteRolePicker={inviteRolePicker}
     />
   );
 
@@ -142,7 +150,7 @@ export function InviteMembersButton({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent className="border-border/60 bg-[#eef5f4]">
+      <DrawerContent className="border-border/60 bg-sheet">
         <DrawerHeader className="text-start">
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>

@@ -8,6 +8,7 @@ import {
   type SimplifiedSettlement,
 } from "@/lib/debtSimplification";
 import { canMutateMoney } from "@/lib/rbac";
+import { getTemplate } from "@/lib/templates/registry";
 
 export type SpaceBalancesResult = {
   balances: Record<string, number>;
@@ -38,7 +39,11 @@ export async function getSpaceBalances(
   }
 
   const expenses = await prisma.expense.findMany({
-    where: { spaceId },
+    where: {
+      spaceId,
+      /** Income must not skew multiplayer net balances / settlements. */
+      transactionType: "EXPENSE",
+    },
     select: {
       paidById: true,
       totalAmount: true,
@@ -96,6 +101,17 @@ export async function settleDebt(
   }
   if (!canMutateMoney(membership.role)) {
     return { ok: false, error: "نقش ناظر اجازه ثبت تسویه ندارد." };
+  }
+
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true },
+  });
+  if (!space) {
+    return { ok: false, error: "فضا پیدا نشد." };
+  }
+  if (!getTemplate(space.type).features.settlements) {
+    return { ok: false, error: "این فضا تسویه ندارد." };
   }
 
   if (!Number.isInteger(amount) || amount < 1) {

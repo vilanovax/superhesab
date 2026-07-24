@@ -7,19 +7,32 @@ import { Input } from "@/components/ui/input";
 import { CURRENCY_LABELS, type SpaceCurrency } from "@/lib/format";
 import { useAppSettingsStore } from "@/lib/stores/settings-store";
 import { cn } from "@/lib/utils";
+import type { SpaceType } from "@/types";
 
 const TEMPLATES = [
   {
-    value: "TRIP",
+    value: "TRIP" as const,
     label: "سفر و دورهمی",
     hint: "خرج گروهی، چک‌لیست، تسویه",
     mark: "سفر",
   },
   {
-    value: "PARTNER",
+    value: "PARTNER" as const,
     label: "حساب مشترک",
-    hint: "شریک زندگی یا هم‌خانه",
+    hint: "دونفره با تسویه",
     mark: "۲نفر",
+  },
+  {
+    value: "FAMILY" as const,
+    label: "خانواده",
+    hint: "لجر مشترک بدون بدهی",
+    mark: "خانه",
+  },
+  {
+    value: "PERSONAL" as const,
+    label: "حسابداری شخصی",
+    hint: "درآمد، هزینه، بودجه ماه",
+    mark: "من",
   },
 ] as const;
 
@@ -30,10 +43,10 @@ export function CreateSpaceForm({
 }: {
   error?: string;
   compact?: boolean;
-  initialType?: "TRIP" | "PARTNER";
+  initialType?: SpaceType;
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
-  const [type, setType] = useState<"TRIP" | "PARTNER">(initialType);
+  const [type, setType] = useState<SpaceType>(initialType);
 
   return (
     <form action={createSpaceAndRedirect} className="space-y-5">
@@ -44,8 +57,16 @@ export function CreateSpaceForm({
           name="name"
           required
           minLength={2}
-          placeholder="مثلاً سفر شمال"
-          className="h-12 rounded-xl border-border/70 bg-white text-base"
+          placeholder={
+            type === "PERSONAL"
+              ? "مثلاً هزینه شخصی ۱۴۰۵"
+              : type === "FAMILY"
+                ? "مثلاً خانه ما"
+                : type === "PARTNER"
+                  ? "مثلاً حساب مشترک"
+                  : "مثلاً سفر شمال"
+          }
+          className="h-12 rounded-xl border-border/70 bg-card text-base"
           autoFocus={!compact}
         />
       </div>
@@ -53,7 +74,7 @@ export function CreateSpaceForm({
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">قالب</p>
         <input type="hidden" name="type" value={type} />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {TEMPLATES.map((t) => {
             const selected = type === t.value;
             return (
@@ -65,13 +86,13 @@ export function CreateSpaceForm({
                   "flex flex-col items-start gap-1 rounded-xl border px-3 py-3 text-start transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.98]",
                   selected
                     ? "border-primary bg-primary text-primary-foreground shadow-none"
-                    : "border-border/70 bg-white text-foreground hover:border-primary/30",
+                    : "border-border/70 bg-card text-foreground hover:border-primary/30",
                 )}
               >
                 <span
                   className={cn(
-                    "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
-                    selected ? "bg-white/15" : "bg-primary/10 text-primary",
+                    "rounded-md px-1.5 py-0.5 text-micro font-bold",
+                    selected ? "bg-on-hero/15" : "bg-primary/10 text-primary",
                   )}
                 >
                   {t.mark}
@@ -81,8 +102,8 @@ export function CreateSpaceForm({
                 </span>
                 <span
                   className={cn(
-                    "text-[11px] leading-snug",
-                    selected ? "text-white/70" : "text-muted-foreground",
+                    "text-caption leading-snug",
+                    selected ? "text-on-hero/70" : "text-muted-foreground",
                   )}
                 >
                   {t.hint}
@@ -94,7 +115,7 @@ export function CreateSpaceForm({
       </div>
 
       <input type="hidden" name="currency" value={preferredCurrency} />
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
+      <p className="text-caption leading-relaxed text-muted-foreground">
         واحد پول:{" "}
         <span className="font-medium text-foreground">
           {CURRENCY_LABELS[preferredCurrency as SpaceCurrency]}

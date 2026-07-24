@@ -1,7 +1,7 @@
-export type SpaceType = "TRIP" | "PARTNER";
+export type SpaceType = "TRIP" | "PARTNER" | "PERSONAL" | "FAMILY";
 export type SpaceRole = "OWNER" | "EDITOR" | "VIEWER";
 export type SettlementStatus = "PENDING" | "COMPLETED";
-export type SpaceCurrency = "TOMAN" | "RIAL";
+export type { SpaceCurrency } from "@/lib/format";
 
 export type SplitMode = "equal" | "exact";
 

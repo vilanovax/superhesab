@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
+import { listSpaceDebts } from "@/app/actions/debt";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
+import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
+import { SpaceTheme } from "@/components/spaces/space-theme";
 import { SpaceTabs } from "@/components/spaces/space-tabs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,7 +16,12 @@ import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/formatters";
 import { prisma } from "@/lib/db/prisma";
 import { maybeCeilToThousand } from "@/lib/money";
-import { getTemplate } from "@/lib/templates/registry";
+import { tehranMonthRange } from "@/lib/personal";
+import { getExpensesByCategory } from "@/lib/reports-server";
+import {
+  getTemplate,
+  getTemplateDataset,
+} from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -68,12 +76,12 @@ function HeroStat({
   return (
     <div
       className={cn(
-        "flex min-h-[4.25rem] flex-col justify-center rounded-xl bg-white/12 px-3 py-2.5",
+        "flex min-h-[4.25rem] flex-col justify-center rounded-xl bg-on-hero-soft px-3 py-2.5",
         className,
       )}
     >
-      <p className="text-[11px] leading-none text-white/65">{label}</p>
-      <div className="mt-1.5 text-[0.9375rem] font-bold leading-snug tabular-nums tracking-tight">
+      <p className="text-caption leading-none text-on-hero/65">{label}</p>
+      <div className="mt-1.5 text-body font-bold leading-snug tabular-nums tracking-tight">
         {children}
       </div>
     </div>
@@ -89,55 +97,96 @@ export default async function SpacePage({ params }: SpacePageProps) {
     notFound();
   }
 
-  const [space, balanceData, checklist] = await Promise.all([
-    prisma.space.findUnique({
-      where: { id },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                avatarUrl: true,
-                isVirtual: true,
+  const spaceTypeRow = await prisma.space.findUnique({
+    where: { id },
+    select: { type: true },
+  });
+  if (!spaceTypeRow) {
+    notFound();
+  }
+
+  const template = getTemplate(spaceTypeRow.type);
+  const { features } = template;
+  const monthRange = tehranMonthRange();
+
+  const emptyBalances = {
+    balances: {} as Record<string, number>,
+    suggestions: [] as Awaited<ReturnType<typeof getSpaceBalances>>["suggestions"],
+  };
+
+  const [space, balanceData, checklist, monthRows, personalReportData, debts] =
+    await Promise.all([
+      prisma.space.findUnique({
+        where: { id },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  avatarUrl: true,
+                  isVirtual: true,
+                },
               },
             },
+            orderBy: { createdAt: "asc" },
           },
-          orderBy: { createdAt: "asc" },
-        },
-        expenses: {
-          include: {
-            paidBy: {
-              select: { name: true, phone: true, isVirtual: true },
+          expenses: {
+            include: {
+              paidBy: {
+                select: { name: true, phone: true, isVirtual: true },
+              },
+              createdBy: {
+                select: { id: true, name: true, phone: true, isVirtual: true },
+              },
+              updatedBy: {
+                select: { id: true, name: true, phone: true, isVirtual: true },
+              },
+              splits: {
+                select: { userId: true, owedAmount: true, share: true },
+              },
             },
-            createdBy: {
-              select: { id: true, name: true, phone: true, isVirtual: true },
-            },
-            updatedBy: {
-              select: { id: true, name: true, phone: true, isVirtual: true },
-            },
-            splits: {
-              select: { userId: true, owedAmount: true, share: true },
-            },
+            orderBy: { date: "desc" },
+            take: 50,
           },
-          orderBy: { date: "desc" },
-          take: 50,
         },
-      },
-    }),
-    getSpaceBalances(id),
-    getChecklist(id),
-  ]);
+      }),
+      features.settlements
+        ? getSpaceBalances(id)
+        : Promise.resolve(emptyBalances),
+      features.checklist ? getChecklist(id) : Promise.resolve([]),
+      features.incomeExpense || features.budget
+        ? prisma.expense.findMany({
+            where: {
+              spaceId: id,
+              date: { gte: monthRange.start, lte: monthRange.end },
+            },
+            select: {
+              totalAmount: true,
+              transactionType: true,
+              category: true,
+              categoryLabel: true,
+              paidById: true,
+            },
+          })
+        : Promise.resolve([]),
+      features.incomeExpense
+        ? getExpensesByCategory(id, new Date())
+        : Promise.resolve([]),
+      features.debts ? listSpaceDebts(id) : Promise.resolve([]),
+    ]);
 
   if (!space) {
     notFound();
   }
 
-  const template = getTemplate(space.type);
+  const templateDataset = getTemplateDataset(space.type);
   const isPartner = space.type === "PARTNER";
-  const showChecklist = template.features.checklist;
+  const isPersonalShell = features.solo;
+  const isFamilyShell = features.householdLedger;
+  const showChecklist = features.checklist;
   const needsPartner = isPartner && space.members.length < 2;
   const partnerOnboarding =
     isPartner &&
@@ -146,6 +195,8 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const myRole = membership.role;
   const canWrite = myRole === "OWNER" || myRole === "EDITOR";
   const isOwner = myRole === "OWNER";
+  const needsFamilyInvite =
+    isFamilyShell && space.members.length < 2 && isOwner;
 
   const inviteMembers = space.members.map((m) => ({
     userId: m.user.id,
@@ -174,24 +225,34 @@ export default async function SpacePage({ params }: SpacePageProps) {
     balanceData.balances[session.userId] ?? 0,
     space.roundUpToThousand,
   );
-  const totalExpenses = space.expenses.reduce(
-    (sum, expense) => sum + expense.totalAmount,
-    0,
-  );
+  const totalExpenses = space.expenses
+    .filter((e) => e.transactionType === "EXPENSE")
+    .reduce((sum, expense) => sum + expense.totalAmount, 0);
   const openSettlementAmount = balanceData.suggestions.reduce(
     (sum, suggestion) =>
       sum + maybeCeilToThousand(suggestion.amount, space.roundUpToThousand),
     0,
   );
 
+  const monthIncome = monthRows
+    .filter((r) => r.transactionType === "INCOME")
+    .reduce((s, r) => s + r.totalAmount, 0);
+  const monthExpense = monthRows
+    .filter((r) => r.transactionType === "EXPENSE")
+    .reduce((s, r) => s + r.totalAmount, 0);
+
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
+    <main
+      data-template={templateDataset}
+      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5"
+    >
+      <SpaceTheme type={space.type} />
       <div className="mb-3 flex items-center gap-2">
         <Button
           asChild
           variant="outline"
           size="sm"
-          className="h-9 gap-1 rounded-xl border-border/70 bg-white pe-3 ps-2 text-sm font-medium shadow-sm"
+          className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
         >
           <Link href="/app">
             <BackChevron className="size-4 text-muted-foreground" />
@@ -199,120 +260,179 @@ export default async function SpacePage({ params }: SpacePageProps) {
           </Link>
         </Button>
 
-        <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground">
-          {isPartner ? "حساب مشترک" : template.label}
-        </span>
-
-        <ShareSummaryIconButton
-          spaceName={space.name}
-          expenses={space.expenses.map((e) => ({
-            category: e.category,
-            totalAmount: e.totalAmount,
-          }))}
-          members={members}
-          suggestions={balanceData.suggestions}
-          currentUserId={session.userId}
-          roundUpToThousand={space.roundUpToThousand}
-        />
-
-        <Button
-          asChild
-          variant="outline"
-          size="icon"
-          className="size-9 shrink-0 rounded-xl border-border/70 bg-white shadow-sm"
-          aria-label="تنظیمات فضا"
-        >
-          <Link href={`/spaces/${space.id}/settings`}>
-            <SettingsIcon className="size-4" />
-          </Link>
-        </Button>
+        {isPersonalShell || isFamilyShell ? (
+          <div className="ms-auto flex items-center gap-1.5">
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
+              {isFamilyShell ? "خانواده" : "شخصی"}
+            </span>
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+              aria-label="تنظیمات فضا"
+            >
+              <Link href={`/spaces/${space.id}/settings`}>
+                <SettingsIcon className="size-4" />
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <>
+            <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-caption font-medium text-primary-foreground">
+              {isPartner ? "حساب مشترک" : template.label}
+            </span>
+            <ShareSummaryIconButton
+              spaceName={space.name}
+              expenses={space.expenses.map((e) => ({
+                category: e.category,
+                totalAmount: e.totalAmount,
+                transactionType: e.transactionType,
+              }))}
+              members={members}
+              suggestions={balanceData.suggestions}
+              currentUserId={session.userId}
+              currency={space.currency}
+              roundUpToThousand={space.roundUpToThousand}
+            />
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+              aria-label="تنظیمات فضا"
+            >
+              <Link href={`/spaces/${space.id}/settings`}>
+                <SettingsIcon className="size-4" />
+              </Link>
+            </Button>
+          </>
+        )}
       </div>
 
-      <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-2xl px-4 pb-4 pt-4">
+      <header
+        className={cn(
+          "surface-hero animate-fade-up relative mb-4 overflow-hidden px-4",
+          isPersonalShell
+            ? "rounded-[1.4rem] pb-4 pt-4 shadow-md"
+            : "rounded-2xl pb-4 pt-4",
+        )}
+      >
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-s-10 -top-12 size-32 rounded-full bg-white/12 blur-2xl"
+          className="pointer-events-none absolute -inset-s-10 -top-12 size-32 rounded-full bg-on-hero-soft blur-2xl"
         />
         <div
           aria-hidden
           className="pointer-events-none absolute -inset-e-8 -bottom-14 size-36 rounded-full bg-black/15 blur-2xl"
         />
 
-        <div className="relative space-y-3.5">
-          <div className="space-y-1">
-            <p className="text-[11px] font-medium tracking-wide text-white/60">
-              {isPartner ? "حساب مشترک" : "فضای مشترک"}
-            </p>
-            <h1 className="text-[1.375rem] font-bold leading-tight tracking-tight text-white">
-              {space.name}
-            </h1>
-            <p className="text-xs text-white/70">
-              {isPartner ? (
-                partnerLabel ? (
-                  <>من و {partnerLabel}</>
+        <div className={cn("relative", isPersonalShell ? "space-y-3.5" : "space-y-3.5")}>
+          {isPersonalShell ? (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-start">
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-on-hero/50">
+                  حساب شخصی
+                </p>
+                <h1 className="mt-1 truncate text-xl font-bold leading-tight tracking-tight text-on-hero">
+                  {space.name}
+                </h1>
+              </div>
+              <span className="shrink-0 rounded-full bg-on-hero/12 px-2.5 py-1 text-caption font-semibold text-on-hero/85 ring-1 ring-on-hero/15">
+                این ماه
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p className="text-caption font-medium tracking-wide text-on-hero/60">
+                {isPartner
+                  ? "حساب مشترک"
+                  : isFamilyShell
+                    ? "لجر خانواده"
+                    : "فضای مشترک"}
+              </p>
+              <h1 className="text-title font-bold leading-tight tracking-tight text-on-hero">
+                {space.name}
+              </h1>
+              <p className="text-xs text-on-hero/70">
+                {isPartner ? (
+                  partnerLabel ? (
+                    <>من و {partnerLabel}</>
+                  ) : (
+                    <>من · منتظر طرف مقابل</>
+                  )
                 ) : (
-                  <>من · منتظر طرف مقابل</>
-                )
-              ) : (
-                <>
-                  {space.members.length} عضو · {space.expenses.length} هزینه
-                  {totalExpenses > 0 ? (
-                    <> · جمع {formatCurrency(totalExpenses)}</>
-                  ) : null}
-                </>
-              )}
-              {isPartner && totalExpenses > 0 ? (
-                <> · جمع {formatCurrency(totalExpenses)}</>
-              ) : null}
-            </p>
-          </div>
+                  <>
+                    {space.members.length} عضو · {space.expenses.length} هزینه
+                    {totalExpenses > 0 ? (
+                      <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
+                    ) : null}
+                  </>
+                )}
+                {isPartner && totalExpenses > 0 ? (
+                  <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
+                ) : null}
+              </p>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2 space-x-reverse">
-              {space.members.slice(0, 4).map((m) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={m.user.id}
-                  src={
-                    m.user.avatarUrl ??
-                    `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.user.phone)}`
-                  }
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="size-8 rounded-full border-2 border-white/35 bg-white/20"
+          {!isPersonalShell && features.invites ? (
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2 space-x-reverse">
+                {space.members.slice(0, 4).map((m) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={m.user.id}
+                    src={
+                      m.user.avatarUrl ??
+                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.user.phone)}`
+                    }
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="size-8 rounded-full border-2 border-on-hero/35 bg-on-hero/20"
+                  />
+                ))}
+                {space.members.length > 4 ? (
+                  <span className="flex size-8 items-center justify-center rounded-full border-2 border-on-hero/35 bg-on-hero/20 text-micro font-semibold">
+                    +{space.members.length - 4}
+                  </span>
+                ) : null}
+              </div>
+              {isOwner ? (
+                <InviteMembersButton
+                  spaceId={space.id}
+                  spaceName={space.name}
+                  members={inviteMembers}
+                  currentUserRole={myRole}
+                  inviteRolePicker={isFamilyShell}
                 />
-              ))}
-              {space.members.length > 4 ? (
-                <span className="flex size-8 items-center justify-center rounded-full border-2 border-white/35 bg-white/20 text-[10px] font-semibold">
-                  +{space.members.length - 4}
-                </span>
               ) : null}
             </div>
-            {isOwner ? (
-              <InviteMembersButton
-                spaceId={space.id}
-                spaceName={space.name}
-                members={inviteMembers}
-                currentUserRole={myRole}
-              />
-            ) : null}
-          </div>
+          ) : null}
 
-          {isPartner ? (
-            <div className="rounded-xl bg-white/12 px-3.5 py-3">
-              <p className="text-[11px] text-white/65">مانده شما</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-white">
+          {isPersonalShell || isFamilyShell ? (
+            <PersonalMonthHero
+              income={monthIncome}
+              expenses={monthExpense}
+              monthlyBudget={space.monthlyBudget}
+              currency={space.currency}
+              settingsHref={`/spaces/${space.id}/settings`}
+            />
+          ) : isPartner ? (
+            <div className="rounded-xl bg-on-hero-soft px-3.5 py-3">
+              <p className="text-caption text-on-hero/65">مانده شما</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-on-hero">
                 {myBalance === 0
                   ? "صاف"
-                  : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance))}`}
+                  : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance), space.currency)}`}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <HeroStat label="مانده شما">
                 {myBalance === 0 ? (
-                  <span className="text-white/90">تسویه‌شده</span>
+                  <span className="text-on-hero/90">تسویه‌شده</span>
                 ) : (
                   <span
                     className={
@@ -320,14 +440,14 @@ export default async function SpacePage({ params }: SpacePageProps) {
                     }
                   >
                     {myBalance > 0 ? "+" : "−"}
-                    {formatCurrency(Math.abs(myBalance))}
+                    {formatCurrency(Math.abs(myBalance), space.currency)}
                   </span>
                 )}
               </HeroStat>
               <HeroStat label="تسویه باز">
                 {openSettlementAmount === 0
                   ? "صفر"
-                  : formatCurrency(openSettlementAmount)}
+                  : formatCurrency(openSettlementAmount, space.currency)}
               </HeroStat>
             </div>
           )}
@@ -353,11 +473,11 @@ export default async function SpacePage({ params }: SpacePageProps) {
           />
         </div>
       ) : needsPartner && isOwner ? (
-        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-white px-4 py-5 text-center shadow-sm">
-          <p className="text-[15px] font-semibold text-foreground">
+        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-card px-4 py-5 text-center shadow-sm">
+          <p className="text-body font-semibold text-foreground">
             طرف مقابل را به این حساب مشترک دعوت کنید
           </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted-foreground">
             با لینک دعوت یا افزودن دستی، حساب دونفره‌تان کامل می‌شود.
           </p>
           <InviteMembersButton
@@ -366,6 +486,23 @@ export default async function SpacePage({ params }: SpacePageProps) {
             members={inviteMembers}
             currentUserRole={myRole}
             variant="banner"
+          />
+        </div>
+      ) : needsFamilyInvite ? (
+        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-card px-4 py-5 text-center shadow-sm">
+          <p className="text-body font-semibold text-foreground">
+            اعضای خانواده را دعوت کنید
+          </p>
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted-foreground">
+            با لینک دعوت می‌توانید همسر یا اعضا را به‌عنوان عضو فعال یا ناظر اضافه کنید.
+          </p>
+          <InviteMembersButton
+            spaceId={space.id}
+            spaceName={space.name}
+            members={inviteMembers}
+            currentUserRole={myRole}
+            variant="banner"
+            inviteRolePicker
           />
         </div>
       ) : null}
@@ -386,6 +523,26 @@ export default async function SpacePage({ params }: SpacePageProps) {
         spaceType={space.type}
         showChecklist={showChecklist}
         canMutate={canWrite}
+        personalReportData={personalReportData}
+        familyMonthExpenses={monthRows
+          .filter((r) => r.transactionType === "EXPENSE")
+          .map((r) => ({
+            category: r.category,
+            categoryLabel: r.categoryLabel ?? null,
+            totalAmount: r.totalAmount,
+            paidById: r.paidById,
+          }))}
+        familyReportMembers={members.map((m) => ({
+          userId: m.userId,
+          name:
+            m.userId === session.userId
+              ? "من"
+              : m.name?.trim().split(/\s+/)[0] ||
+                m.phone ||
+                "عضو",
+        }))}
+        monthlyBudget={space.monthlyBudget}
+        debts={debts}
       />
 
       {canWrite ? (

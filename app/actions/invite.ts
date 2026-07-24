@@ -4,11 +4,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
+import { assertCanAddSpaceMember } from "@/lib/spaces/membership-guards";
 import { getTemplate } from "@/lib/templates/registry";
+import type { SpaceRole } from "@/types";
 
 export type JoinSpaceResult =
   | { ok: true; alreadyMember: boolean }
   | { ok: false; error: string };
+
+function resolveInviteRole(
+  spaceType: Parameters<typeof getTemplate>[0],
+  requested?: string | null,
+): SpaceRole {
+  const template = getTemplate(spaceType);
+  if (requested === "VIEWER" || requested === "EDITOR") {
+    return requested;
+  }
+  return template.defaultInviteRole;
+}
 
 export async function getInviteSpace(spaceId: string) {
   return prisma.space.findUnique({
@@ -23,16 +36,24 @@ export async function getInviteSpace(spaceId: string) {
   });
 }
 
-export async function joinSpace(spaceId: string): Promise<JoinSpaceResult> {
+export async function joinSpace(
+  spaceId: string,
+  inviteRole?: string | null,
+): Promise<JoinSpaceResult> {
   const session = await requireUser();
 
   const space = await prisma.space.findUnique({
     where: { id: spaceId },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
   if (!space) {
     return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  const template = getTemplate(space.type);
+  if (!template.features.invites) {
+    return { ok: false, error: "این فضا دعوت‌پذیر نیست." };
   }
 
   const existing = await prisma.spaceMember.findUnique({
@@ -45,11 +66,18 @@ export async function joinSpace(spaceId: string): Promise<JoinSpaceResult> {
     return { ok: true, alreadyMember: true };
   }
 
+  const canAdd = await assertCanAddSpaceMember(spaceId);
+  if (!canAdd.ok) {
+    return canAdd;
+  }
+
+  const role = resolveInviteRole(space.type, inviteRole);
+
   await prisma.spaceMember.create({
     data: {
       spaceId,
       userId: session.userId,
-      role: "EDITOR",
+      role,
     },
   });
 
@@ -60,8 +88,11 @@ export async function joinSpace(spaceId: string): Promise<JoinSpaceResult> {
   return { ok: true, alreadyMember: false };
 }
 
-export async function joinSpaceAndRedirect(spaceId: string) {
-  const result = await joinSpace(spaceId);
+export async function joinSpaceAndRedirect(
+  spaceId: string,
+  inviteRole?: string | null,
+) {
+  const result = await joinSpace(spaceId, inviteRole);
   if (!result.ok) {
     redirect(`/invite/${spaceId}?error=${encodeURIComponent(result.error)}`);
   }
@@ -74,5 +105,7 @@ export async function getInviteMeta(spaceId: string) {
   return {
     ...space,
     templateLabel: getTemplate(space.type).label,
+    invitesEnabled: getTemplate(space.type).features.invites,
+    allowInviteRolePick: getTemplate(space.type).features.householdLedger,
   };
 }

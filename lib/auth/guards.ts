@@ -7,6 +7,16 @@ export async function requireUser() {
   if (!session) {
     redirect("/login");
   }
+
+  // Stale JWT after db seed/reset → clear cookie or /login ↔ /app loops
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true },
+  });
+  if (!user) {
+    redirect("/auth/session/clear?next=/login");
+  }
+
   return session;
 }
 

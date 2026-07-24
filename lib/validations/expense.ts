@@ -3,6 +3,8 @@ import { MAX_SHARE, MIN_SHARE } from "@/lib/money";
 
 export const splitModeSchema = z.enum(["EQUAL", "EXACT"]);
 
+export const transactionTypeSchema = z.enum(["EXPENSE", "INCOME"]);
+
 export const expenseCategorySchema = z.enum([
   "FOOD",
   "TRANSPORT",
@@ -10,6 +12,9 @@ export const expenseCategorySchema = z.enum([
   "ENTERTAINMENT",
   "SHOPPING",
   "OTHER",
+  "SALARY",
+  "TRANSFER",
+  "OTHER_INCOME",
 ]);
 
 export const expenseSplitRowSchema = z.object({
@@ -34,8 +39,21 @@ export const expenseSchema = z
     date: isoDateSchema,
     splitMode: splitModeSchema,
     splits: z.array(expenseSplitRowSchema).min(1),
-    /** Edit only — omit on create so server infers silently. */
+    transactionType: transactionTypeSchema,
+    /**
+     * Optional on create: when set, server persists + locks.
+     * When omitted on create, server infers from title.
+     * On edit, changing category locks it.
+     */
     category: expenseCategorySchema.optional(),
+    /** Freeform custom category name (maps to OTHER / OTHER_INCOME). */
+    categoryLabel: z
+      .string()
+      .trim()
+      .min(1)
+      .max(40, "نام دسته حداکثر ۴۰ کاراکتر باشد.")
+      .optional()
+      .nullable(),
   })
   .superRefine((data, ctx) => {
     const selected = data.splits.filter((s) => s.selected);
@@ -53,7 +71,7 @@ export const expenseSchema = z
       if (selected.some((row) => row.share < MIN_SHARE)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `ضریب تسهیم باید حداقل ${MIN_SHARE} باشد.`,
+          message: "ضریب تسهیم باید حداقل ۰٫۵ باشد.",
           path: ["splits"],
         });
       }
@@ -80,3 +98,4 @@ export const expenseSchema = z
 
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;
 export type SplitMode = z.infer<typeof splitModeSchema>;
+export type TransactionTypeForm = z.infer<typeof transactionTypeSchema>;

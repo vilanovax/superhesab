@@ -4,6 +4,9 @@
   SuperHesab — "Travel Ledger"
   Deep teal ink on cool mist paper. Finance semantics stay clear.
   Flat surfaces, soft atmosphere, no purple / no cream-terracotta.
+
+  Phase 1–3 tokens: surfaces, elevation, typography, template packs
+  (html[data-template=trip|partner]). Do not fork money semantics.
 */
 
 :root {
@@ -42,7 +45,62 @@
   --highlight: #2a9d8f;
   --surface-elevated: rgba(255, 255, 255, 0.78);
 
+  /*
+    Sheet surfaces — drawers, expense forms, nested wells.
+    Prefer bg-sheet / bg-sheet-muted over raw #eef5f4 / #f7fafb.
+  */
+  --sheet: #eef5f4;
+  --sheet-muted: #f7fafb;
+  --overlay: color-mix(in srgb, var(--ink) 42%, transparent);
+
+  /* Body atmosphere (tokenized for dark parity) */
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 28%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 14%, transparent);
+  --body-glow-accent: color-mix(in srgb, var(--destructive) 6%, transparent);
+  --body-gradient-from: var(--sheet);
+  --body-gradient-mid: var(--background);
+  --body-gradient-to: color-mix(in srgb, var(--background) 70%, #dfe6ea);
+
+  /*
+    Elevation — brand tint via primary so Trip/Partner rethemes follow.
+    Use shadow-sm | shadow-md | shadow-lg | shadow-fab | shadow-drawer.
+  */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, var(--ink) 10%, transparent);
+  --shadow-md: 0 12px 32px -20px color-mix(in srgb, var(--primary) 50%, transparent);
+  --shadow-lg: 0 20px 50px -24px color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-fab: 0 10px 24px -10px color-mix(in srgb, var(--primary) 55%, transparent);
+  --shadow-drawer: 0 -12px 40px -16px color-mix(in srgb, var(--primary) 35%, transparent);
+  --shadow-dialog: 0 24px 60px -20px color-mix(in srgb, var(--primary) 45%, transparent);
+
+  /* Hero chrome — always light on teal gradient (independent of theme fg) */
+  --on-hero: #ffffff;
+  --on-hero-muted: color-mix(in srgb, white 70%, transparent);
+  --on-hero-soft: color-mix(in srgb, white 12%, transparent);
+
+  /*
+    Typography roles (mobile-first PWA)
+    Prefer text-caption | text-label | text-body-sm | text-body | text-title | text-display
+  */
+  --type-micro: 0.625rem; /* 10px — badges */
+  --type-caption: 0.6875rem; /* 11px — meta */
+  --type-label: 0.75rem; /* 12px — field labels */
+  --type-body-sm: 0.8125rem; /* 13px — dense body */
+  --type-body: 0.9375rem; /* 15px — primary reading */
+  --type-title: 1.375rem; /* space titles */
+  --type-display: 2rem; /* home hero */
+
+  /* PWA chrome */
+  --fab-clearance: 5.5rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
   --radius: 1rem;
+
+  /* Charts (shadcn / recharts) */
+  --chart-1: #2563eb;
+  --chart-2: #ea580c;
+  --chart-3: #0d9488;
+  --chart-4: #db2777;
+  --chart-5: #ca8a04;
 }
 
 html[data-theme="dark"] {
@@ -79,6 +137,188 @@ html[data-theme="dark"] {
   --ink: #9fd8d0;
   --highlight: #3db8a8;
   --surface-elevated: rgba(22, 32, 36, 0.86);
+
+  --sheet: #121c1f;
+  --sheet-muted: #1a262a;
+  --overlay: color-mix(in srgb, black 55%, transparent);
+
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 18%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 20%, transparent);
+  --body-glow-accent: transparent;
+  --body-gradient-from: #101a1d;
+  --body-gradient-mid: #0f1719;
+  --body-gradient-to: #0c1315;
+
+  --on-hero: #ffffff;
+  --on-hero-muted: color-mix(in srgb, white 65%, transparent);
+  --on-hero-soft: color-mix(in srgb, white 12%, transparent);
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, black 40%, transparent);
+  --shadow-md: 0 12px 32px -18px color-mix(in srgb, black 55%, transparent);
+  --shadow-lg: 0 20px 50px -20px color-mix(in srgb, black 60%, transparent);
+  --shadow-fab: 0 10px 28px -8px color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-drawer: 0 -12px 40px -12px color-mix(in srgb, black 55%, transparent);
+  --shadow-dialog: 0 24px 60px -16px color-mix(in srgb, black 65%, transparent);
+}
+
+/*
+  User accent packs — brand color for light (and matching dark).
+  Applied via html[data-accent]. Default teal lives on :root.
+  Does not touch success/destructive.
+*/
+html[data-accent="ocean"] {
+  --primary: #1a5f8a;
+  --primary-foreground: #f3f9fc;
+  --secondary: #d5e4ee;
+  --secondary-foreground: #16324a;
+  --accent: #c5dceb;
+  --accent-foreground: #1a5f8a;
+  --highlight: #3d8fbf;
+  --ink: #0c3a58;
+  --mist: #d0e2ef;
+  --ring: #1a5f8a;
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 26%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+html[data-accent="olive"] {
+  --primary: #4a5d2e;
+  --primary-foreground: #f6f9f0;
+  --secondary: #e2e8d4;
+  --secondary-foreground: #2e3a1a;
+  --accent: #d5e0c0;
+  --accent-foreground: #4a5d2e;
+  --highlight: #7a9448;
+  --ink: #2f3d18;
+  --mist: #dce6c8;
+  --ring: #4a5d2e;
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 22%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 12%, transparent);
+  --body-glow-accent: transparent;
+}
+
+html[data-accent="slate"] {
+  --primary: #3d4f66;
+  --primary-foreground: #f4f7fa;
+  --secondary: #dde3ea;
+  --secondary-foreground: #243040;
+  --accent: #cfd8e4;
+  --accent-foreground: #3d4f66;
+  --highlight: #6b82a0;
+  --ink: #243447;
+  --mist: #d5dde8;
+  --ring: #3d4f66;
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 20%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 12%, transparent);
+  --body-glow-accent: transparent;
+}
+
+html[data-theme="dark"][data-accent="ocean"] {
+  --primary: #4da3d4;
+  --primary-foreground: #062033;
+  --secondary: #1a2a36;
+  --secondary-foreground: #b8d4e8;
+  --accent: #1c303e;
+  --accent-foreground: #9ec8e0;
+  --highlight: #6bb8e0;
+  --ink: #9ec8e0;
+  --mist: #1a2c38;
+  --ring: #4da3d4;
+}
+
+html[data-theme="dark"][data-accent="olive"] {
+  --primary: #9bb86a;
+  --primary-foreground: #1a240c;
+  --secondary: #242c1a;
+  --secondary-foreground: #d0dcb8;
+  --accent: #2a331e;
+  --accent-foreground: #c0d098;
+  --highlight: #b4cc7e;
+  --ink: #c0d098;
+  --mist: #242e1c;
+  --ring: #9bb86a;
+}
+
+html[data-theme="dark"][data-accent="slate"] {
+  --primary: #8aa0bc;
+  --primary-foreground: #121820;
+  --secondary: #1e2630;
+  --secondary-foreground: #c4cedc;
+  --accent: #242c38;
+  --accent-foreground: #b0bccf;
+  --highlight: #a0b4ce;
+  --ink: #b0bccf;
+  --mist: #1e2630;
+  --ring: #8aa0bc;
+}
+
+/*
+  Template theme packs — structure only (radius / sheet), not brand color.
+  Brand comes from data-accent so user choice applies inside spaces too.
+  Do NOT override --success / --destructive (money trust).
+*/
+html[data-template="trip"],
+[data-template="trip"] {
+  --radius: 1rem;
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 28%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+html[data-theme="dark"][data-template="trip"],
+html[data-theme="dark"] [data-template="trip"] {
+  --radius: 1rem;
+}
+
+/* Partner — slightly tighter corners, cooler sheet */
+html[data-template="partner"],
+[data-template="partner"] {
+  --radius: 0.875rem;
+  --sheet: color-mix(in srgb, var(--sheet) 70%, #e8f0f4 30%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 75%, #f2f7f9 25%);
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 18%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 10%, transparent);
+  --body-glow-accent: transparent;
+}
+
+html[data-theme="dark"][data-template="partner"],
+html[data-theme="dark"] [data-template="partner"] {
+  --radius: 0.875rem;
+  --sheet: color-mix(in srgb, var(--sheet) 85%, #0e161a 15%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 85%, #152026 15%);
+}
+
+/* Personal — soft ledger, single-player calm */
+html[data-template="personal"],
+[data-template="personal"] {
+  --radius: 1.125rem;
+  --sheet: color-mix(in srgb, var(--sheet) 65%, #eef6f3 35%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 70%, #f5faf8 30%);
+  --body-glow-primary: color-mix(in srgb, var(--highlight) 22%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+html[data-theme="dark"][data-template="personal"],
+html[data-theme="dark"] [data-template="personal"] {
+  --radius: 1.125rem;
+  --sheet: color-mix(in srgb, var(--sheet) 88%, #0c1614 12%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #121c1a 12%);
+}
+
+/* Family — shared household ledger (no settlement chrome) */
+html[data-template="family"],
+[data-template="family"] {
+  --radius: 1rem;
+  --sheet: color-mix(in srgb, var(--sheet) 70%, #e8f0f4 30%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 75%, #f2f7f9 25%);
+  --body-glow-primary: color-mix(in srgb, var(--primary) 20%, transparent);
+  --body-glow-brand: color-mix(in srgb, var(--highlight) 16%, transparent);
+}
+
+html[data-theme="dark"][data-template="family"],
+html[data-theme="dark"] [data-template="family"] {
+  --radius: 1rem;
+  --sheet: color-mix(in srgb, var(--sheet) 88%, #0d1519 12%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #121a1e 12%);
 }
 
 @theme inline {
@@ -108,11 +348,44 @@ html[data-theme="dark"] {
   --color-mist: var(--mist);
   --color-ink: var(--ink);
   --color-highlight: var(--highlight);
+  --color-sheet: var(--sheet);
+  --color-sheet-muted: var(--sheet-muted);
+  --color-overlay: var(--overlay);
+  --color-on-hero: var(--on-hero);
+  --color-on-hero-muted: var(--on-hero-muted);
+  --color-on-hero-soft: var(--on-hero-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   --radius-sm: calc(var(--radius) - 0.5rem);
   --radius-md: calc(var(--radius) - 0.25rem);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 0.25rem);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-fab: var(--shadow-fab);
+  --shadow-drawer: var(--shadow-drawer);
+  --shadow-dialog: var(--shadow-dialog);
+
+  --text-micro: var(--type-micro);
+  --text-micro--line-height: 1.2;
+  --text-caption: var(--type-caption);
+  --text-caption--line-height: 1.35;
+  --text-label: var(--type-label);
+  --text-label--line-height: 1.4;
+  --text-body-sm: var(--type-body-sm);
+  --text-body-sm--line-height: 1.45;
+  --text-body: var(--type-body);
+  --text-body--line-height: 1.5;
+  --text-title: var(--type-title);
+  --text-title--line-height: 1.25;
+  --text-display: var(--type-display);
+  --text-display--line-height: 1.05;
 
   --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -155,19 +428,17 @@ body {
   font-family: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
   background-color: var(--background);
   background-image:
-    radial-gradient(ellipse 90% 60% at 100% -10%, rgba(42, 157, 143, 0.28), transparent 55%),
-    radial-gradient(ellipse 70% 50% at -10% 20%, rgba(15, 92, 87, 0.14), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(196, 61, 61, 0.06), transparent 45%),
-    linear-gradient(180deg, #eef5f4 0%, #e8eef1 45%, #e6ecef 100%);
+    radial-gradient(ellipse 90% 60% at 100% -10%, var(--body-glow-primary), transparent 55%),
+    radial-gradient(ellipse 70% 50% at -10% 20%, var(--body-glow-brand), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 80% 100%, var(--body-glow-accent), transparent 45%),
+    linear-gradient(
+      180deg,
+      var(--body-gradient-from) 0%,
+      var(--body-gradient-mid) 45%,
+      var(--body-gradient-to) 100%
+    );
   background-attachment: fixed;
   min-height: 100%;
-}
-
-html[data-theme="dark"] body {
-  background-image:
-    radial-gradient(ellipse 90% 55% at 100% -10%, rgba(42, 157, 143, 0.18), transparent 55%),
-    radial-gradient(ellipse 70% 45% at -10% 25%, rgba(15, 92, 87, 0.2), transparent 50%),
-    linear-gradient(180deg, #101a1d 0%, #0f1719 50%, #0c1315 100%);
 }
 
 html[data-theme="dark"] body::before {
@@ -183,8 +454,8 @@ body::before {
   z-index: 0;
   opacity: 0.35;
   background-image:
-    linear-gradient(rgba(18, 32, 42, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 32, 42, 0.035) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--foreground) 3.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--foreground) 3.5%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
 }
@@ -223,6 +494,19 @@ body::before {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, black) 0%, var(--highlight) 100%);
   color: var(--primary-foreground);
+}
+
+/* Drawer / form canvas — replaces linear-gradient(#eef5f4 → #f7fafb) */
+.surface-sheet-canvas {
+  background: linear-gradient(180deg, var(--sheet) 0%, var(--sheet-muted) 100%);
+}
+
+.surface-sheet {
+  background: var(--sheet);
+}
+
+.surface-sheet-muted {
+  background: var(--sheet-muted);
 }
 
 .animate-fade-up {

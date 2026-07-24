@@ -15,6 +15,7 @@ import {
 } from "@/components/spaces/invite-members-button";
 import { Button } from "@/components/ui/button";
 import type { ExpenseCategory } from "@/lib/categorizer";
+import { CATEGORY_LABELS } from "@/lib/categorizer";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
 import {
   expenseDayKey,
   formatDateFa,
@@ -38,6 +40,7 @@ import {
 } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 import type { SpaceRole, SpaceType } from "@/types";
 
@@ -50,6 +53,8 @@ export type ExpenseListItem = {
   updatedAt: Date;
   paidById: string;
   category: ExpenseCategory;
+  categoryLabel?: string | null;
+  transactionType?: "EXPENSE" | "INCOME";
   paidBy: { name: string | null; phone: string; isVirtual?: boolean };
   createdBy: {
     id: string;
@@ -99,6 +104,7 @@ function toInitial(expense: ExpenseListItem): ExpenseInitialValues {
     paidById: expense.paidById,
     date: expenseDayKey(expense.date),
     category: expense.category,
+    transactionType: expense.transactionType ?? "EXPENSE",
     splitAmounts: Object.fromEntries(
       expense.splits.map((s) => [s.userId, s.owedAmount]),
     ),
@@ -297,15 +303,15 @@ function EditSheet({
         <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 sm:max-w-md">
           <div className="surface-hero px-5 pb-4 pt-5">
             <DialogHeader className="space-y-1 text-start">
-              <DialogTitle className="text-xl font-bold text-white">
+              <DialogTitle className="text-xl font-bold text-on-hero">
                 ویرایش هزینه
               </DialogTitle>
-              <DialogDescription className="text-sm text-white/75">
+              <DialogDescription className="text-sm text-on-hero/75">
                 مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-4 py-4 pb-8">
+          <div className="min-h-0 flex-1 overflow-y-auto surface-sheet-canvas px-4 py-4 pb-8">
             {form}
           </div>
         </DialogContent>
@@ -318,15 +324,15 @@ function EditSheet({
       <DrawerContent className="mt-0! h-[92dvh] max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
           <DrawerHeader className="space-y-1 p-0 text-start">
-            <DrawerTitle className="text-xl font-bold text-white">
+            <DrawerTitle className="text-xl font-bold text-on-hero">
               ویرایش هزینه
             </DrawerTitle>
-            <DrawerDescription className="text-sm text-white/75">
+            <DrawerDescription className="text-sm text-on-hero/75">
               مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
             </DrawerDescription>
           </DrawerHeader>
         </div>
-        <div className="h-[calc(92dvh-5.5rem)] overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-4 py-4 pb-10">
+        <div className="h-[calc(92dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-10">
           {form}
         </div>
       </DrawerContent>
@@ -349,8 +355,22 @@ export function ExpenseList({
   const [editing, setEditing] = useState<ExpenseListItem | null>(null);
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const isOwner = currentUserRole === "OWNER";
+  const features = getTemplate(spaceType).features;
+
+  function canEditExpense(expense: ExpenseListItem): boolean {
+    if (!canMutate) return false;
+    if (currentUserRole === "OWNER") return true;
+    if (currentUserRole === "EDITOR") {
+      return expense.createdBy?.id === currentUserId;
+    }
+    return false;
+  }
 
   if (expenses.length === 0) {
+    if (features.incomeExpense) {
+      return <PersonalEmptyState canMutate={canMutate} />;
+    }
+
     return (
       <EmptyState
         icon="expense"
@@ -364,7 +384,7 @@ export function ExpenseList({
           canMutate ? (
             <Button
               type="button"
-              className="h-12 w-full rounded-xl text-[13px] font-semibold"
+              className="h-12 w-full rounded-xl text-body-sm font-semibold"
               onClick={() => setExpenseFormOpen(true)}
             >
               ثبت اولین هزینه
@@ -372,7 +392,7 @@ export function ExpenseList({
           ) : undefined
         }
         secondaryAction={
-          canMutate && isOwner && spaceType !== "PARTNER" ? (
+          canMutate && isOwner && features.invites ? (
             <InviteMembersButton
               spaceId={spaceId}
               spaceName={spaceName}
@@ -400,7 +420,7 @@ export function ExpenseList({
                 groupIndex > 0 && "pt-1",
               )}
             >
-              <p className="shrink-0 text-[12px] font-semibold text-muted-foreground">
+              <p className="shrink-0 text-label font-semibold text-muted-foreground">
                 {group.label}
               </p>
               <div
@@ -422,9 +442,19 @@ export function ExpenseList({
                           {expense.title}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {payerName(expense.paidBy, {
-                            isCurrentUser: expense.paidById === currentUserId,
-                          })}
+                          <span className="text-foreground/70">
+                            {expense.categoryLabel?.trim() ||
+                              CATEGORY_LABELS[expense.category]}
+                          </span>
+                          {" · "}
+                          {features.incomeExpense
+                            ? expense.transactionType === "INCOME"
+                              ? "درآمد"
+                              : "هزینه"
+                            : payerName(expense.paidBy, {
+                                isCurrentUser:
+                                  expense.paidById === currentUserId,
+                              })}
                         </p>
                         {(() => {
                           const audit = expenseAuditLine(
@@ -432,7 +462,7 @@ export function ExpenseList({
                             currentUserId,
                           );
                           return audit ? (
-                            <p className="truncate text-[11px] text-muted-foreground/80">
+                            <p className="truncate text-caption text-muted-foreground/80">
                               {audit}
                             </p>
                           ) : null;
@@ -440,10 +470,18 @@ export function ExpenseList({
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <p className="rounded-lg bg-secondary/70 px-2 py-0.5 text-[13px] font-bold text-ink tabular-nums">
-                        {formatCurrency(expense.totalAmount)}
+                      <p
+                        className={cn(
+                          "rounded-lg px-2 py-0.5 text-body-sm font-bold tabular-nums",
+                          expense.transactionType === "INCOME"
+                            ? "bg-success-soft text-success"
+                            : "bg-secondary/70 text-ink",
+                        )}
+                      >
+                        {expense.transactionType === "INCOME" ? "+" : ""}
+                        {formatCurrency(expense.totalAmount, currency)}
                       </p>
-                      {canMutate ? (
+                      {canEditExpense(expense) ? (
                         <span
                           className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary"
                           aria-hidden
@@ -464,7 +502,7 @@ export function ExpenseList({
                       aria-hidden
                       className="absolute inset-y-0 inset-s-0 w-1 bg-linear-to-b from-primary to-highlight opacity-80"
                     />
-                    {canMutate ? (
+                    {canEditExpense(expense) ? (
                       <button
                         type="button"
                         onClick={() => setEditing(expense)}

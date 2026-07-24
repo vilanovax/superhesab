@@ -11,12 +11,14 @@ export function JoinSpaceButton({
   alreadyMember,
   claimVirtualUserId,
   claimLabel,
+  inviteRole,
 }: {
   spaceId: string;
   alreadyMember: boolean;
   /** When set, join merges this virtual profile instead of generic EDITOR join */
   claimVirtualUserId?: string | null;
   claimLabel?: string | null;
+  inviteRole?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -32,7 +34,7 @@ export function JoinSpaceButton({
           return;
         }
       } else {
-        const result = await joinSpace(spaceId);
+        const result = await joinSpace(spaceId, inviteRole);
         if (!result.ok) {
           setError(result.error);
           return;
@@ -65,7 +67,7 @@ export function JoinSpaceButton({
     <div className="space-y-2">
       <Button
         type="button"
-        className="h-14 w-full rounded-2xl text-base font-semibold shadow-[0_12px_28px_-10px_rgba(15,92,87,0.55)]"
+        className="h-14 w-full rounded-2xl text-base font-semibold shadow-fab"
         disabled={pending}
         onClick={onJoin}
       >

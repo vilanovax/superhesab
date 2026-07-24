@@ -15,6 +15,13 @@ datasource db {
 enum SpaceType {
   TRIP
   PARTNER
+  PERSONAL
+  FAMILY
+}
+
+enum TransactionType {
+  EXPENSE
+  INCOME
 }
 
 enum SpaceRole {
@@ -31,6 +38,9 @@ enum SettlementStatus {
 enum SpaceCurrency {
   TOMAN
   RIAL
+  USD
+  AED
+  EUR
 }
 
 enum ExpenseCategory {
@@ -40,6 +50,10 @@ enum ExpenseCategory {
   ENTERTAINMENT
   SHOPPING
   OTHER
+  /// Personal income categories (filter by transactionType = INCOME)
+  SALARY
+  TRANSFER
+  OTHER_INCOME
 }
 
 model User {
@@ -61,6 +75,8 @@ model User {
   expenseSplits    ExpenseSplit[]
   settlementsFrom  Settlement[]    @relation("SettlementFrom")
   settlementsTo    Settlement[]    @relation("SettlementTo")
+  debtsCreated     Debt[]          @relation("DebtCreatedBy")
+  debtPayments     DebtPayment[]   @relation("DebtPaymentCreatedBy")
 
   @@index([phone])
   @@index([email])
@@ -74,6 +90,8 @@ model Space {
   currency           SpaceCurrency @default(TOMAN)
   /// Round settlement/balance amounts up to nearest thousand for easier cash splits
   roundUpToThousand  Boolean       @default(false)
+  /// Monthly spend target (PERSONAL). Null = no budget tracking.
+  monthlyBudget      Int?
   ownerId            String
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -83,6 +101,7 @@ model Space {
   expenses     Expense[]
   settlements  Settlement[]
   checklist    ChecklistItem[]
+  debts        Debt[]
 
   @@index([ownerId])
   @@index([type])
@@ -93,8 +112,8 @@ model SpaceMember {
   spaceId      String
   userId       String
   role         SpaceRole @default(EDITOR)
-  /// Default weight for EQUAL splits in this space (e.g. 2 = couple)
-  defaultShare Int       @default(1)
+  /// Default EQUAL weight in half-units (1 = 0.5×, 2 = 1×, 4 = 2×)
+  defaultShare Int       @default(2)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -117,7 +136,11 @@ model Expense {
   createdById      String?
   /// Who last edited the expense (audit)
   updatedById      String?
+  /// EXPENSE (default) or INCOME — same table, template decides UI
+  transactionType  TransactionType @default(EXPENSE)
   category         ExpenseCategory @default(OTHER)
+  /// Optional freeform label (custom category). When set, UI/reports prefer this over CATEGORY_LABELS[category].
+  categoryLabel    String?
   /// When true, title-based auto-categorization will not overwrite category
   isCategoryLocked Boolean         @default(false)
   date             DateTime        @default(now())
@@ -136,6 +159,8 @@ model Expense {
   @@index([updatedById])
   @@index([date])
   @@index([category])
+  @@index([transactionType])
+  @@index([spaceId, date, transactionType])
 }
 
 model ExpenseSplit {
@@ -144,8 +169,8 @@ model ExpenseSplit {
   userId     String
   /// Amount this user owes for the expense (smallest currency unit)
   owedAmount Int
-  /// Weight used at expense time (EQUAL); EXACT rows store 1
-  share      Int    @default(1)
+  /// Weight in half-units at expense time (EQUAL); EXACT rows store 2 (= 1×)
+  share      Int    @default(2)
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -187,4 +212,58 @@ model ChecklistItem {
 
   @@index([spaceId])
   @@index([createdAt])
+}
+
+/// Personal lend/borrow ledger — isolated from Expense & Settlement (see debt-module-prd).
+enum DebtType {
+  LENT
+  BORROWED
+}
+
+enum DebtStatus {
+  ACTIVE
+  SETTLED
+}
+
+model Debt {
+  id             String     @id @default(cuid())
+  spaceId        String
+  /// LENT = طلب از دیگران؛ BORROWED = بدهی به دیگران
+  type           DebtType
+  counterparty   String
+  /// Total principal in smallest currency unit
+  initialAmount  Int
+  dueDate        DateTime?
+  status         DebtStatus @default(ACTIVE)
+  createdById    String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  space     Space         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy User          @relation("DebtCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  payments  DebtPayment[]
+
+  @@index([spaceId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([spaceId, status])
+  @@index([createdById])
+}
+
+model DebtPayment {
+  id          String   @id @default(cuid())
+  debtId      String
+  /// Partial repayment / receipt in smallest currency unit
+  amount      Int
+  date        DateTime @default(now())
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  debt      Debt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  createdBy User @relation("DebtPaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([debtId])
+  @@index([createdById])
+  @@index([date])
 }

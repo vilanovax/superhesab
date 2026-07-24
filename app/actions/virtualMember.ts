@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { canManageMembers } from "@/lib/rbac";
+import { assertCanAddSpaceMember } from "@/lib/spaces/membership-guards";
+import { getTemplate } from "@/lib/templates/registry";
 
 export type VirtualMemberResult =
   | { ok: true; userId: string }
@@ -27,6 +29,24 @@ export async function addVirtualMember(
   }
   if (!canManageMembers(membership.role)) {
     return { ok: false, error: "فقط مالک می‌تواند عضو دستی اضافه کند." };
+  }
+
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true },
+  });
+  if (!space) {
+    return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  const template = getTemplate(space.type);
+  if (!template.features.invites || template.features.solo) {
+    return { ok: false, error: "این فضا عضو جدید نمی‌پذیرد." };
+  }
+
+  const canAdd = await assertCanAddSpaceMember(spaceId);
+  if (!canAdd.ok) {
+    return canAdd;
   }
 
   const trimmed = name.trim();

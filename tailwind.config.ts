@@ -20,6 +20,23 @@ const config = {
         md: "calc(var(--radius) - 0.25rem)",
         sm: "calc(var(--radius) - 0.5rem)",
       },
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        fab: "var(--shadow-fab)",
+        drawer: "var(--shadow-drawer)",
+        dialog: "var(--shadow-dialog)",
+      },
+      fontSize: {
+        micro: ["var(--type-micro)", { lineHeight: "1.2" }],
+        caption: ["var(--type-caption)", { lineHeight: "1.35" }],
+        label: ["var(--type-label)", { lineHeight: "1.4" }],
+        "body-sm": ["var(--type-body-sm)", { lineHeight: "1.45" }],
+        body: ["var(--type-body)", { lineHeight: "1.5" }],
+        title: ["var(--type-title)", { lineHeight: "1.25" }],
+        display: ["var(--type-display)", { lineHeight: "1.05" }],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
@@ -53,6 +70,16 @@ const config = {
         mist: "var(--mist)",
         ink: "var(--ink)",
         highlight: "var(--highlight)",
+        sheet: {
+          DEFAULT: "var(--sheet)",
+          muted: "var(--sheet-muted)",
+        },
+        overlay: "var(--overlay)",
+        "on-hero": {
+          DEFAULT: "var(--on-hero)",
+          muted: "var(--on-hero-muted)",
+          soft: "var(--on-hero-soft)",
+        },
         success: {
           DEFAULT: "var(--success)",
           foreground: "var(--success-foreground)",

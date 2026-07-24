@@ -158,12 +158,12 @@ async function main() {
     }
     if (splitOk) pass("math: all expense splits sum to total");
 
-    // Share multipliers on trip villa (shares 1+2+1)
+    // Share multipliers on trip villa (half-units: 1×=2, 2×=4 → 2,2,4)
     const villa = trip?.expenses.find((e) => e.title.includes("ویلا"));
     if (villa) {
       const shares = villa.splits.map((s) => s.share).sort((a, b) => a - b);
-      if (shares.join(",") === "1,1,2") {
-        pass("math: villa EQUAL uses share multipliers 1/2/1");
+      if (shares.join(",") === "2,2,4") {
+        pass("math: villa EQUAL uses share multipliers 1×/2×/1×");
       } else {
         fail("math: villa shares", `got ${shares.join(",")}`);
       }

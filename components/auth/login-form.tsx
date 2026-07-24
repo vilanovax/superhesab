@@ -57,15 +57,15 @@ export function LoginForm({
   }
 
   return (
-    <div className="animate-fade-up w-full max-w-sm space-y-8 overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-6 shadow-[0_20px_50px_-24px_rgba(15,92,87,0.45)] backdrop-blur-md">
+    <div className="animate-fade-up w-full max-w-sm space-y-8 overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-6 shadow-lg backdrop-blur-md">
       <div className="surface-hero -mx-6 -mt-6 mb-2 px-6 py-5">
-        <p className="text-xs font-semibold tracking-[0.18em] text-white/70">
+        <p className="text-xs font-semibold tracking-[0.18em] text-on-hero/70">
           SUPERHESAB
         </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-on-hero">
           ورود با موبایل
         </h1>
-        <p className="mt-1.5 text-sm text-white/75">
+        <p className="mt-1.5 text-sm text-on-hero/75">
           {step === "phone"
             ? "شماره موبایل خود را وارد کنید."
             : `کد ارسال‌شده به ${phone} را وارد کنید.`}

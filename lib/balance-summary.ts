@@ -6,11 +6,13 @@ import {
 } from "@/lib/categorizer";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
 import { formatCurrency } from "@/lib/formatters";
+import type { SpaceCurrency } from "@/lib/format";
 import { maybeCeilToThousand } from "@/lib/money";
 
 export type SummaryExpense = {
   category: ExpenseCategory;
   totalAmount: number;
+  transactionType?: "EXPENSE" | "INCOME";
 };
 
 export type SummaryMember = {
@@ -39,16 +41,22 @@ export function buildBalanceSummaryText(input: {
   members: SummaryMember[];
   suggestions: SimplifiedSettlement[];
   currentUserId?: string;
+  currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
 }): string {
   const {
     spaceName,
-    expenses,
+    expenses: rawExpenses,
     members,
     suggestions,
     currentUserId,
+    currency = "TOMAN",
     roundUpToThousand = false,
   } = input;
+
+  const expenses = rawExpenses.filter(
+    (e) => (e.transactionType ?? "EXPENSE") === "EXPENSE",
+  );
 
   const total = expenses.reduce((sum, e) => sum + e.totalAmount, 0);
   const byCategory = Object.fromEntries(
@@ -66,7 +74,7 @@ export function buildBalanceSummaryText(input: {
 
   const lines: string[] = [
     `📊 بیلان فضا: ${spaceName}`,
-    `مجموع هزینه‌ها: ${formatCurrency(total)}`,
+    `مجموع هزینه‌ها: ${formatCurrency(total, currency)}`,
     "",
     "--- خلاصه هزینه‌ها ---",
   ];
@@ -75,7 +83,7 @@ export function buildBalanceSummaryText(input: {
     const sum = byCategory[category] ?? 0;
     if (sum <= 0) continue;
     lines.push(
-      `${CATEGORY_EMOJI[category]} ${CATEGORY_LABELS[category]}: ${formatCurrency(sum)}`,
+      `${CATEGORY_EMOJI[category]} ${CATEGORY_LABELS[category]}: ${formatCurrency(sum, currency)}`,
     );
   }
 
@@ -100,7 +108,9 @@ export function buildBalanceSummaryText(input: {
         s.toUserId,
         currentUserId,
       );
-      lines.push(`🔸 ${from} باید ${formatCurrency(amount)} به ${to} پرداخت کند.`);
+      lines.push(
+        `🔸 ${from} باید ${formatCurrency(amount, currency)} به ${to} پرداخت کند.`,
+      );
     }
   }
 

@@ -32,7 +32,7 @@
 ```
 ┌─────────────────────────────────────────────┐
 │  Template Layer (UI + policies + extras)    │
-│  Trip | Partner | Building (v2) | …         │
+│  Trip | Partner | Personal | Building (v2)  │
 ├─────────────────────────────────────────────┤
 │  Core Engine (shared, stable)               │
 │  Space · Member · Expense · Split · Settle  │
@@ -55,9 +55,9 @@
 | تسهیم (Split) | فقط **مساوی** و **مبلغ دقیق دستی** |
 | تسویه | الگوریتم **Debt Simplification** + تایید دستی |
 | ابزار جانبی | چک‌لیست اشتراکی (نزدیک به بلادرنگ) |
-| قالب‌های فعال | **سفر و دورهمی** · **حساب دونفره / پارتنر** |
+| قالب‌های فعال | **سفر و دورهمی** · **حساب دونفره / پارتنر** · **حسابداری شخصی** · **خانواده** |
 
-**خارج از اسکوپ MVP:** شارژ ماهانه ساختمان، نقش Viewer، تسهیم درصدی، آپلود فاکتور، داشبورد گرافیکی / Excel / PDF.
+**خارج از اسکوپ MVP:** شارژ ماهانه ساختمان، تسهیم درصدی، آپلود فاکتور، داشبورد گرافیکی / Excel / PDF.
 
 ### فاز دوم — v2 (مقیاس و قالب‌های پیچیده)
 
@@ -102,6 +102,30 @@
 - دعوت و نقش مشابه (Owner + Editor)
 
 جزئیات UI پارتنر بعد از پایدار شدن Trip تکمیل می‌شود؛ **هیچ schema جداگانه‌ای** برای Partner ساخته نمی‌شود مگر فیلد `Space.type = PARTNER`.
+
+---
+
+## تمپلیت: حسابداری شخصی (Personal)
+
+همان هسته Expense؛ تفاوت در UX تک‌نفره و جریان درآمد/هزینه:
+
+- `Space.type = PERSONAL` — فقط یک عضو (مالک)، بدون دعوت
+- `Expense.transactionType` = `EXPENSE` | `INCOME`
+- `Space.monthlyBudget` — سقف هزینه ماهانه (اختیاری)
+- UI: داشبورد ماه + گزارش دسته؛ بدون تسویه / چک‌لیست / اعضا
+- ماژول **بدهی و طلب** (`debts: true`) — جدا از Expense؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
+
+فاز بعد (خارج از MVP شخصی): سقف بودجه per-category، run-rate، تراکنش تکرارپذیر.
+
+---
+
+## تمپلیت: خانواده (Family)
+
+لجر مشترک خانوار **بدون تسویه**. جزئیات کامل: [`docs/family-template-prd.md`](./family-template-prd.md).
+
+- `Space.type = FAMILY` — ۲ تا ۸ عضو؛ دعوت با نقش EDITOR/VIEWER
+- `incomeExpense` + `budget` + `householdLedger`؛ `settlements: false`
+- Paid By بین اعضا؛ بدون Split UI؛ EDITOR فقط تراکنش خودش را ویرایش می‌کند
 
 ---
 

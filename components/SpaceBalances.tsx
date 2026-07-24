@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { payerName } from "@/lib/format";
+import { payerName, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { maybeCeilToThousand } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ type SpaceBalancesProps = {
   members: BalanceMember[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
   /** Partner shell: one bold rolling balance + settle up */
   variant?: "default" | "partner";
@@ -44,20 +45,20 @@ function personName(member: BalanceMember, currentUserId?: string): string {
   });
 }
 
-function BalanceAmount({ amount }: { amount: number }) {
+function BalanceAmount({ amount, currency = "TOMAN" }: { amount: number; currency?: SpaceCurrency }) {
   if (amount === 0) {
-    return <span className="text-[13px] text-muted-foreground">صفر</span>;
+    return <span className="text-body-sm text-muted-foreground">صفر</span>;
   }
   if (amount > 0) {
     return (
-      <span className="text-[13px] font-semibold tabular-nums text-success">
-        +{formatCurrency(amount)}
+      <span className="text-body-sm font-semibold tabular-nums text-success">
+        +{formatCurrency(amount, currency)}
       </span>
     );
   }
   return (
-    <span className="text-[13px] font-semibold tabular-nums text-destructive">
-      −{formatCurrency(Math.abs(amount))}
+    <span className="text-body-sm font-semibold tabular-nums text-destructive">
+      −{formatCurrency(Math.abs(amount), currency)}
     </span>
   );
 }
@@ -68,6 +69,7 @@ function SettleConfirmDialog({
   fromName,
   toName,
   amount,
+  currency = "TOMAN",
   pending,
   error,
   onConfirm,
@@ -78,6 +80,7 @@ function SettleConfirmDialog({
   fromName: string;
   toName: string;
   amount: number;
+  currency?: SpaceCurrency;
   pending: boolean;
   error: string | null;
   onConfirm: () => void;
@@ -88,25 +91,25 @@ function SettleConfirmDialog({
       <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-sm">
         <DialogHeader className="space-y-1.5 px-5 pb-3 pt-5 text-start">
           <DialogTitle className="text-base font-bold">تأیید پرداخت</DialogTitle>
-          <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
+          <DialogDescription className="text-body-sm leading-relaxed text-muted-foreground">
             این تسویه ثبت می‌شود و از مانده‌ها کم می‌گردد.
             {roundUpToThousand ? " مبلغ به‌صورت رند‌شده ثبت می‌شود." : ""}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mx-5 mb-4 rounded-2xl border border-border/55 bg-[#f7fafb] px-4 py-3.5">
-          <p className="text-[13px] text-foreground">
+        <div className="mx-5 mb-4 rounded-2xl border border-border/55 bg-sheet-muted px-4 py-3.5">
+          <p className="text-body-sm text-foreground">
             <span className="font-semibold">{fromName}</span>
             <span className="mx-1.5 text-muted-foreground/70">←</span>
             <span className="font-semibold">{toName}</span>
           </p>
           <p className="mt-1.5 text-lg font-bold tabular-nums text-ink">
-            {formatCurrency(amount)}
+            {formatCurrency(amount, currency)}
           </p>
         </div>
 
         {error ? (
-          <p className="px-5 pb-2 text-[12px] text-destructive" role="alert">
+          <p className="px-5 pb-2 text-label text-destructive" role="alert">
             {error}
           </p>
         ) : null}
@@ -140,6 +143,7 @@ function SuggestionCard({
   suggestion,
   membersById,
   currentUserId,
+  currency = "TOMAN",
   roundUpToThousand,
   canMutate,
 }: {
@@ -147,6 +151,7 @@ function SuggestionCard({
   suggestion: SimplifiedSettlement;
   membersById: Record<string, BalanceMember>;
   currentUserId?: string;
+  currency?: SpaceCurrency;
   roundUpToThousand: boolean;
   canMutate: boolean;
 }) {
@@ -182,23 +187,23 @@ function SuggestionCard({
   }
 
   return (
-    <li className="rounded-2xl border border-border/55 bg-white px-3.5 py-3">
+    <li className="rounded-2xl border border-border/55 bg-card px-3.5 py-3">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] text-foreground">
+          <p className="truncate text-body-sm text-foreground">
             <span className="font-semibold">{fromName}</span>
             <span className="mx-1.5 text-muted-foreground/70">←</span>
             <span className="font-semibold">{toName}</span>
           </p>
-          <p className="mt-0.5 text-[15px] font-bold tabular-nums text-ink">
-            {formatCurrency(amount)}
+          <p className="mt-0.5 text-body font-bold tabular-nums text-ink">
+            {formatCurrency(amount, currency)}
           </p>
         </div>
         {canMutate ? (
           <Button
             type="button"
             size="sm"
-            className="h-10 shrink-0 rounded-xl px-3.5 text-[13px]"
+            className="h-10 shrink-0 rounded-xl px-3.5 text-body-sm"
             disabled={pending}
             onClick={() => {
               setError(null);
@@ -217,6 +222,7 @@ function SuggestionCard({
           fromName={fromName}
           toName={toName}
           amount={amount}
+          currency={currency}
           pending={pending}
           error={error}
           onConfirm={onConfirmPaid}
@@ -233,6 +239,7 @@ function PartnerRollingBalance({
   members,
   balances,
   suggestions,
+  currency = "TOMAN",
   roundUpToThousand,
   canMutate,
 }: {
@@ -241,6 +248,7 @@ function PartnerRollingBalance({
   members: BalanceMember[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  currency?: SpaceCurrency;
   roundUpToThousand: boolean;
   canMutate: boolean;
 }) {
@@ -310,18 +318,18 @@ function PartnerRollingBalance({
         {myBalance === 0 ? (
           <p className="text-lg font-bold text-success">حساب‌ها صاف است</p>
         ) : myBalance > 0 ? (
-          <p className="text-[15px] leading-relaxed text-success">
+          <p className="text-body leading-relaxed text-success">
             شما{" "}
             <span className="text-2xl font-bold tabular-nums">
-              {formatCurrency(myBalance)}
+              {formatCurrency(myBalance, currency)}
             </span>{" "}
             طلبکار هستید
           </p>
         ) : (
-          <p className="text-[15px] leading-relaxed text-destructive">
+          <p className="text-body leading-relaxed text-destructive">
             شما{" "}
             <span className="text-2xl font-bold tabular-nums">
-              {formatCurrency(Math.abs(myBalance))}
+              {formatCurrency(Math.abs(myBalance), currency)}
             </span>{" "}
             بدهکار هستید
           </p>
@@ -345,8 +353,8 @@ function PartnerRollingBalance({
       </div>
 
       {suggestion && myBalance !== 0 ? (
-        <p className="px-1 text-center text-[12px] text-muted-foreground">
-          {fromName} ← {toName} · {formatCurrency(settleAmount)}
+        <p className="px-1 text-center text-label text-muted-foreground">
+          {fromName} ← {toName} · {formatCurrency(settleAmount, currency)}
         </p>
       ) : null}
 
@@ -357,6 +365,7 @@ function PartnerRollingBalance({
           fromName={fromName}
           toName={toName}
           amount={settleAmount}
+          currency={currency}
           pending={pending}
           error={error}
           onConfirm={onConfirmPaid}
@@ -387,7 +396,7 @@ function MemberRow({
           height={28}
           className="size-7 shrink-0 rounded-full bg-secondary"
         />
-        <span className="truncate text-[13px] font-medium text-foreground">
+        <span className="truncate text-body-sm font-medium text-foreground">
           {personName(member, currentUserId)}
         </span>
       </div>
@@ -402,6 +411,7 @@ export function SpaceBalances({
   members,
   balances,
   suggestions,
+  currency = "TOMAN",
   roundUpToThousand = false,
   variant = "default",
   canMutate = true,
@@ -414,6 +424,7 @@ export function SpaceBalances({
         members={members}
         balances={balances}
         suggestions={suggestions}
+        currency={currency}
         roundUpToThousand={roundUpToThousand}
         canMutate={canMutate}
       />
@@ -453,13 +464,13 @@ export function SpaceBalances({
       <div className="animate-fade-up space-y-3.5">
         <div className="rounded-2xl border border-success/25 bg-success-soft/50 px-4 py-5 text-center">
           <p className="text-base font-semibold text-success">حساب‌ها صاف است</p>
-          <p className="mt-1 text-[13px] text-muted-foreground">
+          <p className="mt-1 text-body-sm text-muted-foreground">
             بعد از ثبت هزینه، مانده‌ها اینجا می‌آید
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border/55 bg-white px-3.5 py-3">
-          <p className="mb-1 text-[11px] font-medium text-muted-foreground">
+        <div className="rounded-2xl border border-border/55 bg-card px-3.5 py-3">
+          <p className="mb-1 text-caption font-medium text-muted-foreground">
             {members.length} عضو
           </p>
           <ul className="divide-y divide-border/45">
@@ -469,7 +480,7 @@ export function SpaceBalances({
                 member={member}
                 currentUserId={currentUserId}
                 trailing={
-                  <span className="text-[11px] text-muted-foreground">صاف</span>
+                  <span className="text-caption text-muted-foreground">صاف</span>
                 }
               />
             ))}
@@ -483,16 +494,16 @@ export function SpaceBalances({
     <div className="animate-fade-up space-y-4">
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-[13px] font-semibold text-foreground">
+          <h2 className="text-body-sm font-semibold text-foreground">
             برای تسویه
           </h2>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {suggestions.length} پرداخت
             {roundUpToThousand ? " · رند‌شده" : ""}
           </span>
         </div>
         {suggestions.length === 0 ? (
-          <p className="rounded-xl bg-muted/55 px-3 py-3 text-[13px] text-muted-foreground">
+          <p className="rounded-xl bg-muted/55 px-3 py-3 text-body-sm text-muted-foreground">
             پیشنهاد پرداختی نیست — مانده‌ها را پایین ببین.
           </p>
         ) : (
@@ -504,6 +515,7 @@ export function SpaceBalances({
                 suggestion={suggestion}
                 membersById={membersById}
                 currentUserId={currentUserId}
+                currency={currency}
                 roundUpToThousand={roundUpToThousand}
                 canMutate={canMutate}
               />
@@ -514,14 +526,14 @@ export function SpaceBalances({
 
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-[13px] font-semibold text-foreground">
+          <h2 className="text-body-sm font-semibold text-foreground">
             مانده خالص
           </h2>
           {roundUpToThousand ? (
-            <span className="text-[11px] text-muted-foreground">رند به هزار</span>
+            <span className="text-caption text-muted-foreground">رند به هزار</span>
           ) : null}
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border/55 bg-white">
+        <div className="overflow-hidden rounded-2xl border border-border/55 bg-card">
           {debtors.length > 0 ? (
             <div
               className={cn(
@@ -529,7 +541,7 @@ export function SpaceBalances({
                 creditors.length > 0 && "border-b border-border/45",
               )}
             >
-              <p className="mb-1 text-[11px] font-medium text-destructive">
+              <p className="mb-1 text-caption font-medium text-destructive">
                 بدهکار
               </p>
               <ul className="divide-y divide-border/40">
@@ -540,6 +552,7 @@ export function SpaceBalances({
                     currentUserId={currentUserId}
                     trailing={
                       <BalanceAmount
+                        currency={currency}
                         amount={displayBalances[member.userId] ?? 0}
                       />
                     }
@@ -551,7 +564,7 @@ export function SpaceBalances({
 
           {creditors.length > 0 ? (
             <div className="px-3.5 py-3">
-              <p className="mb-1 text-[11px] font-medium text-success">
+              <p className="mb-1 text-caption font-medium text-success">
                 طلبکار
               </p>
               <ul className="divide-y divide-border/40">
@@ -562,6 +575,7 @@ export function SpaceBalances({
                     currentUserId={currentUserId}
                     trailing={
                       <BalanceAmount
+                        currency={currency}
                         amount={displayBalances[member.userId] ?? 0}
                       />
                     }
@@ -572,7 +586,7 @@ export function SpaceBalances({
           ) : null}
 
           {debtors.length === 0 && creditors.length === 0 ? (
-            <p className="px-3.5 py-4 text-center text-[13px] text-muted-foreground">
+            <p className="px-3.5 py-4 text-center text-body-sm text-muted-foreground">
               مانده‌ای نیست
             </p>
           ) : null}

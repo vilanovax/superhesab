@@ -128,6 +128,60 @@ export function CategoryIcon({ category, className }: CategoryIconProps) {
           </svg>
         </IconShell>
       );
+    case "SALARY":
+      return (
+        <IconShell
+          className={className}
+          label={label}
+          tone="bg-emerald-500/15 text-emerald-700"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+            <path
+              d="M12 3v18M8 8h5.5a2.5 2.5 0 0 1 0 5H8h6a2.5 2.5 0 0 1 0 5H8"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </IconShell>
+      );
+    case "TRANSFER":
+      return (
+        <IconShell
+          className={className}
+          label={label}
+          tone="bg-sky-500/15 text-sky-700"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+            <path
+              d="M7 10h13l-3-3M17 14H4l3 3"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </IconShell>
+      );
+    case "OTHER_INCOME":
+      return (
+        <IconShell
+          className={className}
+          label={label}
+          tone="bg-teal-500/15 text-teal-700"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+            <path
+              d="M12 3v18M5 9.5C5 7 8 5 12 5s7 2 7 4.5-3 4.5-7 4.5S5 16 5 18.5 8 23 12 23s7-2 7-4.5"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </IconShell>
+      );
     default:
       return (
         <IconShell

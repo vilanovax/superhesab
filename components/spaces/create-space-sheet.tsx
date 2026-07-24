@@ -21,6 +21,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import type { SpaceType } from "@/types";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
@@ -63,8 +64,8 @@ function CreateTrigger({
       type="button"
       className={cn(
         isFab
-          ? "h-12 w-full gap-2 rounded-2xl text-sm font-semibold shadow-[0_12px_28px_-12px_rgba(15,92,87,0.55)]"
-          : "h-10 shrink-0 gap-1.5 rounded-xl bg-white px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-white/90",
+          ? "h-12 w-full gap-2 rounded-2xl text-sm font-semibold shadow-fab"
+          : "h-10 shrink-0 gap-1.5 rounded-xl bg-card px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-card/90",
         className,
       )}
       {...props}
@@ -72,7 +73,7 @@ function CreateTrigger({
       <span
         className={cn(
           "flex items-center justify-center rounded-md",
-          isFab ? "size-6 bg-white/15" : "size-5",
+          isFab ? "size-6 bg-on-hero/15" : "size-5",
         )}
       >
         <PlusIcon className="size-4" />
@@ -87,19 +88,19 @@ function SheetBody({
   initialType,
 }: {
   error?: string;
-  initialType?: "TRIP" | "PARTNER";
+  initialType?: SpaceType;
 }) {
   return (
     <>
       <div className="surface-hero shrink-0 px-5 pb-4 pt-2 md:pt-5">
         <div className="space-y-1 text-start">
-          <h2 className="text-xl font-bold text-white">فضای جدید</h2>
-          <p className="text-sm text-white/75">
-            یک دفتر مشترک برای سفر، دورهمی یا دونفره
+          <h2 className="text-xl font-bold text-on-hero">فضای جدید</h2>
+          <p className="text-sm text-on-hero/75">
+            سفر، مشترک، خانواده یا شخصی
           </p>
         </div>
       </div>
-      <div className="overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#eef5f4_0%,#f7fafb_100%)] px-5 py-5 pb-10">
+      <div className="surface-sheet-canvas overflow-y-auto overscroll-contain px-5 py-5 pb-10">
         <CreateSpaceForm
           key={initialType ?? "default"}
           error={error}
@@ -123,7 +124,7 @@ export function CreateSpaceSheet({
   layout?: "inline" | "fab";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  initialType?: "TRIP" | "PARTNER";
+  initialType?: SpaceType;
   hideTrigger?: boolean;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(Boolean(error));

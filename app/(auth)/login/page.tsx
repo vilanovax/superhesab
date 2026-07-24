@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { prisma } from "@/lib/db/prisma";
 import { getSession } from "@/lib/session";
 
 function safeCallbackUrl(raw: string | undefined): string {
@@ -18,7 +19,14 @@ export default async function LoginPage({
 
   const session = await getSession();
   if (session) {
-    redirect(callbackUrl);
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true },
+    });
+    if (user) {
+      redirect(callbackUrl);
+    }
+    redirect("/auth/session/clear?next=/login");
   }
 
   return (

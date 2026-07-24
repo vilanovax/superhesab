@@ -1,12 +1,21 @@
 /**
  * Currency helpers — amounts are always integers in the smallest unit.
  * Never use floating-point arithmetic for money.
+ *
+ * Share weights are stored as integer half-units (1 = 0.5×, 2 = 1×, 3 = 1.5×).
+ * UI steps by one half-unit (+/− ۰٫۵).
  */
 
 export type Money = number & { readonly __brand: "Money" };
 
+/** Minimum weight: 0.5× */
 export const MIN_SHARE = 1;
-export const MAX_SHARE = 10;
+/** Maximum weight: 10× (20 half-units) */
+export const MAX_SHARE = 20;
+/** Default weight: 1× */
+export const DEFAULT_SHARE = 2;
+/** One UI step = 0.5× */
+export const SHARE_STEP = 1;
 
 export function asMoney(value: number): Money {
   if (!Number.isInteger(value)) {
@@ -39,9 +48,9 @@ export type WeightedSplitResult = {
 };
 
 /**
- * Weighted EQUAL split — integer-only.
+ * Weighted EQUAL split — integer-only (share = half-units).
  * floor(total * share / totalShares), then +1 remainder round-robin from start.
- * When every share is 1, matches splitEqual for the same order.
+ * When every share is DEFAULT_SHARE (1×), matches splitEqual for the same order.
  */
 export function calculateWeightedSplits(
   totalAmount: number,
@@ -61,7 +70,7 @@ export function calculateWeightedSplits(
       m.share > MAX_SHARE
     ) {
       throw new Error(
-        `share must be an integer ${MIN_SHARE}–${MAX_SHARE} (got ${m.share})`,
+        `share must be an integer ${MIN_SHARE}–${MAX_SHARE} half-units (got ${m.share})`,
       );
     }
   }
@@ -93,8 +102,19 @@ export function calculateWeightedSplits(
 }
 
 export function clampShare(value: number): number {
-  if (!Number.isFinite(value)) return MIN_SHARE;
+  if (!Number.isFinite(value)) return DEFAULT_SHARE;
   return Math.min(MAX_SHARE, Math.max(MIN_SHARE, Math.trunc(value)));
+}
+
+/** Format half-unit share for UI: 1 → ۰٫۵، 2 → ۱، 3 → ۱٫۵ */
+export function formatShareLabel(halfUnits: number): string {
+  const n = clampShare(halfUnits);
+  const whole = Math.floor(n / 2);
+  const hasHalf = n % 2 === 1;
+  const faWhole = new Intl.NumberFormat("fa-IR").format(whole);
+  if (!hasHalf) return faWhole;
+  if (whole === 0) return "۰٫۵";
+  return `${faWhole}٫۵`;
 }
 
 export function assertSplitsSumToTotal(total: Money, parts: Money[]): void {

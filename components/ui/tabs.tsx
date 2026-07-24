@@ -54,7 +54,7 @@ export function TabsList({
     <div
       role="tablist"
       className={cn(
-        "grid h-10 gap-0.5 rounded-xl border border-border/60 bg-white/70 p-1 shadow-none backdrop-blur-sm",
+        "grid h-10 gap-0.5 rounded-xl border border-border/60 bg-card/70 p-1 shadow-none backdrop-blur-sm",
         className ?? "grid-cols-2",
       )}
     >
@@ -81,10 +81,10 @@ export function TabsTrigger({
       aria-selected={selected}
       onClick={() => setValue(value)}
       className={cn(
-        "inline-flex h-8 items-center justify-center rounded-lg text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
+        "inline-flex h-8 items-center justify-center rounded-lg text-body-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
         selected
           ? "bg-primary text-primary-foreground shadow-none"
-          : "text-muted-foreground hover:bg-white/80 hover:text-foreground",
+          : "text-muted-foreground hover:bg-card/80 hover:text-foreground",
         className,
       )}
     >

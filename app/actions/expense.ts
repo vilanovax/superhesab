@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
-import { guessCategoryFromTitle } from "@/lib/categorizer";
+import {
+  categoriesForType,
+  guessCategoryFromTitle,
+} from "@/lib/categorizer";
 import { parseExpenseDateInput } from "@/lib/format";
 import {
   asMoney,
   calculateWeightedSplits,
   clampShare,
-  MIN_SHARE,
+  DEFAULT_SHARE,
 } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
+import { getTemplate } from "@/lib/templates/registry";
 import {
   expenseSchema,
   type ExpenseFormValues,
@@ -37,9 +41,62 @@ async function assertCanMutateExpense(spaceId: string, userId: string) {
   return { ok: true as const, membership };
 }
 
+async function loadSpaceType(spaceId: string) {
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true },
+  });
+  return space?.type ?? null;
+}
+
+function personalOwedRows(
+  userId: string,
+  totalAmount: number,
+): OwedRow[] {
+  return [
+    {
+      userId,
+      owedAmount: asMoney(totalAmount),
+      share: DEFAULT_SHARE,
+    },
+  ];
+}
+
 async function resolveOwedRows(
   input: ExpenseFormValues,
+  options: {
+    forcePersonalUserId?: string;
+    householdPaidById?: string;
+  },
 ): Promise<{ ok: true; owedByUser: OwedRow[] } | { ok: false; error: string }> {
+  if (options.forcePersonalUserId) {
+    return {
+      ok: true,
+      owedByUser: personalOwedRows(
+        options.forcePersonalUserId,
+        input.totalAmount,
+      ),
+    };
+  }
+
+  if (options.householdPaidById) {
+    const members = await prisma.spaceMember.findMany({
+      where: { spaceId: input.spaceId },
+      select: { userId: true },
+    });
+    const memberIds = new Set(members.map((m) => m.userId));
+    if (!memberIds.has(options.householdPaidById)) {
+      return { ok: false, error: "پرداخت‌کننده عضو این فضا نیست." };
+    }
+    return {
+      ok: true,
+      owedByUser: personalOwedRows(
+        options.householdPaidById,
+        input.totalAmount,
+      ),
+    };
+  }
+
   const members = await prisma.spaceMember.findMany({
     where: { spaceId: input.spaceId },
     select: { userId: true },
@@ -69,7 +126,7 @@ async function resolveOwedRows(
       const ordered = [...selected]
         .map((s) => ({
           userId: s.userId,
-          share: clampShare(s.share ?? MIN_SHARE),
+          share: clampShare(s.share ?? DEFAULT_SHARE),
         }))
         .sort((a, b) => a.userId.localeCompare(b.userId));
       const parts = calculateWeightedSplits(total, ordered);
@@ -98,7 +155,7 @@ async function resolveOwedRows(
     owedByUser = selected.map((s) => ({
       userId: s.userId,
       owedAmount: s.amount,
-      share: MIN_SHARE,
+      share: DEFAULT_SHARE,
     }));
   }
 
@@ -122,10 +179,47 @@ export async function addExpense(
   const access = await assertCanMutateExpense(input.spaceId, session.userId);
   if (!access.ok) return access;
 
-  const resolved = await resolveOwedRows(input);
+  const spaceType = await loadSpaceType(input.spaceId);
+  if (!spaceType) {
+    return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  const features = getTemplate(spaceType).features;
+  const transactionType = features.incomeExpense
+    ? (input.transactionType ?? "EXPENSE")
+    : "EXPENSE";
+
+  const paidById = features.solo ? session.userId : input.paidById;
+  const resolved = await resolveOwedRows(
+    { ...input, paidById },
+    {
+      forcePersonalUserId: features.solo ? session.userId : undefined,
+      householdPaidById: features.householdLedger ? paidById : undefined,
+    },
+  );
   if (!resolved.ok) return resolved;
 
-  const inferredCategory = guessCategoryFromTitle(input.title);
+  const allowedCategories = categoriesForType(transactionType);
+  if (
+    input.category !== undefined &&
+    !allowedCategories.includes(input.category)
+  ) {
+    return {
+      ok: false,
+      error: "دسته با نوع تراکنش هم‌خوان نیست.",
+    };
+  }
+
+  const customLabel = input.categoryLabel?.trim() || null;
+  const fallbackBucket =
+    transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";
+  const hasManualCategory = input.category !== undefined;
+  const categoryLocked = hasManualCategory || Boolean(customLabel);
+  const category = customLabel
+    ? fallbackBucket
+    : hasManualCategory
+      ? input.category!
+      : guessCategoryFromTitle(input.title, transactionType);
 
   try {
     const expense = await prisma.$transaction(async (tx) => {
@@ -134,12 +228,14 @@ export async function addExpense(
           spaceId: input.spaceId,
           title: input.title,
           totalAmount: input.totalAmount,
-          paidById: input.paidById,
+          paidById,
           createdById: session.userId,
           updatedById: session.userId,
           date: parseExpenseDateInput(input.date),
-          category: inferredCategory,
-          isCategoryLocked: false,
+          transactionType,
+          category,
+          categoryLabel: customLabel,
+          isCategoryLocked: categoryLocked,
         },
       });
 
@@ -182,29 +278,94 @@ export async function updateExpense(
   const access = await assertCanMutateExpense(input.spaceId, session.userId);
   if (!access.ok) return access;
 
+  const spaceType = await loadSpaceType(input.spaceId);
+  if (!spaceType) {
+    return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  const features = getTemplate(spaceType).features;
+  const transactionType = features.incomeExpense
+    ? (input.transactionType ?? "EXPENSE")
+    : "EXPENSE";
+
   const existing = await prisma.expense.findFirst({
     where: { id: expenseId, spaceId: input.spaceId },
     select: {
       id: true,
       category: true,
+      categoryLabel: true,
       isCategoryLocked: true,
+      transactionType: true,
+      createdById: true,
     },
   });
   if (!existing) {
     return { ok: false, error: "هزینه پیدا نشد." };
   }
 
-  const resolved = await resolveOwedRows(input);
+  if (
+    access.membership.role === "EDITOR" &&
+    existing.createdById !== session.userId
+  ) {
+    return {
+      ok: false,
+      error: "فقط می‌توانید تراکنش‌هایی را ویرایش کنید که خودتان ثبت کرده‌اید.",
+    };
+  }
+
+  const paidById = features.solo ? session.userId : input.paidById;
+  const resolved = await resolveOwedRows(
+    { ...input, paidById },
+    {
+      forcePersonalUserId: features.solo ? session.userId : undefined,
+      householdPaidById: features.householdLedger ? paidById : undefined,
+    },
+  );
   if (!resolved.ok) return resolved;
 
+  const allowedCategories = categoriesForType(transactionType);
+  if (
+    input.category !== undefined &&
+    !allowedCategories.includes(input.category)
+  ) {
+    return {
+      ok: false,
+      error: "دسته با نوع تراکنش هم‌خوان نیست.",
+    };
+  }
+
+  const fallbackBucket =
+    transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";
   let category = existing.category;
+  let categoryLabel = existing.categoryLabel;
   let isCategoryLocked = existing.isCategoryLocked;
 
-  if (input.category !== undefined && input.category !== existing.category) {
+  if (input.categoryLabel !== undefined) {
+    const nextLabel = input.categoryLabel?.trim() || null;
+    if (nextLabel) {
+      category = fallbackBucket;
+      categoryLabel = nextLabel;
+      isCategoryLocked = true;
+    } else if (input.categoryLabel === null || input.categoryLabel === "") {
+      categoryLabel = null;
+    }
+  }
+
+  if (
+    input.category !== undefined &&
+    input.category !== existing.category &&
+    !input.categoryLabel
+  ) {
     category = input.category;
+    categoryLabel = null;
     isCategoryLocked = true;
-  } else if (!existing.isCategoryLocked) {
-    category = guessCategoryFromTitle(input.title);
+  } else if (
+    !isCategoryLocked &&
+    !input.categoryLabel &&
+    input.category === undefined
+  ) {
+    category = guessCategoryFromTitle(input.title, transactionType);
+    categoryLabel = null;
   }
 
   try {
@@ -214,9 +375,11 @@ export async function updateExpense(
         data: {
           title: input.title,
           totalAmount: input.totalAmount,
-          paidById: input.paidById,
+          paidById,
           date: parseExpenseDateInput(input.date),
+          transactionType,
           category,
+          categoryLabel,
           isCategoryLocked,
           updatedById: session.userId,
         },
@@ -252,10 +415,20 @@ export async function deleteExpense(
 
   const existing = await prisma.expense.findFirst({
     where: { id: expenseId, spaceId },
-    select: { id: true },
+    select: { id: true, createdById: true },
   });
   if (!existing) {
     return { ok: false, error: "هزینه پیدا نشد." };
+  }
+
+  if (
+    access.membership.role === "EDITOR" &&
+    existing.createdById !== session.userId
+  ) {
+    return {
+      ok: false,
+      error: "فقط می‌توانید تراکنش‌هایی را حذف کنید که خودتان ثبت کرده‌اید.",
+    };
   }
 
   try {

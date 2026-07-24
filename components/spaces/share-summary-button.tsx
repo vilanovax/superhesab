@@ -8,6 +8,7 @@ import {
   type SummaryMember,
 } from "@/lib/balance-summary";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
+import type { SpaceCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 function ShareIcon({ className }: { className?: string }) {
@@ -36,6 +37,7 @@ type ShareSummaryIconButtonProps = {
   members: SummaryMember[];
   suggestions: SimplifiedSettlement[];
   currentUserId?: string;
+  currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
   className?: string;
 };
@@ -46,6 +48,7 @@ export function ShareSummaryIconButton({
   members,
   suggestions,
   currentUserId,
+  currency = "TOMAN",
   roundUpToThousand = false,
   className,
 }: ShareSummaryIconButtonProps) {
@@ -66,6 +69,7 @@ export function ShareSummaryIconButton({
       members,
       suggestions,
       currentUserId,
+      currency,
       roundUpToThousand,
     });
 
@@ -106,7 +110,7 @@ export function ShareSummaryIconButton({
         variant="outline"
         size="icon"
         className={cn(
-          "size-9 shrink-0 rounded-xl border-border/70 bg-white shadow-sm",
+          "size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm",
           className,
         )}
         aria-label="اشتراک‌گذاری بیلان"
@@ -122,7 +126,7 @@ export function ShareSummaryIconButton({
           className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4"
           role="status"
         >
-          <p className="animate-fade-up rounded-full border border-success/20 bg-success-soft px-4 py-2 text-[12px] font-medium text-success shadow-sm">
+          <p className="animate-fade-up rounded-full border border-success/20 bg-success-soft px-4 py-2 text-label font-medium text-success shadow-sm">
             {toast}
           </p>
         </div>

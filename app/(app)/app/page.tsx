@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { listDueSoonDebtsForUser } from "@/app/actions/debt";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireUser } from "@/lib/auth/guards";
+import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
+import { formatCurrency } from "@/lib/formatters";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +67,7 @@ export default async function AppHomePage({
   });
 
   if (!user) {
+    // requireUser already clears stale sessions; belt-and-suspenders
     redirect("/login");
   }
 
@@ -75,6 +79,7 @@ export default async function AppHomePage({
           id: true,
           name: true,
           type: true,
+          currency: true,
           _count: { select: { expenses: true, members: true } },
         },
       },
@@ -82,8 +87,14 @@ export default async function AppHomePage({
     orderBy: { createdAt: "desc" },
   });
 
+  const dueSoonDebts = await listDueSoonDebtsForUser(session.userId);
+
   const displayName = user.name?.trim() || user.phone;
   const spaceCount = memberships.length;
+
+  const currencyBySpace = Object.fromEntries(
+    memberships.map((m) => [m.space.id, m.space.currency]),
+  );
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
@@ -101,10 +112,10 @@ export default async function AppHomePage({
           className="size-9 rounded-full ring-2 ring-white/80"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold text-foreground">
+          <p className="truncate text-body-sm font-semibold text-foreground">
             سلام، {displayName}
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             {spaceCount === 0 ? "دفترت خالی است" : `${spaceCount} دفتر فعال`}
           </p>
         </div>
@@ -112,7 +123,7 @@ export default async function AppHomePage({
           asChild
           variant="outline"
           size="icon"
-          className="size-9 shrink-0 rounded-xl border-border/70 bg-white shadow-sm"
+          className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
           aria-label="تنظیمات اپ"
         >
           <Link href="/app/settings">
@@ -121,6 +132,40 @@ export default async function AppHomePage({
         </Button>
       </div>
 
+      {dueSoonDebts.length > 0 ? (
+        <div className="animate-fade-up mb-4 rounded-2xl border border-destructive/25 bg-destructive-soft px-4 py-3">
+          <p className="text-body-sm font-semibold text-destructive">
+            سررسید بدهی / طلب
+          </p>
+          <ul className="mt-2 space-y-2">
+            {dueSoonDebts.slice(0, 4).map((d) => (
+              <li key={d.debtId}>
+                <Link
+                  href={`/spaces/${d.spaceId}`}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-card/60 px-3 py-2 text-caption transition-colors hover:bg-card"
+                >
+                  <span className="min-w-0 truncate text-foreground">
+                    {debtTypeLabel(d.type)} «{d.counterparty}» · {d.spaceName}
+                    {" · "}
+                    {d.daysLeft < 0
+                      ? `${Math.abs(d.daysLeft)} روز گذشته`
+                      : d.daysLeft === 0
+                        ? "امروز"
+                        : `${d.daysLeft} روز مانده`}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-semibold text-destructive">
+                    {formatCurrency(
+                      d.remaining,
+                      currencyBySpace[d.spaceId] ?? "TOMAN",
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* Full-bleed brand thesis — not a form */}
       <header className="surface-hero animate-fade-up relative mb-6 overflow-hidden rounded-[1.35rem] px-5 pb-5 pt-6">
         <div
@@ -128,7 +173,7 @@ export default async function AppHomePage({
           className="pointer-events-none absolute inset-0 opacity-30"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
+              "linear-gradient(var(--on-hero-soft) 1px, transparent 1px), linear-gradient(90deg, var(--on-hero-soft) 1px, transparent 1px)",
             backgroundSize: "22px 22px",
             maskImage:
               "radial-gradient(ellipse at 70% 20%, black 20%, transparent 70%)",
@@ -136,28 +181,28 @@ export default async function AppHomePage({
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-e-10 -top-16 size-44 rounded-full bg-white/10 blur-3xl"
+          className="pointer-events-none absolute -inset-e-10 -top-16 size-44 rounded-full bg-on-hero/10 blur-3xl"
         />
         <div className="relative space-y-4">
           <div className="space-y-1.5">
-            <p className="text-[11px] font-medium tracking-[0.14em] text-white/55">
+            <p className="text-caption font-medium tracking-[0.14em] text-on-hero/55">
               دفتر سفر
             </p>
-            <h1 className="text-[2rem] font-bold leading-[1.05] tracking-tight text-white">
+            <h1 className="text-display font-bold tracking-tight text-on-hero">
               SuperHesab
             </h1>
-            <p className="max-w-[17rem] text-[13px] leading-relaxed text-white/78">
+            <p className="max-w-[17rem] text-body-sm leading-relaxed text-on-hero/78">
               خرج‌ها را با هم ثبت کن؛ تراز و تسویه خودش سر جایش می‌نشیند.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg bg-white/12 px-2.5 py-1 text-[11px] font-medium text-white/85">
+            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
               سفر
             </span>
-            <span className="rounded-lg bg-white/12 px-2.5 py-1 text-[11px] font-medium text-white/85">
+            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
               دورهمی
             </span>
-            <span className="rounded-lg bg-white/12 px-2.5 py-1 text-[11px] font-medium text-white/85">
+            <span className="rounded-lg bg-on-hero-soft px-2.5 py-1 text-caption font-medium text-on-hero/85">
               دونفره
             </span>
           </div>
@@ -171,7 +216,7 @@ export default async function AppHomePage({
             <h2 className="text-base font-bold tracking-tight text-foreground">
               فضاهای من
             </h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-caption text-muted-foreground">
               دفاتر مشترک حساب‌وکتاب
             </p>
           </div>
@@ -181,7 +226,7 @@ export default async function AppHomePage({
           <EmptyState
             icon="space"
             title="هیچ حساب و کتابی ندارید"
-            description="برای شروع، یک سفر گروهی جدید بسازید یا حساب مشترک دونفره خود را ایجاد کنید."
+            description="سفر گروهی، حساب مشترک دونفره، یا حسابداری شخصی بسازید."
             className="flex-1 justify-center"
             actionNode={<HomeEmptyActions error={error} />}
           />
@@ -189,7 +234,30 @@ export default async function AppHomePage({
           <ul className="space-y-2.5">
             {memberships.map(({ space, role }, index) => {
               const template = getTemplate(space.type);
-              const isTrip = space.type === "TRIP";
+              const mark =
+                space.type === "TRIP"
+                  ? "سفر"
+                  : space.type === "PARTNER"
+                    ? "۲نفر"
+                    : space.type === "FAMILY"
+                      ? "خانه"
+                      : "من";
+              const accent =
+                space.type === "TRIP"
+                  ? "bg-primary"
+                  : space.type === "PARTNER"
+                    ? "bg-highlight"
+                    : space.type === "FAMILY"
+                      ? "bg-ink"
+                      : "bg-success";
+              const chip =
+                space.type === "TRIP"
+                  ? "bg-secondary text-primary"
+                  : space.type === "PARTNER"
+                    ? "bg-accent text-ink"
+                    : space.type === "FAMILY"
+                      ? "bg-secondary text-primary"
+                      : "bg-success-soft text-success";
               return (
                 <li
                   key={space.id}
@@ -199,9 +267,9 @@ export default async function AppHomePage({
                   <Link
                     href={`/spaces/${space.id}`}
                     className={cn(
-                      "group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/55 bg-white px-3.5 py-3.5",
+                      "group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/55 bg-card px-3.5 py-3.5",
                       "transition-[transform,box-shadow,border-color] duration-150 ease-out",
-                      "hover:border-primary/25 hover:shadow-[0_12px_32px_-20px_rgba(15,92,87,0.5)]",
+                      "hover:border-primary/25 hover:shadow-md",
                       "active:scale-[0.985]",
                     )}
                   >
@@ -209,24 +277,22 @@ export default async function AppHomePage({
                       aria-hidden
                       className={cn(
                         "absolute inset-y-3 start-0 w-[3px] rounded-full",
-                        isTrip ? "bg-primary" : "bg-highlight",
+                        accent,
                       )}
                     />
                     <span
                       className={cn(
-                        "flex size-12 shrink-0 flex-col items-center justify-center rounded-2xl text-[11px] font-bold leading-tight",
-                        isTrip
-                          ? "bg-[linear-gradient(145deg,#e7f3f1,#d5ebe7)] text-primary"
-                          : "bg-[linear-gradient(145deg,#e8f6f3,#d0ebe4)] text-ink",
+                        "flex size-12 shrink-0 flex-col items-center justify-center rounded-2xl text-caption font-bold leading-tight",
+                        chip,
                       )}
                     >
-                      {isTrip ? "سفر" : "۲نفر"}
+                      {mark}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[0.95rem] font-semibold text-foreground">
+                      <p className="truncate text-body font-semibold text-foreground">
                         {space.name}
                       </p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
+                      <p className="mt-1 text-caption text-muted-foreground">
                         {template.label}
                         <span className="mx-1.5 text-border">·</span>
                         {roleLabel(role)}

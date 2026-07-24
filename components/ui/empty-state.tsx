@@ -121,8 +121,8 @@ export function EmptyState({
         <Icon />
       </div>
       <div className="space-y-1">
-        <p className="text-[0.9375rem] font-semibold text-foreground">{title}</p>
-        <p className="mx-auto max-w-[18rem] text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-body font-semibold text-foreground">{title}</p>
+        <p className="mx-auto max-w-[18rem] text-body-sm leading-relaxed text-muted-foreground">
           {description}
         </p>
       </div>

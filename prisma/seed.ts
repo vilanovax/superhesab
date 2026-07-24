@@ -164,10 +164,10 @@ async function main() {
       roundUpToThousand: false,
       members: {
         create: [
-          { userId: ali.id, role: "OWNER", defaultShare: 1 },
-          // Sara represents a couple → share 2
-          { userId: sara.id, role: "EDITOR", defaultShare: 2 },
-          { userId: rezaVirtual.id, role: "EDITOR", defaultShare: 1 },
+          { userId: ali.id, role: "OWNER", defaultShare: 2 },
+          // Sara represents a couple → 2× (4 half-units)
+          { userId: sara.id, role: "EDITOR", defaultShare: 4 },
+          { userId: rezaVirtual.id, role: "EDITOR", defaultShare: 2 },
         ],
       },
       checklist: {
@@ -180,9 +180,9 @@ async function main() {
   });
 
   const tripMembers = [
-    { userId: ali.id, share: 1 },
-    { userId: sara.id, share: 2 },
-    { userId: rezaVirtual.id, share: 1 },
+    { userId: ali.id, share: 2 },
+    { userId: sara.id, share: 4 },
+    { userId: rezaVirtual.id, share: 2 },
   ];
 
   // 1) EQUAL + share multipliers — ویلا (Ali paid)
@@ -221,18 +221,18 @@ async function main() {
     category: "TRANSPORT",
     date: daysAgo(3),
     splits: weightedSplits(350_000, [
-      { userId: ali.id, share: 1 },
-      { userId: sara.id, share: 1 },
-      { userId: rezaVirtual.id, share: 1 },
+      { userId: ali.id, share: 2 },
+      { userId: sara.id, share: 2 },
+      { userId: rezaVirtual.id, share: 2 },
     ]),
   });
 
-  // 4) EXACT — بلیت قطار (custom amounts; shares = 1)
+  // 4) EXACT — بلیت قطار (custom amounts; shares = 1× → 2 half-units)
   const exactTotal = 900_000;
   const exactSplits: SplitSeed[] = [
-    { userId: ali.id, owedAmount: 300_000, share: 1 },
-    { userId: sara.id, owedAmount: 450_000, share: 1 },
-    { userId: rezaVirtual.id, owedAmount: 150_000, share: 1 },
+    { userId: ali.id, owedAmount: 300_000, share: 2 },
+    { userId: sara.id, owedAmount: 450_000, share: 2 },
+    { userId: rezaVirtual.id, owedAmount: 150_000, share: 2 },
   ];
   await createExpense({
     spaceId: trip.id,
@@ -267,16 +267,16 @@ async function main() {
       ownerId: ali.id,
       members: {
         create: [
-          { userId: ali.id, role: "OWNER", defaultShare: 1 },
-          { userId: sara.id, role: "EDITOR", defaultShare: 1 },
+          { userId: ali.id, role: "OWNER", defaultShare: 2 },
+          { userId: sara.id, role: "EDITOR", defaultShare: 2 },
         ],
       },
     },
   });
 
   const partnerPair = [
-    { userId: ali.id, share: 1 },
-    { userId: sara.id, share: 1 },
+    { userId: ali.id, share: 2 },
+    { userId: sara.id, share: 2 },
   ];
 
   await createExpense({
@@ -310,7 +310,7 @@ async function main() {
       currency: "TOMAN",
       ownerId: reza.id,
       members: {
-        create: [{ userId: reza.id, role: "OWNER", defaultShare: 1 }],
+        create: [{ userId: reza.id, role: "OWNER", defaultShare: 2 }],
       },
     },
   });

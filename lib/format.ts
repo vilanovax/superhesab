@@ -1,9 +1,24 @@
-export type SpaceCurrency = "TOMAN" | "RIAL";
+export type SpaceCurrency = "TOMAN" | "RIAL" | "USD" | "AED" | "EUR";
+
+export const SPACE_CURRENCIES = [
+  "TOMAN",
+  "RIAL",
+  "USD",
+  "AED",
+  "EUR",
+] as const satisfies readonly SpaceCurrency[];
 
 export const CURRENCY_LABELS: Record<SpaceCurrency, string> = {
   TOMAN: "تومان",
   RIAL: "ریال",
+  USD: "دلار",
+  AED: "درهم",
+  EUR: "یورو",
 };
+
+export function isSpaceCurrency(value: string): value is SpaceCurrency {
+  return (SPACE_CURRENCIES as readonly string[]).includes(value);
+}
 
 export function currencyLabel(currency: SpaceCurrency): string {
   return CURRENCY_LABELS[currency] ?? CURRENCY_LABELS.TOMAN;

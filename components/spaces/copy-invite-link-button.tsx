@@ -31,7 +31,7 @@ export function CopyInviteLinkButton({
   return (
     <Button
       type="button"
-      className={className ?? "h-12 w-full rounded-xl text-[13px] font-semibold"}
+      className={className ?? "h-12 w-full rounded-xl text-body-sm font-semibold"}
       onClick={onCopy}
     >
       {copied ? "لینک کپی شد" : "کپی لینک دعوت"}

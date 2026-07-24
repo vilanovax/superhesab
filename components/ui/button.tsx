@@ -17,9 +17,9 @@ const buttonVariants = cva(
           "border border-border bg-card text-foreground hover:bg-muted",
         ghost: "hover:bg-muted text-foreground",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/40",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/40",
         success:
-          "bg-success text-white hover:bg-success/90 focus-visible:ring-success/40",
+          "bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success/40",
         link: "text-primary underline-offset-4 hover:underline h-auto px-0",
       },
       size: {

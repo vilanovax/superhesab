@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  currencyLabel,
   formatDateFa,
   payerName,
   todayIsoDateTehran,
@@ -33,23 +34,32 @@ import {
   asMoney,
   calculateWeightedSplits,
   clampShare,
+  DEFAULT_SHARE,
+  formatShareLabel,
   MAX_SHARE,
   MIN_SHARE,
+  SHARE_STEP,
   splitEqual,
 } from "@/lib/money";
 import {
+  CATEGORY_EMOJI,
   CATEGORY_LABELS,
-  EXPENSE_CATEGORIES,
+  categoriesForType,
+  guessCategoryFromTitle,
   type ExpenseCategory,
 } from "@/lib/categorizer";
 import {
   expenseSchema,
   type ExpenseFormValues,
+  type TransactionTypeForm,
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { CategoryPickerSheet } from "@/components/expenses/category-picker-sheet";
+import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
+const CATEGORY_DEBOUNCE_MS = 300;
 function parseAmountInput(raw: string): number {
   if (raw === "" || raw == null) return 0;
   const n = Number(raw);
@@ -78,6 +88,7 @@ export type ExpenseInitialValues = {
   splitAmounts: Record<string, number>;
   splitShares?: Record<string, number>;
   category: ExpenseCategory;
+  transactionType?: TransactionTypeForm;
 };
 
 type ExpenseFormProps = {
@@ -88,6 +99,7 @@ type ExpenseFormProps = {
   initialExpense?: ExpenseInitialValues;
   onSuccess?: () => void;
   spaceType?: SpaceType;
+  defaultTransactionType?: TransactionTypeForm;
 };
 
 function personLabel(member: ExpenseMember, currentUserId: string): string {
@@ -144,6 +156,7 @@ function buildDefaultValues(
   currentUserId: string,
   members: ExpenseMember[],
   initialExpense?: ExpenseInitialValues,
+  defaultTransactionType: TransactionTypeForm = "EXPENSE",
 ): ExpenseFormValues {
   if (!initialExpense) {
     return {
@@ -153,11 +166,12 @@ function buildDefaultValues(
       paidById: currentUserId,
       date: todayIsoDateTehran(),
       splitMode: "EQUAL",
+      transactionType: defaultTransactionType,
       splits: members.map((m) => ({
         userId: m.userId,
         amount: 0,
         selected: true,
-        share: clampShare(m.defaultShare ?? MIN_SHARE),
+        share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
       })),
     };
   }
@@ -167,7 +181,7 @@ function buildDefaultValues(
     ([userId, amount]) => ({
       amount,
       share: clampShare(
-        initialExpense.splitShares?.[userId] ?? MIN_SHARE,
+        initialExpense.splitShares?.[userId] ?? DEFAULT_SHARE,
       ),
     }),
   );
@@ -180,6 +194,7 @@ function buildDefaultValues(
     paidById: initialExpense.paidById,
     date: initialExpense.date || todayIsoDateTehran(),
     splitMode,
+    transactionType: initialExpense.transactionType ?? "EXPENSE",
     category: initialExpense.category,
     splits: members.map((m) => ({
       userId: m.userId,
@@ -188,7 +203,7 @@ function buildDefaultValues(
       share: clampShare(
         initialExpense.splitShares?.[m.userId] ??
           m.defaultShare ??
-          MIN_SHARE,
+          DEFAULT_SHARE,
       ),
     })),
   };
@@ -202,14 +217,30 @@ export function ExpenseForm({
   initialExpense,
   onSuccess,
   spaceType = "TRIP",
+  defaultTransactionType = "EXPENSE",
 }: ExpenseFormProps) {
   const [pending, startTransition] = useTransition();
   const isEdit = Boolean(initialExpense?.expenseId);
-  const isPartner = spaceType === "PARTNER";
+  const features = getTemplate(spaceType).features;
+  const showIncomeExpense = features.incomeExpense;
+  const showManualSplits = features.manualSplits;
+  const isSoloLedger = features.solo;
+  const isHouseholdLedger = features.householdLedger;
+  const isPartnerEqual = spaceType === "PARTNER";
+  const hideSplits = !showManualSplits;
+  const showPaidByPicker = !hideSplits || isHouseholdLedger;
   const initialDate = initialExpense?.date ?? todayIsoDateTehran();
   const [changeDate, setChangeDate] = useState(
     Boolean(initialExpense && initialDate !== todayIsoDateTehran()),
   );
+  const [manualCategory, setManualCategory] = useState<ExpenseCategory | null>(
+    null,
+  );
+  const [customCategoryLabel, setCustomCategoryLabel] = useState<string | null>(
+    null,
+  );
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  const [debouncedTitle, setDebouncedTitle] = useState("");
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -218,15 +249,80 @@ export function ExpenseForm({
       currentUserId,
       members,
       initialExpense,
+      defaultTransactionType,
     ),
   });
 
   const splitMode = useWatch({ control: form.control, name: "splitMode" });
+  const transactionType =
+    useWatch({ control: form.control, name: "transactionType" }) ?? "EXPENSE";
+  const watchedTitle = useWatch({ control: form.control, name: "title" }) ?? "";
   const totalAmount = asAmount(
     useWatch({ control: form.control, name: "totalAmount" }),
   );
   const splits = useWatch({ control: form.control, name: "splits" });
   const watchedDate = useWatch({ control: form.control, name: "date" });
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedTitle(watchedTitle.trim());
+    }, CATEGORY_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [watchedTitle]);
+
+  const predictedCategory = useMemo(
+    () =>
+      guessCategoryFromTitle(
+        debouncedTitle,
+        showIncomeExpense ? transactionType : "EXPENSE",
+      ),
+    [debouncedTitle, showIncomeExpense, transactionType],
+  );
+
+  const activeCategory = manualCategory ?? predictedCategory;
+  const showSmartChip = !isEdit && debouncedTitle.length >= 2;
+  const chipLabel = customCategoryLabel
+    ? customCategoryLabel
+    : CATEGORY_LABELS[activeCategory];
+  const chipEmoji = customCategoryLabel
+    ? "🏷️"
+    : CATEGORY_EMOJI[activeCategory];
+  const isManualPick = Boolean(manualCategory || customCategoryLabel);
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (customCategoryLabel) {
+      form.setValue("categoryLabel", customCategoryLabel, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+      form.setValue(
+        "category",
+        transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER",
+        { shouldDirty: false, shouldValidate: false },
+      );
+      return;
+    }
+    form.setValue("categoryLabel", null, {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+    form.setValue("category", activeCategory, {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+  }, [
+    activeCategory,
+    customCategoryLabel,
+    form,
+    isEdit,
+    transactionType,
+  ]);
+
+  useEffect(() => {
+    setManualCategory(null);
+    setCustomCategoryLabel(null);
+  }, [transactionType]);
 
   const selectedIndexes = useMemo(
     () =>
@@ -245,7 +341,7 @@ export function ExpenseForm({
         const row = splits![i]!;
         return {
           userId: row.userId,
-          share: clampShare(row.share ?? MIN_SHARE),
+          share: clampShare(row.share ?? DEFAULT_SHARE),
         };
       });
       return calculateWeightedSplits(asMoney(totalAmount), selected).map(
@@ -291,7 +387,7 @@ export function ExpenseForm({
     () =>
       (splits ?? [])
         .filter((s) => s.selected)
-        .reduce((acc, s) => acc + clampShare(s.share ?? MIN_SHARE), 0),
+        .reduce((acc, s) => acc + clampShare(s.share ?? DEFAULT_SHARE), 0),
     [splits],
   );
 
@@ -303,26 +399,85 @@ export function ExpenseForm({
 
   function onSubmit(values: ExpenseFormValues) {
     startTransition(async () => {
-      const payload: ExpenseFormValues = isPartner
+      const base: ExpenseFormValues = { ...values };
+      if (!isEdit) {
+        if (customCategoryLabel) {
+          base.categoryLabel = customCategoryLabel;
+          base.category =
+            (values.transactionType ?? "EXPENSE") === "INCOME"
+              ? "OTHER_INCOME"
+              : "OTHER";
+        } else if (manualCategory) {
+          base.category = manualCategory;
+          base.categoryLabel = null;
+        } else {
+          delete base.category;
+          base.categoryLabel = null;
+        }
+      }
+
+      const payload: ExpenseFormValues = isSoloLedger
         ? {
-            ...values,
-            paidById: isEdit ? values.paidById : currentUserId,
+            ...base,
+            paidById: currentUserId,
             splitMode: "EQUAL",
-            date: todayIsoDateTehran(),
-            splits: members.map((m) => ({
-              userId: m.userId,
-              amount: 0,
-              selected: true,
-              share: MIN_SHARE,
-            })),
-          }
-        : {
-            ...values,
+            transactionType: values.transactionType ?? "EXPENSE",
             date:
               !changeDate && !isEdit
                 ? todayIsoDateTehran()
                 : values.date || todayIsoDateTehran(),
-          };
+            splits: [
+              {
+                userId: currentUserId,
+                amount: values.totalAmount,
+                selected: true,
+                share: DEFAULT_SHARE,
+              },
+            ],
+          }
+        : isHouseholdLedger
+          ? {
+              ...base,
+              paidById: values.paidById || currentUserId,
+              splitMode: "EQUAL",
+              transactionType: values.transactionType ?? "EXPENSE",
+              date:
+                !changeDate && !isEdit
+                  ? todayIsoDateTehran()
+                  : values.date || todayIsoDateTehran(),
+              splits: [
+                {
+                  userId: values.paidById || currentUserId,
+                  amount: values.totalAmount,
+                  selected: true,
+                  share: DEFAULT_SHARE,
+                },
+              ],
+            }
+        : isPartnerEqual
+          ? {
+              ...base,
+              paidById: isEdit ? values.paidById : currentUserId,
+              splitMode: "EQUAL",
+              transactionType: "EXPENSE",
+              date: todayIsoDateTehran(),
+              splits: members.map((m) => ({
+                userId: m.userId,
+                amount: 0,
+                selected: true,
+                share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
+              })),
+            }
+          : {
+              ...base,
+              transactionType: showIncomeExpense
+                ? (values.transactionType ?? "EXPENSE")
+                : "EXPENSE",
+              date:
+                !changeDate && !isEdit
+                  ? todayIsoDateTehran()
+                  : values.date || todayIsoDateTehran(),
+            };
 
       const result = isEdit
         ? await updateExpense(initialExpense!.expenseId, payload)
@@ -332,12 +487,38 @@ export function ExpenseForm({
         return;
       }
       if (!isEdit) {
-        form.reset(buildDefaultValues(spaceId, currentUserId, members));
+        form.reset(
+          buildDefaultValues(
+            spaceId,
+            currentUserId,
+            members,
+            undefined,
+            defaultTransactionType,
+          ),
+        );
         setChangeDate(false);
+        setManualCategory(null);
+        setCustomCategoryLabel(null);
+        setDebouncedTitle("");
       }
       onSuccess?.();
     });
   }
+
+  const categoryOptions = categoriesForType(
+    showIncomeExpense ? transactionType : "EXPENSE",
+  );
+  const submitLabel = showIncomeExpense
+    ? transactionType === "INCOME"
+      ? isEdit
+        ? "ذخیره درآمد"
+        : "ثبت درآمد"
+      : isEdit
+        ? "ذخیره هزینه"
+        : "ثبت هزینه"
+    : isEdit
+      ? "ذخیره تغییرات"
+      : "ثبت هزینه";
 
   return (
     <Form {...form}>
@@ -345,19 +526,86 @@ export function ExpenseForm({
         onSubmit={form.handleSubmit(onSubmit)}
         className="flex flex-col gap-3"
       >
-        <div className="space-y-3 rounded-2xl border border-border/55 bg-white p-3.5">
+        {showIncomeExpense ? (
+          <FormField
+            control={form.control}
+            name="transactionType"
+            render={({ field }) => (
+              <FormItem className="space-y-0">
+                <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border/55 bg-card p-1 shadow-sm">
+                  {(
+                    [
+                      {
+                        value: "EXPENSE" as const,
+                        label: "هزینه",
+                        hint: "خروجی",
+                      },
+                      {
+                        value: "INCOME" as const,
+                        label: "درآمد",
+                        hint: "ورودی",
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const selected = field.value === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          field.onChange(opt.value);
+                          setManualCategory(null);
+                          setCustomCategoryLabel(null);
+                          if (isEdit) {
+                            const cats = categoriesForType(opt.value);
+                            const current = form.getValues("category");
+                            if (current && !cats.includes(current)) {
+                              form.setValue("category", cats[0]);
+                            }
+                          }
+                        }}
+                        className={cn(
+                          "flex flex-col items-center rounded-xl px-2 py-2.5 transition-all",
+                          selected && opt.value === "EXPENSE"
+                            ? "bg-destructive text-destructive-foreground shadow-sm"
+                            : selected && opt.value === "INCOME"
+                              ? "bg-success text-success-foreground shadow-sm"
+                              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                        )}
+                      >
+                        <span className="text-body-sm font-bold">
+                          {opt.label}
+                        </span>
+                        <span className="mt-0.5 text-micro opacity-80">
+                          {opt.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        <div className="space-y-3 rounded-2xl border border-border/55 bg-card p-3.5">
           <FormField
             control={form.control}
             name="title"
             render={({ field }) => (
               <FormItem className="space-y-1.5">
-                <FormLabel className="text-[12px] text-muted-foreground">
+                <FormLabel className="text-label text-muted-foreground">
                   عنوان
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="مثلاً ناهار"
-                    className="h-11 rounded-xl border-border/70 bg-[#f7fafb]"
+                    placeholder={
+                      showIncomeExpense && transactionType === "INCOME"
+                        ? "مثلاً حقوق فروردین"
+                        : "مثلاً ناهار"
+                    }
+                    className="h-11 rounded-xl border-border/70 bg-sheet-muted"
                     {...field}
                   />
                 </FormControl>
@@ -366,34 +614,102 @@ export function ExpenseForm({
             )}
           />
 
+          {showSmartChip ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setCategoryDrawerOpen(true)}
+                className={cn(
+                  "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-caption font-semibold transition-all",
+                  "ring-1 ring-inset active:scale-[0.98]",
+                  isManualPick
+                    ? "bg-success-soft text-success ring-success/25"
+                    : "bg-primary/8 text-primary ring-primary/20 hover:bg-primary/12",
+                )}
+              >
+                <span aria-hidden>{isManualPick ? "✅" : "✨"}</span>
+                <span className="truncate">
+                  {isManualPick
+                    ? `${chipEmoji} ${chipLabel}`
+                    : `پیشنهاد: ${chipEmoji} ${chipLabel}`}
+                </span>
+                <span
+                  className="ms-0.5 text-micro opacity-70"
+                  aria-hidden
+                >
+                  ▾
+                </span>
+              </button>
+
+              <CategoryPickerSheet
+                open={categoryDrawerOpen}
+                onOpenChange={setCategoryDrawerOpen}
+                spaceId={spaceId}
+                options={categoryOptions}
+                predictedCategory={predictedCategory}
+                value={
+                  customCategoryLabel
+                    ? { kind: "custom", label: customCategoryLabel }
+                    : manualCategory
+                      ? { kind: "builtin", category: manualCategory }
+                      : null
+                }
+                onSelect={(next) => {
+                  if (next.kind === "custom") {
+                    setCustomCategoryLabel(next.label);
+                    setManualCategory(null);
+                    form.setValue("categoryLabel", next.label, {
+                      shouldDirty: true,
+                    });
+                    form.setValue(
+                      "category",
+                      transactionType === "INCOME"
+                        ? "OTHER_INCOME"
+                        : "OTHER",
+                      { shouldDirty: true },
+                    );
+                    return;
+                  }
+                  setCustomCategoryLabel(null);
+                  setManualCategory(next.category);
+                  form.setValue("categoryLabel", null, { shouldDirty: true });
+                  form.setValue("category", next.category, {
+                    shouldDirty: true,
+                  });
+                }}
+              />
+            </>
+          ) : null}
+
           {isEdit ? (
             <FormField
               control={form.control}
               name="category"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <FormLabel className="text-[12px] text-muted-foreground">
+                  <FormLabel className="text-label text-muted-foreground">
                     دسته‌بندی
                   </FormLabel>
                   <Select
-                    value={field.value ?? "OTHER"}
+                    value={field.value ?? categoryOptions[0]}
                     onValueChange={field.onChange}
                   >
                     <FormControl>
-                      <SelectTrigger className="h-11 rounded-xl border-border/70 bg-[#f7fafb]">
+                      <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
                         <SelectValue placeholder="دسته" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {EXPENSE_CATEGORIES.map((code) => (
+                      {categoryOptions.map((code) => (
                         <SelectItem key={code} value={code}>
                           {CATEGORY_LABELS[code]}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    اگر عوض کنید، همین دسته قفل می‌شود و با تغییر عنوان عوض نمی‌شود.
+                  <p className="text-caption text-muted-foreground">
+                    اگر عوض کنید، همین دسته قفل می‌شود و با تغییر عنوان عوض
+                    نمی‌شود.
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -409,12 +725,12 @@ export function ExpenseForm({
               return (
                 <FormItem className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <FormLabel className="text-[12px] text-muted-foreground">
-                      مبلغ (تومان)
+                    <FormLabel className="text-label text-muted-foreground">
+                      مبلغ ({currencyLabel(_currency)})
                     </FormLabel>
                     {live > 0 ? (
-                      <span className="text-[11px] font-medium tabular-nums text-primary">
-                        {formatCurrency(live)}
+                      <span className="text-caption font-medium tabular-nums text-primary">
+                        {formatCurrency(live, _currency)}
                       </span>
                     ) : null}
                   </div>
@@ -425,7 +741,7 @@ export function ExpenseForm({
                       min={0}
                       step={1}
                       placeholder="۲۵۰۰۰۰"
-                      className="h-12 rounded-xl border-border/70 bg-[#f7fafb] text-lg font-bold tabular-nums"
+                      className="h-12 rounded-xl border-border/70 bg-sheet-muted text-lg font-bold tabular-nums"
                       name={field.name}
                       ref={field.ref}
                       onBlur={field.onBlur}
@@ -441,14 +757,14 @@ export function ExpenseForm({
             }}
           />
 
-          {!isPartner ? (
-          <div className="space-y-2 rounded-xl bg-[#f7fafb] px-3 py-2.5">
+          {!isPartnerEqual ? (
+          <div className="space-y-2 rounded-xl bg-sheet-muted px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[12px] text-muted-foreground">تاریخ</p>
-              <p className="text-[13px] font-semibold text-foreground">
+              <p className="text-label text-muted-foreground">تاریخ</p>
+              <p className="text-body-sm font-semibold text-foreground">
                 {isToday && !changeDate ? "امروز" : datePreview}
                 {isToday && !changeDate ? (
-                  <span className="ms-1.5 text-[11px] font-normal text-muted-foreground">
+                  <span className="ms-1.5 text-caption font-normal text-muted-foreground">
                     ({datePreview})
                   </span>
                 ) : null}
@@ -466,7 +782,7 @@ export function ExpenseForm({
                 }}
                 className="size-4.5 rounded data-[state=checked]:border-primary data-[state=checked]:bg-primary"
               />
-              <span className="text-[12.5px] text-foreground">
+              <span className="text-label text-foreground">
                 تاریخ دیگری ثبت کنم
               </span>
             </label>
@@ -490,18 +806,18 @@ export function ExpenseForm({
           </div>
           ) : null}
 
-          {!isPartner ? (
+          {showPaidByPicker ? (
           <FormField
             control={form.control}
             name="paidById"
             render={({ field }) => (
               <FormItem className="space-y-1.5">
-                <FormLabel className="text-[12px] text-muted-foreground">
-                  پرداخت‌کننده
+                <FormLabel className="text-label text-muted-foreground">
+                  {isHouseholdLedger ? "پرداخت از کارت / جیب" : "پرداخت‌کننده"}
                 </FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
-                    <SelectTrigger className="h-11 rounded-xl border-border/70 bg-[#f7fafb]">
+                    <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
                       <SelectValue placeholder="انتخاب کنید" />
                     </SelectTrigger>
                   </FormControl>
@@ -519,13 +835,13 @@ export function ExpenseForm({
           />
           ) : null}
 
-          {!isPartner ? (
+          {!hideSplits ? (
           <FormField
             control={form.control}
             name="splitMode"
             render={({ field }) => (
               <FormItem className="space-y-1.5">
-                <FormLabel className="text-[12px] text-muted-foreground">
+                <FormLabel className="text-label text-muted-foreground">
                   تسهیم
                 </FormLabel>
                 <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1">
@@ -540,7 +856,7 @@ export function ExpenseForm({
                       type="button"
                       onClick={() => field.onChange(opt.value)}
                       className={cn(
-                        "h-9 rounded-lg text-[13px] font-semibold transition-colors duration-150",
+                        "h-9 rounded-lg text-body-sm font-semibold transition-colors duration-150",
                         field.value === opt.value
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground",
@@ -554,18 +870,28 @@ export function ExpenseForm({
               </FormItem>
             )}
           />
-          ) : (
-            <p className="rounded-xl bg-[#f7fafb] px-3 py-2.5 text-[12px] text-muted-foreground">
+          ) : isPartnerEqual ? (
+            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
               هزینه به‌صورت مساوی بین شما و طرف مقابل تسهیم می‌شود.
             </p>
-          )}
+          ) : isHouseholdLedger ? (
+            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
+              این تراکنش در لجر مشترک خانواده ثبت می‌شود — بدون بدهی بین اعضا.
+            </p>
+          ) : isSoloLedger ? (
+            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
+              {transactionType === "INCOME"
+                ? "این مبلغ به عنوان درآمد شخصی شما ثبت می‌شود."
+                : "این مبلغ به عنوان هزینه شخصی شما ثبت می‌شود."}
+            </p>
+          ) : null}
         </div>
 
-        {!isPartner ? (
-        <div className="rounded-2xl border border-border/55 bg-white p-3.5">
+        {!hideSplits ? (
+        <div className="rounded-2xl border border-border/55 bg-card p-3.5">
           <div className="mb-2.5 flex items-baseline justify-between gap-2">
-            <p className="text-[13px] font-semibold text-foreground">چه کسانی</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-body-sm font-semibold text-foreground">چه کسانی</p>
+            <p className="text-caption text-muted-foreground">
               {selectedCount} نفر
               {splitMode === "EQUAL" && totalShareWeight > 0
                 ? ` · ${totalShareWeight} سهم`
@@ -580,7 +906,7 @@ export function ExpenseForm({
                 ? amountByUserId[member.userId]
                 : undefined;
               const shareValue = clampShare(
-                splits?.[index]?.share ?? member.defaultShare ?? MIN_SHARE,
+                splits?.[index]?.share ?? member.defaultShare ?? DEFAULT_SHARE,
               );
 
               return (
@@ -639,7 +965,7 @@ export function ExpenseForm({
                           />
                           <FormLabel
                             className={cn(
-                              "min-w-0 truncate text-[13px] font-medium",
+                              "min-w-0 truncate text-body-sm font-medium",
                               !selected && "text-muted-foreground",
                             )}
                           >
@@ -650,9 +976,9 @@ export function ExpenseForm({
                     />
 
                     {splitMode === "EQUAL" && selected ? (
-                      <span className="shrink-0 text-[12px] font-semibold tabular-nums text-ink">
+                      <span className="shrink-0 text-label font-semibold tabular-nums text-ink">
                         {equalAmount != null
-                          ? formatCurrency(equalAmount)
+                          ? formatCurrency(equalAmount, _currency)
                           : "—"}
                       </span>
                     ) : null}
@@ -665,7 +991,7 @@ export function ExpenseForm({
                       render={({ field }) => (
                         <FormItem className="mt-2 ps-8">
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="text-caption text-muted-foreground">
                               ضریب
                             </span>
                             <Button
@@ -675,14 +1001,16 @@ export function ExpenseForm({
                               className="size-8 rounded-lg"
                               disabled={shareValue <= MIN_SHARE}
                               onClick={() =>
-                                field.onChange(clampShare(shareValue - 1))
+                                field.onChange(
+                                  clampShare(shareValue - SHARE_STEP),
+                                )
                               }
-                              aria-label="کاهش ضریب"
+                              aria-label="کاهش ضریب نیم‌نفر"
                             >
                               −
                             </Button>
-                            <span className="min-w-8 text-center text-[13px] font-semibold tabular-nums">
-                              ×{shareValue}
+                            <span className="min-w-10 text-center text-body-sm font-semibold tabular-nums">
+                              ×{formatShareLabel(shareValue)}
                             </span>
                             <Button
                               type="button"
@@ -691,9 +1019,11 @@ export function ExpenseForm({
                               className="size-8 rounded-lg"
                               disabled={shareValue >= MAX_SHARE}
                               onClick={() =>
-                                field.onChange(clampShare(shareValue + 1))
+                                field.onChange(
+                                  clampShare(shareValue + SHARE_STEP),
+                                )
                               }
-                              aria-label="افزایش ضریب"
+                              aria-label="افزایش ضریب نیم‌نفر"
                             >
                               +
                             </Button>
@@ -719,7 +1049,7 @@ export function ExpenseForm({
                                   inputMode="numeric"
                                   min={0}
                                   step={1}
-                                  className="h-10 rounded-xl border-border/70 bg-[#f7fafb] text-sm font-semibold"
+                                  className="h-10 rounded-xl border-border/70 bg-sheet-muted text-sm font-semibold"
                                   placeholder="سهم"
                                   name={field.name}
                                   ref={field.ref}
@@ -733,8 +1063,8 @@ export function ExpenseForm({
                                 />
                               </FormControl>
                               {live > 0 ? (
-                                <span className="shrink-0 text-[11px] text-muted-foreground">
-                                  {formatCurrency(live)}
+                                <span className="shrink-0 text-caption text-muted-foreground">
+                                  {formatCurrency(live, _currency)}
                                 </span>
                               ) : null}
                             </div>
@@ -752,7 +1082,7 @@ export function ExpenseForm({
           {splitMode === "EXACT" ? (
             <div
               className={cn(
-                "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-[13px]",
+                "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
                 remaining === 0
                   ? "bg-success-soft text-success"
                   : remaining > 0
@@ -762,7 +1092,7 @@ export function ExpenseForm({
             >
               <span>باقی‌مانده</span>
               <span className="font-bold tabular-nums">
-                {formatCurrency(remaining)}
+                {formatCurrency(remaining, _currency)}
               </span>
             </div>
           ) : null}
@@ -785,19 +1115,17 @@ export function ExpenseForm({
           </p>
         ) : null}
 
-        <div className="sticky bottom-0 -mx-1 bg-linear-to-t from-[#eef5f4] via-[#eef5f4]/95 to-transparent pt-2 pb-1">
+        <div className="sticky bottom-0 -mx-1 bg-linear-to-t from-sheet via-sheet/95 to-transparent pt-2 pb-1">
           <Button
             type="submit"
-            className="h-12 w-full rounded-2xl text-[15px] font-semibold"
+            className="h-12 w-full rounded-2xl text-body font-semibold"
             disabled={pending}
           >
             {pending
               ? isEdit
                 ? "در حال ذخیره…"
                 : "در حال ثبت…"
-              : isEdit
-                ? "ذخیره تغییرات"
-                : "ثبت هزینه"}
+              : submitLabel}
           </Button>
         </div>
       </form>

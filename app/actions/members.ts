@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { clampShare, MAX_SHARE } from "@/lib/money";
+import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
 
 export type MemberActionResult =
@@ -97,10 +98,15 @@ export async function claimVirtualProfile(
 
   const space = await prisma.space.findUnique({
     where: { id: spaceId },
-    select: { id: true },
+    select: { id: true, type: true },
   });
   if (!space) {
     return { ok: false, error: "فضا پیدا نشد." };
+  }
+
+  const template = getTemplate(space.type);
+  if (template.features.solo) {
+    return { ok: false, error: "فضای شخصی عضو مجازی ندارد." };
   }
 
   const virtualUser = await prisma.user.findUnique({

@@ -5,13 +5,22 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
+import { isSpaceCurrency, type SpaceCurrency } from "@/lib/format";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
+const spaceCurrencySchema = z.enum([
+  "TOMAN",
+  "RIAL",
+  "USD",
+  "AED",
+  "EUR",
+]);
+
 const createSpaceSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  type: z.enum(["TRIP", "PARTNER"]),
-  currency: z.enum(["TOMAN", "RIAL"]).optional(),
+  type: z.enum(["TRIP", "PARTNER", "PERSONAL", "FAMILY"]),
+  currency: spaceCurrencySchema.optional(),
 });
 
 export type SpaceActionResult =
@@ -21,15 +30,17 @@ export type SpaceActionResult =
 const updateSpaceSchema = z.object({
   spaceId: z.string().min(1),
   name: z.string().trim().min(2).max(80),
-  currency: z.enum(["TOMAN", "RIAL"]),
+  currency: spaceCurrencySchema,
   roundUpToThousand: z.boolean(),
+  monthlyBudget: z.number().int().min(0).nullable().optional(),
 });
 
 export async function updateSpaceSettings(input: {
   spaceId: string;
   name: string;
-  currency: "TOMAN" | "RIAL";
+  currency: SpaceCurrency;
   roundUpToThousand: boolean;
+  monthlyBudget?: number | null;
 }): Promise<SpaceActionResult> {
   const session = await requireUser();
   const parsed = updateSpaceSchema.safeParse(input);
@@ -50,12 +61,27 @@ export async function updateSpaceSettings(input: {
     return { ok: false, error: "فقط مالک می‌تواند تنظیمات را تغییر دهد." };
   }
 
+  const space = await prisma.space.findUnique({
+    where: { id: parsed.data.spaceId },
+    select: { type: true },
+  });
+
   await prisma.space.update({
     where: { id: parsed.data.spaceId },
     data: {
       name: parsed.data.name,
       currency: parsed.data.currency,
       roundUpToThousand: parsed.data.roundUpToThousand,
+      ...(getTemplate(space?.type ?? "TRIP").features.budget
+        ? {
+            monthlyBudget:
+              parsed.data.monthlyBudget === undefined
+                ? undefined
+                : parsed.data.monthlyBudget && parsed.data.monthlyBudget > 0
+                  ? parsed.data.monthlyBudget
+                  : null,
+          }
+        : {}),
     },
   });
 
@@ -68,15 +94,25 @@ export async function updateSpaceSettings(input: {
 export async function updateSpaceSettingsAndRedirect(formData: FormData) {
   const spaceId = String(formData.get("spaceId") ?? "");
   const name = String(formData.get("name") ?? "");
-  const currency = String(formData.get("currency") ?? "TOMAN") as
-    | "TOMAN"
-    | "RIAL";
+  const currencyRaw = String(formData.get("currency") ?? "TOMAN");
+  const currency: SpaceCurrency = isSpaceCurrency(currencyRaw)
+    ? currencyRaw
+    : "TOMAN";
   const roundUpToThousand = formData.get("roundUpToThousand") === "on";
+  const budgetRaw = String(formData.get("monthlyBudget") ?? "").trim();
+  const monthlyBudget =
+    budgetRaw === ""
+      ? null
+      : Number.parseInt(budgetRaw.replace(/\D/g, ""), 10);
   const result = await updateSpaceSettings({
     spaceId,
     name,
     currency,
     roundUpToThousand,
+    monthlyBudget:
+      monthlyBudget != null && Number.isFinite(monthlyBudget)
+        ? monthlyBudget
+        : null,
   });
   if (!result.ok) {
     redirect(
@@ -89,7 +125,7 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
 export async function createSpace(input: {
   name: string;
   type: SpaceType;
-  currency?: "TOMAN" | "RIAL";
+  currency?: SpaceCurrency;
 }): Promise<SpaceActionResult> {
   const session = await requireUser();
   const parsed = createSpaceSchema.safeParse(input);
@@ -131,8 +167,9 @@ export async function createSpaceAndRedirect(formData: FormData) {
   const name = String(formData.get("name") ?? "");
   const type = String(formData.get("type") ?? "TRIP") as SpaceType;
   const currencyRaw = String(formData.get("currency") ?? "TOMAN");
-  const currency =
-    currencyRaw === "RIAL" || currencyRaw === "TOMAN" ? currencyRaw : "TOMAN";
+  const currency: SpaceCurrency | undefined = isSpaceCurrency(currencyRaw)
+    ? currencyRaw
+    : "TOMAN";
   const result = await createSpace({ name, type, currency });
   if (!result.ok) {
     redirect(`/app?error=${encodeURIComponent(result.error)}`);

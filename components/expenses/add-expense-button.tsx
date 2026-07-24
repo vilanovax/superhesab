@@ -78,26 +78,43 @@ function ExpenseSheetBody({
   children,
   variant,
   title = "ثبت هزینه جدید",
+  compact = false,
 }: {
   description: string;
   children: React.ReactNode;
   variant: "drawer" | "dialog";
   title?: string;
+  /** Content-sized sheet (building shared cost) — no tall empty footer. */
+  compact?: boolean;
 }) {
   return (
     <div
       className={cn(
         "flex min-h-0 flex-col",
-        variant === "drawer" ? "h-full" : "max-h-[inherit] flex-1",
+        variant === "drawer"
+          ? compact
+            ? "max-h-[min(85dvh,100%)]"
+            : "max-h-[85dvh]"
+          : "max-h-[inherit] flex-1",
       )}
     >
-      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-3.5 pt-2">
+      <div
+        className={cn(
+          "surface-hero relative shrink-0 overflow-hidden px-5 pt-1.5",
+          compact ? "pb-2.5" : "pb-3.5 pt-2",
+        )}
+      >
         {variant === "drawer" ? (
           <DrawerHeader className="relative space-y-0.5 p-0 text-start">
-            <DrawerTitle className="text-lg font-bold text-on-hero">
+            <DrawerTitle
+              className={cn(
+                "font-bold text-on-hero",
+                compact ? "text-body" : "text-lg",
+              )}
+            >
               {title}
             </DrawerTitle>
-            <DrawerDescription className="text-body-sm text-on-hero/70">
+            <DrawerDescription className="text-caption text-on-hero/70">
               {description}
             </DrawerDescription>
           </DrawerHeader>
@@ -115,10 +132,12 @@ function ExpenseSheetBody({
 
       <div
         className={cn(
-          "surface-sheet-canvas overflow-y-auto overscroll-contain px-4 py-3 pb-8",
-          variant === "drawer"
-            ? "h-[calc(92dvh-4.75rem)] min-h-[60dvh] shrink-0"
-            : "min-h-0 flex-1",
+          "surface-sheet-canvas min-h-0 overflow-y-auto overscroll-contain px-4",
+          compact
+            ? "py-3 pb-[calc(0.65rem+env(safe-area-inset-bottom))]"
+            : "min-h-0 py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
+          variant === "drawer" && !compact && "max-h-[calc(85dvh-4.5rem)]",
+          variant === "dialog" && "min-h-0 flex-1",
         )}
       >
         {children}
@@ -207,6 +226,7 @@ export function AddExpenseButton({
             description={description}
             variant="dialog"
             title={sheetTitle}
+            compact={isBuilding}
           >
             {form}
           </ExpenseSheetBody>
@@ -225,11 +245,12 @@ export function AddExpenseButton({
           {fabLabel}
         </Fab>
       </DrawerTrigger>
-      <DrawerContent className="mt-0! h-[92dvh] max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <ExpenseSheetBody
           description={description}
           variant="drawer"
           title={sheetTitle}
+          compact={isBuilding}
         >
           {form}
         </ExpenseSheetBody>

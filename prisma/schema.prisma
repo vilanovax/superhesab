@@ -55,6 +55,13 @@ enum ExpenseCategory {
   SALARY
   TRANSFER
   OTHER_INCOME
+  /// BUILDING shared-cost dictionary (phase 20)
+  BUILDING_BILLS
+  BUILDING_ELEVATOR
+  BUILDING_CLEANING
+  BUILDING_MAINTENANCE
+  BUILDING_GARDENING
+  BUILDING_SALARY
 }
 
 model User {
@@ -80,6 +87,9 @@ model User {
   debtPayments     DebtPayment[]   @relation("DebtPaymentCreatedBy")
   recurringRules   RecurringRule[] @relation("RecurringRuleCreatedBy")
   chargePayments   ChargePayment[] @relation("ChargePaymentCreatedBy")
+  linkedUnits      Unit[]          @relation("UnitLinkedUser")
+  buildingSuggestions BuildingSuggestion[] @relation("BuildingSuggestionAuthor")
+  buildingAnnouncements BuildingAnnouncement[] @relation("BuildingAnnouncementAuthor")
 
   @@index([phone])
   @@index([email])
@@ -113,6 +123,8 @@ model Space {
   recurringRules  RecurringRule[]
   units           Unit[]
   chargePlans     ChargePlan[]
+  buildingSuggestions BuildingSuggestion[]
+  buildingAnnouncements BuildingAnnouncement[]
 
   @@index([ownerId])
   @@index([type])
@@ -357,14 +369,24 @@ model Unit {
   /// Charge coefficient in thousandths (1000 = 1.0×). Never Float.
   multiplier Int      @default(1000)
   isActive   Boolean  @default(true)
+  /// Unique invite link token — possession authorizes claim (phase 22).
+  inviteToken String  @unique @default(cuid())
+  /// Resident who claimed this unit (VIEWER portal).
+  linkedUserId String?
+  linkedAt     DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  space    Space           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  payments ChargePayment[]
+  space      Space           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  linkedUser User?           @relation("UnitLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  payments   ChargePayment[]
+  suggestions BuildingSuggestion[]
 
+  @@unique([spaceId, linkedUserId])
   @@index([spaceId])
   @@index([spaceId, isActive])
+  @@index([linkedUserId])
+  @@index([inviteToken])
 }
 
 /// BUILDING: annual base charge plan for a space.
@@ -408,4 +430,59 @@ model ChargePayment {
   @@index([year, month])
   @@index([status])
   @@index([createdById])
+}
+
+/// BUILDING B2B2C: resident suggestion / request box (phase 24).
+enum SuggestionStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+model BuildingSuggestion {
+  id          String           @id @default(cuid())
+  spaceId     String
+  unitId      String
+  authorId    String
+  title       String
+  body        String
+  status      SuggestionStatus @default(OPEN)
+  /// Optional manager reply / note
+  managerNote String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  space  Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  unit   Unit  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  author User  @relation("BuildingSuggestionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([spaceId])
+  @@index([spaceId, status])
+  @@index([unitId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+/// BUILDING B2B2C: manager → residents announcement board (phase 26).
+model BuildingAnnouncement {
+  id         String    @id @default(cuid())
+  spaceId    String
+  authorId   String
+  title      String
+  body       String
+  pinned     Boolean   @default(false)
+  /// Soft-hide from resident feed without hard delete.
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  space  Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author User  @relation("BuildingAnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([spaceId])
+  @@index([spaceId, archivedAt])
+  @@index([spaceId, pinned])
+  @@index([authorId])
+  @@index([createdAt])
 }

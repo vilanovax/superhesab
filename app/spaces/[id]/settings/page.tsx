@@ -101,15 +101,27 @@ export default async function SpaceSettingsPage({
         <p className="text-xs font-medium text-on-hero/70">تنظیمات فضا</p>
         <h1 className="mt-1 text-2xl font-bold text-on-hero">{space.name}</h1>
         <p className="mt-2 text-sm text-on-hero/75">
-          {showBudget
-            ? showCategoryBudgets || showRecurring
-              ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
-              : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
-            : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
+          {showBuilding
+            ? "نام، سال مالی، پلن شارژ و مدیریت واحدهای ساختمان."
+            : showBudget
+              ? showCategoryBudgets || showRecurring
+                ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
+                : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
+              : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
         </p>
       </header>
 
       <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+        {showBuilding ? (
+          <div className="mb-1">
+            <h2 className="text-body-sm font-semibold text-foreground">
+              اطلاعات کلی
+            </h2>
+            <p className="mt-0.5 text-caption text-muted-foreground">
+              نام فضا، واحد پول و سال پیش‌فرض شارژ
+            </p>
+          </div>
+        ) : null}
         <form action={updateSpaceSettingsAndRedirect} className="space-y-4">
           <input type="hidden" name="spaceId" value={space.id} />
 
@@ -223,7 +235,11 @@ export default async function SpaceSettingsPage({
             {" · "}
             نقش شما:{" "}
             <span className="font-medium text-foreground">
-              {membership.role}
+              {membership.role === "OWNER"
+                ? "مالک"
+                : membership.role === "EDITOR"
+                  ? "ویرایشگر"
+                  : membership.role}
             </span>
           </div>
 
@@ -268,6 +284,14 @@ export default async function SpaceSettingsPage({
 
       {showBuilding ? (
         <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <div>
+            <h2 className="text-body-sm font-semibold text-foreground">
+              شارژ و واحدها
+            </h2>
+            <p className="mt-0.5 text-caption text-muted-foreground">
+              پلن سالانه و تعریف واحدها برای وصول شارژ
+            </p>
+          </div>
           <BuildingSettings
             spaceId={space.id}
             currency={space.currency}

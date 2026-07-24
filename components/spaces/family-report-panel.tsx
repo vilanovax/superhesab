@@ -1,7 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
-import { PersonalReportChart } from "@/components/PersonalReportChart";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,19 @@ import {
 } from "@/lib/reports";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { cn } from "@/lib/utils";
+
+const PersonalReportChart = dynamic(
+  () =>
+    import("@/components/PersonalReportChart").then(
+      (m) => m.PersonalReportChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-48 animate-pulse rounded-2xl bg-muted/40" />
+    ),
+  },
+);
 
 export type FamilyReportMember = {
   userId: string;

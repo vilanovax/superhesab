@@ -21,6 +21,12 @@ export const CATEGORY_CHART_COLORS: Partial<
   ENTERTAINMENT: "#db2777",
   SHOPPING: "#ca8a04",
   OTHER: "#64748b",
+  BUILDING_BILLS: "#0284c7",
+  BUILDING_ELEVATOR: "#7c3aed",
+  BUILDING_CLEANING: "#059669",
+  BUILDING_MAINTENANCE: "#d97706",
+  BUILDING_GARDENING: "#65a30d",
+  BUILDING_SALARY: "#475569",
 };
 
 const CUSTOM_PALETTE = [
@@ -41,6 +47,30 @@ export type CategoryExpenseRow = {
   /** Display label (builtin Persian name or custom label). */
   label: string;
 };
+
+/** Line item for category drill-down in reports (serializable). */
+export type ReportExpenseLine = {
+  id: string;
+  title: string;
+  totalAmount: number;
+  /** ISO date string */
+  date: string;
+  category: ExpenseCategory;
+  categoryLabel: string | null;
+  /** Same key as CategoryExpenseRow.key */
+  chartKey: string;
+};
+
+/** Chart bucket key matching aggregateCategoryRows. */
+export function expenseChartKey(
+  category: ExpenseCategory,
+  categoryLabel: string | null | undefined,
+): string {
+  const custom = categoryLabel?.trim();
+  return custom
+    ? customCategoryChartKey(custom)
+    : categoryChartKey(category);
+}
 
 export function categoryChartLabel(category: ExpenseCategory): string {
   return CATEGORY_LABELS[category] ?? category;

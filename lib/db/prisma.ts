@@ -1,5 +1,5 @@
 import { PrismaClient } from "@/lib/generated/prisma/client";
-import { SpaceType } from "@/lib/generated/prisma/enums";
+import { ExpenseCategory, SpaceType } from "@/lib/generated/prisma/enums";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
@@ -10,16 +10,21 @@ const globalForPrisma = globalThis as unknown as {
 
 /**
  * Changes when generated enums or additive fields change —
- * invalidates the cached client in dev (field adds don't touch SpaceType).
+ * invalidates the cached client in dev (field adds don't touch SpaceType alone).
  */
 const SCHEMA_SIGNATURE = [
   Object.keys(SpaceType).sort().join(","),
+  Object.keys(ExpenseCategory).sort().join(","),
   "expense.categoryLabel",
   "debt.module.v1",
   "personal.depth.v1",
   "building.template.v1",
   "space.archivedAt.v1",
   "space.defaultPlanYear.v2",
+  "unit.claim.v1",
+  "building.suggestions.v1",
+  "building.announcements.v1",
+  "building.calendar.v1",
 ].join("|");
 
 function createPrismaClient() {

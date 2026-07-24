@@ -12,6 +12,19 @@ export const CHARGE_STATUS_LABELS: Record<ChargeStatusValue, string> = {
   WAIVED: "معاف",
 };
 
+export type SuggestionStatusValue =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "DONE"
+  | "REJECTED";
+
+export const SUGGESTION_STATUS_LABELS: Record<SuggestionStatusValue, string> = {
+  OPEN: "باز",
+  IN_PROGRESS: "در حال پیگیری",
+  DONE: "انجام شد",
+  REJECTED: "رد شده",
+};
+
 export const MONTH_LABELS_FA = [
   "فروردین", // placeholder index 0 unused — months are 1–12
   "فروردین",

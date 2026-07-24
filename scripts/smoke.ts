@@ -342,6 +342,65 @@ async function main() {
       );
     }
 
+    // ——— Phase 22–26: claim tokens, calendar matrix, announcements ———
+    if (zafar) {
+      const tokens = zafar.units.map((u) => u.inviteToken).filter(Boolean);
+      const unique = new Set(tokens);
+      if (tokens.length === zafar.units.length && unique.size === tokens.length) {
+        pass("building claim: every unit has unique inviteToken");
+      } else {
+        fail(
+          "building claim tokens",
+          `tokens=${tokens.length} unique=${unique.size} units=${zafar.units.length}`,
+        );
+      }
+
+      const pays1405 = await prisma.chargePayment.findMany({
+        where: { unit: { spaceId: zafar.id, isActive: true }, year: 1405 },
+        select: { unitId: true, month: true, status: true },
+      });
+      const matrix = new Map<string, Set<number>>();
+      for (const p of pays1405) {
+        const set = matrix.get(p.unitId) ?? new Set<number>();
+        set.add(p.month);
+        matrix.set(p.unitId, set);
+      }
+      const activeUnits = zafar.units.filter((u) => u.isActive);
+      if (activeUnits.length >= 1 && matrix.size >= 1) {
+        pass(
+          "building calendar: payment matrix for active units",
+          `${matrix.size} units × months populated`,
+        );
+      } else {
+        fail("building calendar matrix", "no payments mapped");
+      }
+
+      // Announcement CRUD shape (table must exist)
+      try {
+        const annCount = await prisma.buildingAnnouncement.count({
+          where: { spaceId: zafar.id },
+        });
+        pass("building announcements table readable", `count=${annCount}`);
+      } catch (e) {
+        fail(
+          "building announcements table",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+
+      try {
+        const sugCount = await prisma.buildingSuggestion.count({
+          where: { spaceId: zafar.id },
+        });
+        pass("building suggestions table readable", `count=${sugCount}`);
+      } catch (e) {
+        fail(
+          "building suggestions table",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+    }
+
     // Split sum integrity
     let splitOk = true;
     for (const space of [trip, partner]) {
@@ -446,7 +505,8 @@ async function main() {
         const looksBuilding =
           page.body.includes("شارژ") ||
           page.body.includes("ساختمان") ||
-          page.body.includes("برج");
+          page.body.includes("برج") ||
+          page.body.includes("تقویم");
         if (page.status === 200 && looksBuilding) {
           pass("HTTP GET building space 200 (شارژ UI)");
         } else if (page.status === 200) {
@@ -464,8 +524,60 @@ async function main() {
         } else {
           fail("HTTP GET building settings", `status=${settings.status}`);
         }
+
+        const board = await httpGet(
+          `/spaces/${buildingSpace.id}?tab=suggestions`,
+          cookie,
+        );
+        if (board.status === 200) {
+          pass("HTTP GET building برد tab 200");
+        } else {
+          fail("HTTP GET building برد", `status=${board.status}`);
+        }
       } else {
         fail("HTTP building pages", "seed building space missing — re-seed");
+      }
+
+      // ظفر calendar year deep-link
+      const zafarHttp = await prisma.space.findFirst({
+        where: { name: "ظفر", type: "BUILDING" },
+        select: { id: true },
+      });
+      if (zafarHttp) {
+        const cal = await httpGet(
+          `/spaces/${zafarHttp.id}?year=1405&tab=charges`,
+          cookie,
+        );
+        if (cal.status === 200) {
+          pass("HTTP GET ظفر calendar year=1405 tab=charges 200");
+        } else {
+          fail("HTTP GET ظفر calendar", `status=${cal.status}`);
+        }
+
+        const unit = await prisma.unit.findFirst({
+          where: { spaceId: zafarHttp.id, isActive: true },
+          select: { inviteToken: true },
+        });
+        if (unit?.inviteToken) {
+          const invite = await httpGet(
+            `/invite/unit/${unit.inviteToken}`,
+            cookie,
+          );
+          // Ali may already be OWNER — claim may succeed (redirect) or fail (already linked / other)
+          if (
+            invite.status === 200 ||
+            invite.status === 303 ||
+            invite.status === 307 ||
+            invite.status === 302
+          ) {
+            pass(
+              "HTTP GET unit invite claim route",
+              `status=${invite.status} loc=${invite.url.slice(0, 60)}`,
+            );
+          } else {
+            fail("HTTP unit invite", `status=${invite.status}`);
+          }
+        }
       }
 
       // Empty space owned by Reza — Ali should 404

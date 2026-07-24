@@ -5,7 +5,19 @@ export type { ExpenseCategory, TransactionType };
 
 /** Spend categories (Trip / Partner / Personal expense side). */
 const EXPENSE_KEYWORDS: Record<
-  Exclude<ExpenseCategory, "OTHER" | "SALARY" | "TRANSFER" | "OTHER_INCOME">,
+  Exclude<
+    ExpenseCategory,
+    | "OTHER"
+    | "SALARY"
+    | "TRANSFER"
+    | "OTHER_INCOME"
+    | "BUILDING_BILLS"
+    | "BUILDING_ELEVATOR"
+    | "BUILDING_CLEANING"
+    | "BUILDING_MAINTENANCE"
+    | "BUILDING_GARDENING"
+    | "BUILDING_SALARY"
+  >,
   readonly string[]
 > = {
   FOOD: [
@@ -83,70 +95,122 @@ const EXPENSE_KEYWORDS: Record<
 };
 
 /**
- * BUILDING shared-cost keywords — checked first when `{ building: true }`.
- * Prefer OTHER for utilities / facilities; SHOPPING for supplies; TRANSPORT for haul.
+ * BUILDING shared-cost dictionary — used only when `{ building: true }`.
+ * Longer / more specific keywords should be listed earlier within each group
+ * when order matters; groups are checked in BUILDING_ORDER.
  */
-const BUILDING_KEYWORDS: {
-  category: ExpenseCategory;
-  words: readonly string[];
-}[] = [
-  {
-    category: "OTHER",
-    words: [
-      "قبض",
-      "برق مشاع",
-      "برق",
-      "گاز",
-      "آب مشاع",
-      "آب و فاضلاب",
-      "موتورخانه",
-      "آسانسور",
-      "سرایدار",
-      "نگهبان",
-      "نظافت",
-      "شوینده",
-      "باغبانی",
-      "باغبان",
-      "حیاط",
-      "لابی",
-      "مشاع",
-      "مشاعات",
-      "بیمه",
-      "سم‌پاشی",
-      "سم پاشی",
-      "پمپ آب",
-      "پمپ",
-      "راه‌پله",
-      "راه پله",
-      "پارکینگ",
-      "تعمیر",
-      "سرویس",
-      "رنگ‌آمیزی",
-      "رنگ امیزی",
-      "آنتی ویروس",
-      "اینترنت لابی",
-      "دوربین",
-      "کپسول آتش",
-      "آتش‌نشانی",
-      "آتش نشانی",
-    ],
-  },
-  {
-    category: "SHOPPING",
-    words: ["لامپ", "قفل", "مواد شوینده", "لوازم نظافت"],
-  },
-  {
-    category: "TRANSPORT",
-    words: ["نخاله", "حمل نخاله", "حمل بار"],
-  },
-  {
-    category: "FOOD",
-    words: ["پذیرایی مجمع", "مجمع عمومی", "پذیرایی"],
-  },
+const BUILDING_KEYWORDS: Record<
+  | "BUILDING_BILLS"
+  | "BUILDING_ELEVATOR"
+  | "BUILDING_CLEANING"
+  | "BUILDING_MAINTENANCE"
+  | "BUILDING_GARDENING"
+  | "BUILDING_SALARY",
+  readonly string[]
+> = {
+  BUILDING_BILLS: [
+    "قبض برق",
+    "قبض آب",
+    "قبض گاز",
+    "آب و فاضلاب",
+    "آب مشاع",
+    "برق مشاع",
+    "گاز مشاع",
+    "گاز موتورخانه",
+    "قبض",
+    "تلفن",
+    "اینترنت لابی",
+  ],
+  BUILDING_ELEVATOR: [
+    "بیمه آسانسور",
+    "سرویس آسانسور",
+    "تعمیر آسانسور",
+    "آسانسور",
+    "کابین",
+  ],
+  BUILDING_CLEANING: [
+    "مواد شوینده",
+    "لوازم نظافت",
+    "تمیزکاری",
+    "نظافت",
+    "شوینده",
+    "راه‌پله",
+    "راه پله",
+    "جارو",
+    "تی",
+  ],
+  BUILDING_MAINTENANCE: [
+    "موتورخانه",
+    "پمپ آب",
+    "درب پارکینگ",
+    "ایزوگام",
+    "آیفون",
+    "تاسیسات",
+    "تعمیر",
+    "سرویس",
+    "پمپ",
+    "قفل",
+    "لوله",
+    "لامپ",
+    "درب",
+    "پارکینگ",
+    "دوربین",
+    "کپسول آتش",
+    "آتش‌نشانی",
+    "آتش نشانی",
+    "رنگ‌آمیزی",
+    "رنگ امیزی",
+    "سم‌پاشی",
+    "سم پاشی",
+  ],
+  BUILDING_GARDENING: [
+    "باغبانی",
+    "باغبان",
+    "باغچه",
+    "حیاط",
+    "گیاه",
+    "کود",
+    "خاک",
+    "درخت",
+    "گل",
+  ],
+  BUILDING_SALARY: [
+    "حقوق سرایدار",
+    "حقوق نگهبان",
+    "سرایدار",
+    "نگهبان",
+    "حقوق",
+    "پاداش",
+    "عیدی",
+    "دستمزد",
+  ],
+};
+
+const BUILDING_ORDER: (keyof typeof BUILDING_KEYWORDS)[] = [
+  "BUILDING_ELEVATOR", // before generic «تعمیر» / «بیمه»
+  "BUILDING_SALARY",
+  "BUILDING_BILLS",
+  "BUILDING_CLEANING",
+  "BUILDING_GARDENING",
+  "BUILDING_MAINTENANCE",
 ];
 
 const INCOME_KEYWORDS: Record<
-  Exclude<ExpenseCategory, "OTHER" | "FOOD" | "TRANSPORT" | "ACCOMMODATION" | "ENTERTAINMENT" | "SHOPPING">,
+  Exclude<
+    ExpenseCategory,
+    | "OTHER"
+    | "FOOD"
+    | "TRANSPORT"
+    | "ACCOMMODATION"
+    | "ENTERTAINMENT"
+    | "SHOPPING"
+    | "BUILDING_BILLS"
+    | "BUILDING_ELEVATOR"
+    | "BUILDING_CLEANING"
+    | "BUILDING_MAINTENANCE"
+    | "BUILDING_GARDENING"
+    | "BUILDING_SALARY"
+  >,
   readonly string[]
 > = {
   SALARY: [
@@ -191,8 +255,17 @@ export const SPEND_CATEGORIES: ExpenseCategory[] = [
   "OTHER",
 ];
 
-export const INCOME_CATEGORIES: ExpenseCategory[] = [
-  ...INCOME_ORDER,
+export const INCOME_CATEGORIES: ExpenseCategory[] = [...INCOME_ORDER];
+
+/** Standard BUILDING shared-cost categories (+ OTHER for misc). */
+export const BUILDING_CATEGORIES: ExpenseCategory[] = [
+  "BUILDING_BILLS",
+  "BUILDING_ELEVATOR",
+  "BUILDING_CLEANING",
+  "BUILDING_MAINTENANCE",
+  "BUILDING_GARDENING",
+  "BUILDING_SALARY",
+  "OTHER",
 ];
 
 /** @deprecated Prefer SPEND_CATEGORIES — kept for Trip/Partner callers */
@@ -204,10 +277,16 @@ export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   ACCOMMODATION: "اقامت",
   ENTERTAINMENT: "تفریح",
   SHOPPING: "خرید",
-  OTHER: "سایر",
+  OTHER: "متفرقه",
   SALARY: "حقوق",
   TRANSFER: "واریز / انتقال",
   OTHER_INCOME: "سایر درآمد",
+  BUILDING_BILLS: "قبوض",
+  BUILDING_ELEVATOR: "آسانسور",
+  BUILDING_CLEANING: "نظافت",
+  BUILDING_MAINTENANCE: "تاسیسات و تعمیرات",
+  BUILDING_GARDENING: "باغبانی",
+  BUILDING_SALARY: "حقوق و دستمزد",
 };
 
 export const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
@@ -220,18 +299,25 @@ export const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
   SALARY: "💼",
   TRANSFER: "💳",
   OTHER_INCOME: "💰",
+  BUILDING_BILLS: "🧾",
+  BUILDING_ELEVATOR: "🛗",
+  BUILDING_CLEANING: "🧹",
+  BUILDING_MAINTENANCE: "🔧",
+  BUILDING_GARDENING: "🌿",
+  BUILDING_SALARY: "👷",
 };
 
-/** Building-friendly labels for the same enum (picker / chips). */
+/** @deprecated Labels are now on CATEGORY_LABELS — kept for call sites. */
 export const BUILDING_CATEGORY_LABELS: Partial<
   Record<ExpenseCategory, string>
 > = {
-  OTHER: "مشاعات / قبض",
-  SHOPPING: "لوازم و خرید",
-  TRANSPORT: "حمل و نخاله",
-  FOOD: "پذیرایی مجمع",
-  ENTERTAINMENT: "سایر",
-  ACCOMMODATION: "سایر",
+  BUILDING_BILLS: CATEGORY_LABELS.BUILDING_BILLS,
+  BUILDING_ELEVATOR: CATEGORY_LABELS.BUILDING_ELEVATOR,
+  BUILDING_CLEANING: CATEGORY_LABELS.BUILDING_CLEANING,
+  BUILDING_MAINTENANCE: CATEGORY_LABELS.BUILDING_MAINTENANCE,
+  BUILDING_GARDENING: CATEGORY_LABELS.BUILDING_GARDENING,
+  BUILDING_SALARY: CATEGORY_LABELS.BUILDING_SALARY,
+  OTHER: CATEGORY_LABELS.OTHER,
 };
 
 export function categoriesForType(
@@ -240,9 +326,9 @@ export function categoriesForType(
   return type === "INCOME" ? INCOME_CATEGORIES : SPEND_CATEGORIES;
 }
 
-/** Prefer building-relevant spend categories in the picker. */
+/** Building picker / smart-chip options. */
 export function categoriesForBuilding(): ExpenseCategory[] {
-  return ["OTHER", "SHOPPING", "TRANSPORT", "FOOD"];
+  return BUILDING_CATEGORIES;
 }
 
 /** Normalize Persian titles for keyword matching. */
@@ -256,13 +342,13 @@ export function normalizeCategoryTitle(title: string): string {
 }
 
 export type GuessCategoryOptions = {
-  /** Prefer building shared-cost keyword set. */
+  /** Prefer building shared-cost dictionary only. */
   building?: boolean;
 };
 
 /**
  * Local heuristic categorizer — no external AI.
- * Income and expense keyword sets are separate to avoid collisions (e.g. اجاره).
+ * Building mode uses only the BUILDING_* dictionary (+ OTHER fallback).
  */
 export function guessCategoryFromTitle(
   title: string,
@@ -272,6 +358,21 @@ export function guessCategoryFromTitle(
   const normalized = normalizeCategoryTitle(title);
   if (!normalized) {
     return transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";
+  }
+
+  if (opts?.building) {
+    for (const category of BUILDING_ORDER) {
+      const words = [...BUILDING_KEYWORDS[category]].sort(
+        (a, b) => b.length - a.length,
+      );
+      for (const keyword of words) {
+        const needle = normalizeCategoryTitle(keyword);
+        if (needle && normalized.includes(needle)) {
+          return category;
+        }
+      }
+    }
+    return "OTHER";
   }
 
   if (transactionType === "INCOME") {
@@ -284,18 +385,6 @@ export function guessCategoryFromTitle(
       }
     }
     return "OTHER_INCOME";
-  }
-
-  if (opts?.building) {
-    for (const group of BUILDING_KEYWORDS) {
-      for (const keyword of group.words) {
-        const needle = normalizeCategoryTitle(keyword);
-        if (needle && normalized.includes(needle)) {
-          return group.category;
-        }
-      }
-    }
-    return "OTHER";
   }
 
   for (const category of EXPENSE_ORDER) {

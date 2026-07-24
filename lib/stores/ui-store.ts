@@ -1,14 +1,25 @@
 import { create } from "zustand";
 import type { TransactionTypeForm } from "@/lib/validations/expense";
 
+type ToastTone = "success" | "error";
+
+type ToastState = {
+  id: number;
+  message: string;
+  tone: ToastTone;
+} | null;
+
 type UiState = {
   activeSpaceId: string | null;
   expenseFormOpen: boolean;
   /** Prefill for PERSONAL create form when opened from empty-state chips. */
   draftTransactionType: TransactionTypeForm;
+  toast: ToastState;
   setActiveSpaceId: (id: string | null) => void;
   setExpenseFormOpen: (open: boolean) => void;
   openExpenseForm: (opts?: { transactionType?: TransactionTypeForm }) => void;
+  showToast: (message: string, tone?: ToastTone) => void;
+  clearToast: () => void;
 };
 
 /**
@@ -18,6 +29,7 @@ export const useUiStore = create<UiState>((set) => ({
   activeSpaceId: null,
   expenseFormOpen: false,
   draftTransactionType: "EXPENSE",
+  toast: null,
   setActiveSpaceId: (id) => set({ activeSpaceId: id }),
   setExpenseFormOpen: (open) =>
     set(
@@ -30,4 +42,7 @@ export const useUiStore = create<UiState>((set) => ({
       expenseFormOpen: true,
       draftTransactionType: opts?.transactionType ?? "EXPENSE",
     }),
+  showToast: (message, tone = "success") =>
+    set({ toast: { id: Date.now(), message, tone } }),
+  clearToast: () => set({ toast: null }),
 }));

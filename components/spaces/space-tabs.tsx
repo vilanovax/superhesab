@@ -1,8 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ChecklistItemDTO } from "@/app/actions/checklist";
 import { ExpenseList, type ExpenseListItem } from "@/components/expenses/expense-list";
-import { PersonalReportChart } from "@/components/PersonalReportChart";
 import { SpaceBalances, type BalanceMember } from "@/components/SpaceBalances";
 import { SpaceChecklist } from "@/components/SpaceChecklist";
 import type { InviteMemberRow } from "@/components/spaces/invite-members-button";
@@ -14,21 +14,40 @@ import {
 } from "@/components/ui/tabs";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
 import type { SpaceCurrency } from "@/lib/format";
-import type { CategoryExpenseRow } from "@/lib/reports";
+import type { CategoryExpenseRow, ReportExpenseLine } from "@/lib/reports";
 import {
   FamilyReportPanel,
   type FamilyMonthExpenseRow,
   type FamilyReportMember,
 } from "@/components/spaces/family-report-panel";
 import type { DebtDTO } from "@/app/actions/debt";
-import type { BuildingDashboardDTO } from "@/app/actions/building";
+import type {
+  AnnualChargeCalendarDTO,
+  BuildingAnnouncementDTO,
+  BuildingDashboardDTO,
+  BuildingSuggestionDTO,
+} from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
 import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
+import { BuildingCommunityHub } from "@/components/spaces/building-community-hub";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
 import { cn } from "@/lib/utils";
+
+const PersonalReportChart = dynamic(
+  () =>
+    import("@/components/PersonalReportChart").then(
+      (m) => m.PersonalReportChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-48 animate-pulse rounded-2xl bg-muted/40" />
+    ),
+  },
+);
 
 type SpaceTabsProps = {
   spaceId: string;
@@ -48,12 +67,16 @@ type SpaceTabsProps = {
   /** OWNER/EDITOR can mutate; VIEWER is read-only */
   canMutate?: boolean;
   personalReportData?: CategoryExpenseRow[];
+  reportExpenseLines?: ReportExpenseLine[];
   familyMonthExpenses?: FamilyMonthExpenseRow[];
   familyReportMembers?: FamilyReportMember[];
   monthlyBudget?: number | null;
   debts?: DebtDTO[];
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
   buildingDashboard?: BuildingDashboardDTO | null;
+  buildingCalendar?: AnnualChargeCalendarDTO | null;
+  buildingSuggestions?: BuildingSuggestionDTO[];
+  buildingAnnouncements?: BuildingAnnouncementDTO[];
   isOwner?: boolean;
   /** Report chart period copy (e.g. سال ۱۴۰۵ for building). */
   reportPeriodLabel?: string;
@@ -83,12 +106,16 @@ export function SpaceTabs({
   showChecklist: showChecklistProp,
   canMutate = true,
   personalReportData = [],
+  reportExpenseLines = [],
   familyMonthExpenses = [],
   familyReportMembers = [],
   monthlyBudget = null,
   debts = [],
   categoryBudgets,
   buildingDashboard = null,
+  buildingCalendar = null,
+  buildingSuggestions = [],
+  buildingAnnouncements = [],
   isOwner = false,
   reportPeriodLabel,
   reportEmptyTitle,
@@ -109,14 +136,15 @@ export function SpaceTabs({
 
   if (showIncomeReport && !showSettlements) {
     const extraTabs =
-      (showDebts ? 1 : 0) + (showBuilding ? 1 : 0);
+      (showDebts ? 1 : 0) + (showBuilding ? 2 : 0); // charges + suggestions
     const tabCount = 2 + extraTabs;
     const defaultTab =
       initialTab &&
       (initialTab === "report" ||
         initialTab === "charges" ||
         initialTab === "expenses" ||
-        initialTab === "debts")
+        initialTab === "debts" ||
+        initialTab === "suggestions")
         ? initialTab
         : showBuilding
           ? "charges"
@@ -130,7 +158,7 @@ export function SpaceTabs({
         <TabsList
           className={cn(
             "grid h-11 w-full rounded-2xl bg-muted/70 p-1",
-            tabCount === 4
+            tabCount >= 4
               ? "grid-cols-4"
               : tabCount === 3
                 ? "grid-cols-3"
@@ -138,7 +166,7 @@ export function SpaceTabs({
           )}
         >
           <TabsTrigger value="expenses" className="rounded-xl">
-            {showBuilding ? "هزینه مشاع" : "تراکنش‌ها"}
+            {showBuilding ? "هزینه" : "تراکنش‌ها"}
           </TabsTrigger>
           {showBuilding ? (
             <TabsTrigger value="charges" className="rounded-xl">
@@ -148,6 +176,11 @@ export function SpaceTabs({
           <TabsTrigger value="report" className="rounded-xl">
             گزارش
           </TabsTrigger>
+          {showBuilding ? (
+            <TabsTrigger value="suggestions" className="rounded-xl">
+              برد
+            </TabsTrigger>
+          ) : null}
           {showDebts ? (
             <TabsTrigger value="debts" className="rounded-xl">
               بدهی / طلب
@@ -175,6 +208,7 @@ export function SpaceTabs({
                 spaceId={spaceId}
                 settingsHref={`/spaces/${spaceId}/settings`}
                 dashboard={buildingDashboard}
+                calendar={buildingCalendar}
                 currency={currency}
                 canMutate={canMutate}
                 isOwner={isOwner}
@@ -207,6 +241,7 @@ export function SpaceTabs({
               ) : null}
               <PersonalReportChart
                 data={personalReportData}
+                expenseLines={reportExpenseLines}
                 currency={currency}
                 categoryBudgets={categoryBudgets}
                 periodLabel={reportPeriodLabel}
@@ -217,6 +252,16 @@ export function SpaceTabs({
             </>
           )}
         </TabsContent>
+        {showBuilding ? (
+          <TabsContent value="suggestions" className="mt-3">
+            <BuildingCommunityHub
+              spaceId={spaceId}
+              suggestions={buildingSuggestions}
+              announcements={buildingAnnouncements}
+              canMutate={canMutate}
+            />
+          </TabsContent>
+        ) : null}
         {showDebts ? (
           <TabsContent value="debts" className="mt-3">
             <DebtPanel

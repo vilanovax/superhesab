@@ -9,7 +9,9 @@ import {
   categoryChartLabel,
   colorForCustomLabel,
   customCategoryChartKey,
+  expenseChartKey,
   type CategoryExpenseRow,
+  type ReportExpenseLine,
 } from "@/lib/reports";
 
 function aggregateCategoryRows(
@@ -95,6 +97,44 @@ export async function getExpensesByCategoryInRange(
 }
 
 /**
+ * Expense line items in a date window (for report category drill-down).
+ */
+export async function getExpenseLinesInRange(
+  spaceId: string,
+  start: Date,
+  end: Date,
+  paidById?: string | null,
+): Promise<ReportExpenseLine[]> {
+  const rows = await prisma.expense.findMany({
+    where: {
+      spaceId,
+      transactionType: "EXPENSE",
+      date: { gte: start, lte: end },
+      ...(paidById ? { paidById } : {}),
+    },
+    select: {
+      id: true,
+      title: true,
+      totalAmount: true,
+      date: true,
+      category: true,
+      categoryLabel: true,
+    },
+    orderBy: { date: "desc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    totalAmount: row.totalAmount,
+    date: row.date.toISOString(),
+    category: row.category,
+    categoryLabel: row.categoryLabel,
+    chartKey: expenseChartKey(row.category, row.categoryLabel),
+  }));
+}
+
+/**
  * Aggregate EXPENSE transactions for a space in the given Gregorian
  * calendar month (Asia/Tehran), grouped by category.
  */
@@ -105,4 +145,13 @@ export async function getExpensesByCategory(
 ): Promise<CategoryExpenseRow[]> {
   const { start, end } = tehranMonthRange(month);
   return getExpensesByCategoryInRange(spaceId, start, end, paidById);
+}
+
+export async function getExpenseLinesForMonth(
+  spaceId: string,
+  month: Date = new Date(),
+  paidById?: string | null,
+): Promise<ReportExpenseLine[]> {
+  const { start, end } = tehranMonthRange(month);
+  return getExpenseLinesInRange(spaceId, start, end, paidById);
 }

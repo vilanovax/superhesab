@@ -75,7 +75,13 @@ async function createExpense(input: {
     | "ACCOMMODATION"
     | "ENTERTAINMENT"
     | "SHOPPING"
-    | "OTHER";
+    | "OTHER"
+    | "BUILDING_BILLS"
+    | "BUILDING_ELEVATOR"
+    | "BUILDING_CLEANING"
+    | "BUILDING_MAINTENANCE"
+    | "BUILDING_GARDENING"
+    | "BUILDING_SALARY";
   isCategoryLocked?: boolean;
   date: Date;
   splits: SplitSeed[];
@@ -501,32 +507,69 @@ async function main() {
   const expenseCatalog: {
     title: string;
     category:
-      | "FOOD"
-      | "TRANSPORT"
-      | "ACCOMMODATION"
-      | "ENTERTAINMENT"
-      | "SHOPPING"
+      | "BUILDING_BILLS"
+      | "BUILDING_ELEVATOR"
+      | "BUILDING_CLEANING"
+      | "BUILDING_MAINTENANCE"
+      | "BUILDING_GARDENING"
+      | "BUILDING_SALARY"
       | "OTHER";
     amount: number;
   }[] = [
-    { title: "قبض برق مشاع", category: "OTHER", amount: 2_800_000 },
-    { title: "قبض آب مشاع", category: "OTHER", amount: 1_450_000 },
-    { title: "گاز موتورخانه", category: "OTHER", amount: 3_200_000 },
-    { title: "حقوق سرایدار", category: "OTHER", amount: 12_000_000 },
-    { title: "مواد شوینده و نظافت", category: "SHOPPING", amount: 680_000 },
-    { title: "تعمیر آسانسور", category: "OTHER", amount: 4_500_000 },
-    { title: "باغبانی حیاط", category: "OTHER", amount: 1_100_000 },
-    { title: "سم‌پاشی انباری", category: "OTHER", amount: 750_000 },
-    { title: "خرید لامپ راه‌پله", category: "SHOPPING", amount: 420_000 },
-    { title: "حمل نخاله ساختمانی", category: "TRANSPORT", amount: 900_000 },
-    { title: "پذیرایی مجمع عمومی", category: "FOOD", amount: 1_850_000 },
-    { title: "رنگ‌آمیزی لابی", category: "OTHER", amount: 6_700_000 },
+    { title: "قبض برق مشاع", category: "BUILDING_BILLS", amount: 2_800_000 },
+    { title: "قبض آب مشاع", category: "BUILDING_BILLS", amount: 1_450_000 },
+    { title: "گاز موتورخانه", category: "BUILDING_BILLS", amount: 3_200_000 },
+    { title: "حقوق سرایدار", category: "BUILDING_SALARY", amount: 12_000_000 },
+    {
+      title: "مواد شوینده و نظافت",
+      category: "BUILDING_CLEANING",
+      amount: 680_000,
+    },
+    {
+      title: "تعمیر آسانسور",
+      category: "BUILDING_ELEVATOR",
+      amount: 4_500_000,
+    },
+    { title: "باغبانی حیاط", category: "BUILDING_GARDENING", amount: 1_100_000 },
+    {
+      title: "سم‌پاشی انباری",
+      category: "BUILDING_MAINTENANCE",
+      amount: 750_000,
+    },
+    {
+      title: "خرید لامپ راه‌پله",
+      category: "BUILDING_MAINTENANCE",
+      amount: 420_000,
+    },
+    { title: "حمل نخاله ساختمانی", category: "OTHER", amount: 900_000 },
+    { title: "پذیرایی مجمع عمومی", category: "OTHER", amount: 1_850_000 },
+    {
+      title: "رنگ‌آمیزی لابی",
+      category: "BUILDING_MAINTENANCE",
+      amount: 6_700_000,
+    },
     { title: "بیمه آتش‌سوزی", category: "OTHER", amount: 5_400_000 },
-    { title: "سرویس کولر پشت‌بام", category: "OTHER", amount: 2_200_000 },
-    { title: "دورهمی نگهبانی نوروز", category: "ENTERTAINMENT", amount: 1_300_000 },
-    { title: "تعویض قفل پارکینگ", category: "SHOPPING", amount: 560_000 },
-    { title: "کپسول آتش‌نشانی", category: "SHOPPING", amount: 980_000 },
-    { title: "هزینه اینترنت لابی", category: "OTHER", amount: 450_000 },
+    {
+      title: "سرویس کولر پشت‌بام",
+      category: "BUILDING_MAINTENANCE",
+      amount: 2_200_000,
+    },
+    { title: "دورهمی نگهبانی نوروز", category: "BUILDING_SALARY", amount: 1_300_000 },
+    {
+      title: "تعویض قفل پارکینگ",
+      category: "BUILDING_MAINTENANCE",
+      amount: 560_000,
+    },
+    {
+      title: "کپسول آتش‌نشانی",
+      category: "BUILDING_MAINTENANCE",
+      amount: 980_000,
+    },
+    {
+      title: "هزینه اینترنت لابی",
+      category: "BUILDING_BILLS",
+      amount: 450_000,
+    },
   ];
 
   const expensePicks = [...expenseCatalog]

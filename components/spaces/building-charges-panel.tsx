@@ -1,14 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   upsertChargePayment,
+  type AnnualChargeCalendarDTO,
   type BuildingDashboardDTO,
   type ChargePaymentDTO,
   type UnitDTO,
 } from "@/app/actions/building";
+import { BuildingAnnualCalendar } from "@/components/spaces/building-annual-calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -19,7 +22,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import {
   CHARGE_STATUS_LABELS,
   formatJalaliYear,
@@ -33,12 +35,27 @@ import {
 } from "@/lib/format";
 import { todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
+
+const JalaliDatePicker = dynamic(
+  () =>
+    import("@/components/ui/jalali-date-picker").then(
+      (m) => m.JalaliDatePicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-28 animate-pulse rounded-2xl bg-muted/40" />
+    ),
+  },
+);
 
 type BuildingChargesPanelProps = {
   spaceId: string;
   settingsHref: string;
   dashboard: BuildingDashboardDTO;
+  calendar: AnnualChargeCalendarDTO | null;
   currency: SpaceCurrency;
   canMutate: boolean;
   isOwner: boolean;
@@ -48,11 +65,14 @@ export function BuildingChargesPanel({
   spaceId,
   settingsHref,
   dashboard,
+  calendar,
   currency,
   canMutate,
   isOwner,
 }: BuildingChargesPanelProps) {
   const router = useRouter();
+  const showToast = useUiStore((s) => s.showToast);
+  const [view, setView] = useState<"month" | "calendar">("calendar");
   const [month, setMonth] = useState(
     Math.max(1, dashboard.throughMonth || 1),
   );
@@ -93,26 +113,58 @@ export function BuildingChargesPanel({
     setError(null);
   }
 
+  function openPayFromCalendar(args: {
+    unitId: string;
+    unitName: string;
+    month: number;
+    monthlyCharge: number;
+    payment: ChargePaymentDTO | null;
+  }) {
+    setMonth(args.month);
+    setPayUnit({
+      id: args.unitId,
+      name: args.unitName,
+      area: null,
+      multiplier: 1000,
+      isActive: true,
+      monthlyCharge: args.monthlyCharge,
+      arrears: 0,
+      collected: 0,
+    });
+    setAmount(args.payment?.amount ?? args.monthlyCharge ?? 0);
+    setStatus(args.payment?.status ?? "PAID");
+    setNote(args.payment?.note ?? "");
+    setNoteOpen(Boolean(args.payment?.note));
+    setDate(args.payment?.date ?? todayIsoDateTehran());
+    setError(null);
+  }
+
   function onSavePayment(e: React.FormEvent) {
     e.preventDefault();
     if (!payUnit) return;
     setError(null);
+
+    const payload = {
+      spaceId,
+      unitId: payUnit.id,
+      year: dashboard.year,
+      month,
+      amount: Math.trunc(amount) || 0,
+      status,
+      note: note || null,
+      date,
+    };
+
+    // Fast-close before server round-trip.
+    setPayUnit(null);
+    showToast("ثبت شد");
+
     startTransition(async () => {
-      const result = await upsertChargePayment({
-        spaceId,
-        unitId: payUnit.id,
-        year: dashboard.year,
-        month,
-        amount: Math.trunc(amount) || 0,
-        status,
-        note: note || null,
-        date,
-      });
+      const result = await upsertChargePayment(payload);
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error || "خطا در ثبت اطلاعات", "error");
         return;
       }
-      setPayUnit(null);
       router.refresh();
     });
   }
@@ -156,9 +208,9 @@ export function BuildingChargesPanel({
     : dashboard.debtors.slice(0, 3);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Compact KPI strip */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1.5">
         <StatCard
           label="مقرر"
           amount={totals.expectedYtd}
@@ -178,6 +230,50 @@ export function BuildingChargesPanel({
         />
       </div>
 
+      <div className="flex gap-1 rounded-2xl bg-muted/70 p-1">
+        <button
+          type="button"
+          onClick={() => setView("calendar")}
+          className={cn(
+            "h-10 flex-1 rounded-xl text-caption font-semibold transition-colors",
+            view === "calendar"
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground",
+          )}
+        >
+          تقویم سال
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("month")}
+          className={cn(
+            "h-10 flex-1 rounded-xl text-caption font-semibold transition-colors",
+            view === "month"
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground",
+          )}
+        >
+          وصول ماهانه
+        </button>
+      </div>
+
+      {view === "calendar" ? (
+        <div className="rounded-2xl border border-border/40 bg-card px-3.5 py-3.5 shadow-sm">
+          {calendar ? (
+            <BuildingAnnualCalendar
+              spaceId={spaceId}
+              calendar={calendar}
+              canMutate={canMutate}
+              onCellClick={canMutate ? openPayFromCalendar : undefined}
+            />
+          ) : (
+            <p className="py-6 text-center text-body-sm text-muted-foreground">
+              بارگذاری تقویم ممکن نیست.
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
       {/* Debtors — compact, expandable */}
       {dashboard.debtors.length > 0 ? (
         <div className="overflow-hidden rounded-2xl border border-destructive/20 bg-destructive-soft/35">
@@ -327,6 +423,8 @@ export function BuildingChargesPanel({
           })}
         </ul>
       </div>
+        </>
+      )}
 
       <Drawer
         open={Boolean(payUnit)}
@@ -521,11 +619,11 @@ function StatCard({
   tone?: "default" | "success" | "danger";
 }) {
   return (
-    <div className="rounded-2xl border border-border/50 bg-card px-2.5 py-2.5 text-center">
-      <p className="text-micro font-medium text-muted-foreground">{label}</p>
+    <div className="rounded-xl border border-border/40 bg-card px-2 py-2 text-center shadow-sm">
+      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
       <p
         className={cn(
-          "mt-1 text-body-sm font-bold leading-tight tabular-nums tracking-tight",
+          "mt-0.5 text-[13px] font-bold leading-tight tabular-nums tracking-tight",
           tone === "success" && "text-success",
           tone === "danger" && "text-destructive",
           tone === "default" && "text-foreground",
@@ -533,7 +631,7 @@ function StatCard({
       >
         {formatMoney(amount)}
       </p>
-      <p className="mt-0.5 text-micro text-muted-foreground">{unit}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{unit}</p>
     </div>
   );
 }

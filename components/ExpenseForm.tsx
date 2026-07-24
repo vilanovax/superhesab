@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +43,7 @@ import {
   SHARE_STEP,
   splitEqual,
 } from "@/lib/money";
+import { useUiStore } from "@/lib/stores/ui-store";
 import {
   BUILDING_CATEGORY_LABELS,
   CATEGORY_EMOJI,
@@ -56,10 +59,22 @@ import {
   type TransactionTypeForm,
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { CategoryPickerSheet } from "@/components/expenses/category-picker-sheet";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
+
+const JalaliDatePicker = dynamic(
+  () =>
+    import("@/components/ui/jalali-date-picker").then(
+      (m) => m.JalaliDatePicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />
+    ),
+  },
+);
 
 const CATEGORY_DEBOUNCE_MS = 300;
 function parseAmountInput(raw: string): number {
@@ -221,6 +236,8 @@ export function ExpenseForm({
   spaceType = "TRIP",
   defaultTransactionType = "EXPENSE",
 }: ExpenseFormProps) {
+  const router = useRouter();
+  const showToast = useUiStore((s) => s.showToast);
   const [pending, startTransition] = useTransition();
   const isEdit = Boolean(initialExpense?.expenseId);
   const features = getTemplate(spaceType).features;
@@ -408,30 +425,48 @@ export function ExpenseForm({
     (watchedDate || todayIsoDateTehran()) === todayIsoDateTehran();
 
   function onSubmit(values: ExpenseFormValues) {
-    startTransition(async () => {
-      const base: ExpenseFormValues = { ...values };
-      if (!isEdit) {
-        if (customCategoryLabel) {
-          base.categoryLabel = customCategoryLabel;
-          base.category =
-            (values.transactionType ?? "EXPENSE") === "INCOME"
-              ? "OTHER_INCOME"
-              : "OTHER";
-        } else if (manualCategory) {
-          base.category = manualCategory;
-          base.categoryLabel = null;
-        } else {
-          delete base.category;
-          base.categoryLabel = null;
-        }
+    const base: ExpenseFormValues = { ...values };
+    if (!isEdit) {
+      if (customCategoryLabel) {
+        base.categoryLabel = customCategoryLabel;
+        base.category =
+          (values.transactionType ?? "EXPENSE") === "INCOME"
+            ? "OTHER_INCOME"
+            : "OTHER";
+      } else if (manualCategory) {
+        base.category = manualCategory;
+        base.categoryLabel = null;
+      } else {
+        delete base.category;
+        base.categoryLabel = null;
       }
+    }
 
-      const payload: ExpenseFormValues = isSoloLedger
+    const payload: ExpenseFormValues = isSoloLedger
+      ? {
+          ...base,
+          paidById: currentUserId,
+          splitMode: "EQUAL",
+          transactionType: values.transactionType ?? "EXPENSE",
+          date:
+            !changeDate && !isEdit
+              ? todayIsoDateTehran()
+              : values.date || todayIsoDateTehran(),
+          splits: [
+            {
+              userId: currentUserId,
+              amount: values.totalAmount,
+              selected: true,
+              share: DEFAULT_SHARE,
+            },
+          ],
+        }
+      : isBuilding
         ? {
             ...base,
             paidById: currentUserId,
             splitMode: "EQUAL",
-            transactionType: values.transactionType ?? "EXPENSE",
+            transactionType: "EXPENSE",
             date:
               !changeDate && !isEdit
                 ? todayIsoDateTehran()
@@ -445,25 +480,6 @@ export function ExpenseForm({
               },
             ],
           }
-        : isBuilding
-          ? {
-              ...base,
-              paidById: currentUserId,
-              splitMode: "EQUAL",
-              transactionType: "EXPENSE",
-              date:
-                !changeDate && !isEdit
-                  ? todayIsoDateTehran()
-                  : values.date || todayIsoDateTehran(),
-              splits: [
-                {
-                  userId: currentUserId,
-                  amount: values.totalAmount,
-                  selected: true,
-                  share: DEFAULT_SHARE,
-                },
-              ],
-            }
         : isHouseholdLedger
           ? {
               ...base,
@@ -483,54 +499,59 @@ export function ExpenseForm({
                 },
               ],
             }
-        : isPartnerEqual
-          ? {
-              ...base,
-              paidById: isEdit ? values.paidById : currentUserId,
-              splitMode: "EQUAL",
-              transactionType: "EXPENSE",
-              date: todayIsoDateTehran(),
-              splits: members.map((m) => ({
-                userId: m.userId,
-                amount: 0,
-                selected: true,
-                share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
-              })),
-            }
-          : {
-              ...base,
-              transactionType: showIncomeExpense
-                ? (values.transactionType ?? "EXPENSE")
-                : "EXPENSE",
-              date:
-                !changeDate && !isEdit
-                  ? todayIsoDateTehran()
-                  : values.date || todayIsoDateTehran(),
-            };
+          : isPartnerEqual
+            ? {
+                ...base,
+                paidById: isEdit ? values.paidById : currentUserId,
+                splitMode: "EQUAL",
+                transactionType: "EXPENSE",
+                date: todayIsoDateTehran(),
+                splits: members.map((m) => ({
+                  userId: m.userId,
+                  amount: 0,
+                  selected: true,
+                  share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
+                })),
+              }
+            : {
+                ...base,
+                transactionType: showIncomeExpense
+                  ? (values.transactionType ?? "EXPENSE")
+                  : "EXPENSE",
+                date:
+                  !changeDate && !isEdit
+                    ? todayIsoDateTehran()
+                    : values.date || todayIsoDateTehran(),
+              };
 
+    // Fast-close: drawer closes before the server round-trip.
+    onSuccess?.();
+    showToast(isEdit ? "ذخیره شد" : "ثبت شد");
+    if (!isEdit) {
+      form.reset(
+        buildDefaultValues(
+          spaceId,
+          currentUserId,
+          members,
+          undefined,
+          defaultTransactionType,
+        ),
+      );
+      setChangeDate(false);
+      setManualCategory(null);
+      setCustomCategoryLabel(null);
+      setDebouncedTitle("");
+    }
+
+    startTransition(async () => {
       const result = isEdit
         ? await updateExpense(initialExpense!.expenseId, payload)
         : await addExpense(payload);
       if (!result.ok) {
-        form.setError("root", { message: result.error });
+        showToast(result.error || "خطا در ثبت اطلاعات", "error");
         return;
       }
-      if (!isEdit) {
-        form.reset(
-          buildDefaultValues(
-            spaceId,
-            currentUserId,
-            members,
-            undefined,
-            defaultTransactionType,
-          ),
-        );
-        setChangeDate(false);
-        setManualCategory(null);
-        setCustomCategoryLabel(null);
-        setDebouncedTitle("");
-      }
-      onSuccess?.();
+      router.refresh();
     });
   }
 
@@ -1155,10 +1176,10 @@ export function ExpenseForm({
           </p>
         ) : null}
 
-        <div className="sticky bottom-0 -mx-1 bg-linear-to-t from-sheet via-sheet/95 to-transparent pt-2 pb-1">
+        <div className="pt-1">
           <Button
             type="submit"
-            className="h-12 w-full rounded-2xl text-body font-semibold"
+            className="h-11 w-full rounded-xl text-body-sm font-semibold text-primary-foreground"
             disabled={pending}
           >
             {pending

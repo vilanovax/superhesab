@@ -278,6 +278,10 @@ export default async function AppHomePage({
           <ul className="space-y-2">
             {memberships.map(({ space, role }, index) => {
               const template = getTemplate(space.type);
+              const spaceHref =
+                space.type === "BUILDING" && role === "VIEWER"
+                  ? `/spaces/${space.id}/resident`
+                  : `/spaces/${space.id}`;
               const mark =
                 space.type === "TRIP"
                   ? "سفر"
@@ -322,7 +326,7 @@ export default async function AppHomePage({
                     )}
                   >
                     <Link
-                      href={`/spaces/${space.id}`}
+                      href={spaceHref}
                       className="flex min-w-0 flex-1 items-center gap-3 active:opacity-90"
                     >
                       <span

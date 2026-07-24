@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { listSpaceDebts } from "@/app/actions/debt";
-import { getBuildingDashboard } from "@/app/actions/building";
+import {
+  getAnnualChargeCalendar,
+  getBuildingDashboard,
+  listBuildingAnnouncements,
+  listBuildingSuggestions,
+} from "@/app/actions/building";
 import { ensureRecurringExpenses } from "@/app/actions/recurring";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
@@ -26,6 +31,8 @@ import type { ExpenseCategory } from "@/lib/categorizer";
 import {
   getExpensesByCategory,
   getExpensesByCategoryInRange,
+  getExpenseLinesForMonth,
+  getExpenseLinesInRange,
 } from "@/lib/reports-server";
 import {
   getTemplate,
@@ -109,6 +116,14 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     notFound();
   }
 
+  // Building residents (VIEWER) use the unit portal, not the manager dashboard.
+  if (
+    getTemplate(membership.space.type).features.buildingCharges &&
+    membership.role === "VIEWER"
+  ) {
+    redirect(`/spaces/${id}/resident`);
+  }
+
   const spaceTypeRow = await prisma.space.findUnique({
     where: { id },
     select: { type: true },
@@ -169,7 +184,8 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     tabParam === "report" ||
     tabParam === "charges" ||
     tabParam === "expenses" ||
-    tabParam === "debts"
+    tabParam === "debts" ||
+    tabParam === "suggestions"
       ? tabParam
       : undefined;
 
@@ -184,7 +200,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, debts, categoryBudgetRows, buildingDashboard] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingSuggestions, buildingCalendar, buildingAnnouncements] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -204,18 +220,49 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             orderBy: { createdAt: "asc" },
           },
           expenses: {
-            include: {
+            select: {
+              id: true,
+              title: true,
+              totalAmount: true,
+              date: true,
+              createdAt: true,
+              updatedAt: true,
+              paidById: true,
+              transactionType: true,
+              category: true,
+              categoryLabel: true,
+              isCategoryLocked: true,
+              spaceId: true,
               paidBy: {
-                select: { name: true, phone: true, isVirtual: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  isVirtual: true,
+                },
               },
               createdBy: {
-                select: { id: true, name: true, phone: true, isVirtual: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  isVirtual: true,
+                },
               },
               updatedBy: {
-                select: { id: true, name: true, phone: true, isVirtual: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  isVirtual: true,
+                },
               },
               splits: {
-                select: { userId: true, owedAmount: true, share: true },
+                select: {
+                  userId: true,
+                  owedAmount: true,
+                  share: true,
+                },
               },
             },
             orderBy: { date: "desc" },
@@ -251,6 +298,11 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             )
           : getExpensesByCategory(id, new Date())
         : Promise.resolve([]),
+      features.incomeExpense
+        ? reportRange
+          ? getExpenseLinesInRange(id, reportRange.start, reportRange.end)
+          : getExpenseLinesForMonth(id, new Date())
+        : Promise.resolve([]),
       features.debts ? listSpaceDebts(id) : Promise.resolve([]),
       features.categoryBudgets
         ? prisma.categoryBudget.findMany({
@@ -261,6 +313,15 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       features.buildingCharges
         ? getBuildingDashboard(id, planYear)
         : Promise.resolve(null),
+      features.buildingCharges
+        ? listBuildingSuggestions(id)
+        : Promise.resolve([]),
+      features.buildingCharges
+        ? getAnnualChargeCalendar(id, planYear)
+        : Promise.resolve(null),
+      features.buildingCharges
+        ? listBuildingAnnouncements(id, { includeArchived: true })
+        : Promise.resolve([]),
     ]);
 
   if (!space) {
@@ -639,6 +700,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         showChecklist={showChecklist}
         canMutate={canWrite}
         personalReportData={personalReportData}
+        reportExpenseLines={reportExpenseLines}
         familyMonthExpenses={monthRows
           .filter((r) => r.transactionType === "EXPENSE")
           .map((r) => ({
@@ -665,6 +727,9 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           ]),
         )}
         buildingDashboard={buildingDashboard}
+        buildingCalendar={buildingCalendar}
+        buildingSuggestions={buildingSuggestions}
+        buildingAnnouncements={buildingAnnouncements}
         isOwner={isOwner}
         initialTab={initialTab}
         reportPlanYear={features.buildingCharges ? planYear : undefined}

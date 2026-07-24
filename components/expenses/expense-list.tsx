@@ -247,7 +247,6 @@ function EditSheet({
         initialExpense={toInitial(expense)}
         onSuccess={() => {
           onOpenChange(false);
-          router.refresh();
         }}
       />
 

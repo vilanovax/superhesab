@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
 import {
   addDebtPayment,
@@ -16,7 +17,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import {
   daysUntilDue,
   debtTypeLabel,
@@ -27,6 +27,19 @@ import type { SpaceCurrency } from "@/lib/format";
 import { formatDateFa, todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+
+const JalaliDatePicker = dynamic(
+  () =>
+    import("@/components/ui/jalali-date-picker").then(
+      (m) => m.JalaliDatePicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />
+    ),
+  },
+);
 
 type DebtPanelProps = {
   spaceId: string;

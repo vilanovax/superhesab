@@ -15,6 +15,12 @@ export const expenseCategorySchema = z.enum([
   "SALARY",
   "TRANSFER",
   "OTHER_INCOME",
+  "BUILDING_BILLS",
+  "BUILDING_ELEVATOR",
+  "BUILDING_CLEANING",
+  "BUILDING_MAINTENANCE",
+  "BUILDING_GARDENING",
+  "BUILDING_SALARY",
 ]);
 
 export const expenseSplitRowSchema = z.object({

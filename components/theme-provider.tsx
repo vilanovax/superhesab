@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AppToast } from "@/components/ui/app-toast";
 import {
   applyDocumentAccent,
   applyDocumentTheme,
@@ -26,5 +27,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener("change", onChange);
   }, [theme, accent]);
 
-  return children;
+  return (
+    <>
+      {children}
+      <AppToast />
+    </>
+  );
 }

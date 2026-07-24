@@ -140,15 +140,26 @@ export function AddExpenseButton({
   const [localOpen, setLocalOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const features = getTemplate(spaceType).features;
-  const description = features.householdLedger
-    ? "درآمد یا هزینه خانواده — بدون دنگ‌ودونگ"
+  const isBuilding = features.buildingCharges;
+  const description = isBuilding
+    ? "هزینه مشاع ساختمان — از صندوق مشترک"
+    : features.householdLedger
+      ? "درآمد یا هزینه خانواده — بدون دنگ‌ودونگ"
+      : features.incomeExpense
+        ? "درآمد یا هزینه — سریع و بدون تسهیم"
+        : spaceType === "PARTNER"
+          ? "عنوان و مبلغ — تسهیم مساوی"
+          : "عنوان، مبلغ و سهم‌ها";
+  const sheetTitle = isBuilding
+    ? "ثبت هزینه مشاع"
     : features.incomeExpense
-      ? "درآمد یا هزینه — سریع و بدون تسهیم"
-      : spaceType === "PARTNER"
-        ? "عنوان و مبلغ — تسهیم مساوی"
-        : "عنوان، مبلغ و سهم‌ها";
-  const sheetTitle = features.incomeExpense ? "ثبت تراکنش" : "ثبت هزینه جدید";
-  const fabLabel = features.incomeExpense ? "ثبت تراکنش" : "ثبت هزینه";
+      ? "ثبت تراکنش"
+      : "ثبت هزینه جدید";
+  const fabLabel = isBuilding
+    ? "ثبت هزینه"
+    : features.incomeExpense
+      ? "ثبت تراکنش"
+      : "ثبت هزینه";
 
   const open = expenseFormOpen || localOpen;
   function setOpen(next: boolean) {
@@ -165,7 +176,11 @@ export function AddExpenseButton({
       currency={currency}
       spaceType={spaceType}
       defaultTransactionType={
-        features.incomeExpense ? draftTransactionType : "EXPENSE"
+        isBuilding
+          ? "EXPENSE"
+          : features.incomeExpense
+            ? draftTransactionType
+            : "EXPENSE"
       }
       onSuccess={() => setOpen(false)}
     />

@@ -335,8 +335,8 @@ export function BuildingChargesPanel({
         }}
         repositionInputs={false}
       >
-        <DrawerContent className="mt-0! flex max-h-[88dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-4 pb-3 pt-1.5">
+        <DrawerContent className="mt-0! flex max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
               <DrawerTitle className="text-body font-bold text-on-hero">
                 وصول — واحد {payUnit?.name}
@@ -354,11 +354,11 @@ export function BuildingChargesPanel({
             onSubmit={onSavePayment}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 py-3">
               <div
                 role="group"
                 aria-label="وضعیت پرداخت"
-                className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {(
                   ["PAID", "PARTIAL", "DUE", "WAIVED"] as const
@@ -374,7 +374,7 @@ export function BuildingChargesPanel({
                       if (s === "WAIVED") setAmount(0);
                     }}
                     className={cn(
-                      "h-9 shrink-0 rounded-xl px-3 text-caption font-semibold transition-colors",
+                      "h-8 shrink-0 rounded-lg px-2.5 text-caption font-semibold transition-colors",
                       status === s
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -385,7 +385,7 @@ export function BuildingChargesPanel({
                 ))}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-label text-muted-foreground">
                     مبلغ ({unitLabel})
@@ -405,11 +405,11 @@ export function BuildingChargesPanel({
                 <MoneyInput
                   value={amount}
                   onValueChange={setAmount}
-                  className="h-12 rounded-xl text-lg font-bold"
+                  className="h-11 rounded-xl text-base font-bold"
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-label text-muted-foreground">تاریخ</label>
                 <JalaliDatePicker
                   value={date}
@@ -419,43 +419,69 @@ export function BuildingChargesPanel({
               </div>
 
               {noteOpen ? (
-                <div className="space-y-1.5">
-                  <label className="text-label text-muted-foreground">
-                    یادداشت
-                  </label>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-label text-muted-foreground">
+                      یادداشت
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNote("");
+                        setNoteOpen(false);
+                      }}
+                      className="text-micro text-muted-foreground"
+                    >
+                      حذف
+                    </button>
+                  </div>
                   <Input
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="اختیاری"
-                    className="h-11 rounded-xl"
+                    className="h-10 rounded-xl"
                     maxLength={200}
+                    autoFocus
                   />
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => setNoteOpen(true)}
-                  className="text-caption font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  className="text-caption font-medium text-muted-foreground"
                 >
-                  + افزودن یادداشت
+                  + یادداشت
                 </button>
               )}
+            </div>
 
+            <div className="mt-auto shrink-0 space-y-2 border-t border-border/45 bg-card px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5">
               {error ? (
-                <p className="text-sm text-destructive" role="alert">
+                <p
+                  className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                  role="alert"
+                >
                   {error}
                 </p>
               ) : null}
-            </div>
-
-            <div className="shrink-0 border-t border-border/50 bg-card px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3">
-              <Button
-                type="submit"
-                className="h-12 w-full rounded-2xl text-primary-foreground"
-                disabled={pending}
-              >
-                {pending ? "…" : "ذخیره وصول"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 flex-1 rounded-xl"
+                  disabled={pending}
+                  onClick={() => setPayUnit(null)}
+                >
+                  انصراف
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
+                  disabled={pending}
+                >
+                  {pending ? "…" : "ذخیره"}
+                </Button>
+              </div>
             </div>
           </form>
         </DrawerContent>

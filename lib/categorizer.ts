@@ -19,7 +19,7 @@ const EXPENSE_KEYWORDS: Record<
     "قهوه",
     "سوپر",
     "خوراکی",
-    "آب",
+    "آب معدنی",
     "گوشت",
     "مرغ",
     "جوجه",
@@ -33,7 +33,7 @@ const EXPENSE_KEYWORDS: Record<
     "تپسی",
     "کرایه",
     "بنزین",
-    "پمپ",
+    "پمپ بنزین",
     "قطار",
     "هواپیما",
     "بلیت",
@@ -66,7 +66,6 @@ const EXPENSE_KEYWORDS: Record<
     "تله کابین",
     "موزه",
     "شهربازی",
-    "پارک",
     "کنسرت",
   ],
   SHOPPING: [
@@ -82,6 +81,69 @@ const EXPENSE_KEYWORDS: Record<
     "کتابفروشی",
   ],
 };
+
+/**
+ * BUILDING shared-cost keywords — checked first when `{ building: true }`.
+ * Prefer OTHER for utilities / facilities; SHOPPING for supplies; TRANSPORT for haul.
+ */
+const BUILDING_KEYWORDS: {
+  category: ExpenseCategory;
+  words: readonly string[];
+}[] = [
+  {
+    category: "OTHER",
+    words: [
+      "قبض",
+      "برق مشاع",
+      "برق",
+      "گاز",
+      "آب مشاع",
+      "آب و فاضلاب",
+      "موتورخانه",
+      "آسانسور",
+      "سرایدار",
+      "نگهبان",
+      "نظافت",
+      "شوینده",
+      "باغبانی",
+      "باغبان",
+      "حیاط",
+      "لابی",
+      "مشاع",
+      "مشاعات",
+      "بیمه",
+      "سم‌پاشی",
+      "سم پاشی",
+      "پمپ آب",
+      "پمپ",
+      "راه‌پله",
+      "راه پله",
+      "پارکینگ",
+      "تعمیر",
+      "سرویس",
+      "رنگ‌آمیزی",
+      "رنگ امیزی",
+      "آنتی ویروس",
+      "اینترنت لابی",
+      "دوربین",
+      "کپسول آتش",
+      "آتش‌نشانی",
+      "آتش نشانی",
+    ],
+  },
+  {
+    category: "SHOPPING",
+    words: ["لامپ", "قفل", "مواد شوینده", "لوازم نظافت"],
+  },
+  {
+    category: "TRANSPORT",
+    words: ["نخاله", "حمل نخاله", "حمل بار"],
+  },
+  {
+    category: "FOOD",
+    words: ["پذیرایی مجمع", "مجمع عمومی", "پذیرایی"],
+  },
+];
 
 const INCOME_KEYWORDS: Record<
   Exclude<ExpenseCategory, "OTHER" | "FOOD" | "TRANSPORT" | "ACCOMMODATION" | "ENTERTAINMENT" | "SHOPPING">,
@@ -160,10 +222,27 @@ export const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
   OTHER_INCOME: "💰",
 };
 
+/** Building-friendly labels for the same enum (picker / chips). */
+export const BUILDING_CATEGORY_LABELS: Partial<
+  Record<ExpenseCategory, string>
+> = {
+  OTHER: "مشاعات / قبض",
+  SHOPPING: "لوازم و خرید",
+  TRANSPORT: "حمل و نخاله",
+  FOOD: "پذیرایی مجمع",
+  ENTERTAINMENT: "سایر",
+  ACCOMMODATION: "سایر",
+};
+
 export function categoriesForType(
   type: TransactionType,
 ): ExpenseCategory[] {
   return type === "INCOME" ? INCOME_CATEGORIES : SPEND_CATEGORIES;
+}
+
+/** Prefer building-relevant spend categories in the picker. */
+export function categoriesForBuilding(): ExpenseCategory[] {
+  return ["OTHER", "SHOPPING", "TRANSPORT", "FOOD"];
 }
 
 /** Normalize Persian titles for keyword matching. */
@@ -176,6 +255,11 @@ export function normalizeCategoryTitle(title: string): string {
     .replace(/\s+/g, " ");
 }
 
+export type GuessCategoryOptions = {
+  /** Prefer building shared-cost keyword set. */
+  building?: boolean;
+};
+
 /**
  * Local heuristic categorizer — no external AI.
  * Income and expense keyword sets are separate to avoid collisions (e.g. اجاره).
@@ -183,6 +267,7 @@ export function normalizeCategoryTitle(title: string): string {
 export function guessCategoryFromTitle(
   title: string,
   transactionType: TransactionType = "EXPENSE",
+  opts?: GuessCategoryOptions,
 ): ExpenseCategory {
   const normalized = normalizeCategoryTitle(title);
   if (!normalized) {
@@ -199,6 +284,18 @@ export function guessCategoryFromTitle(
       }
     }
     return "OTHER_INCOME";
+  }
+
+  if (opts?.building) {
+    for (const group of BUILDING_KEYWORDS) {
+      for (const keyword of group.words) {
+        const needle = normalizeCategoryTitle(keyword);
+        if (needle && normalized.includes(needle)) {
+          return group.category;
+        }
+      }
+    }
+    return "OTHER";
   }
 
   for (const category of EXPENSE_ORDER) {

@@ -42,8 +42,10 @@ import {
   splitEqual,
 } from "@/lib/money";
 import {
+  BUILDING_CATEGORY_LABELS,
   CATEGORY_EMOJI,
   CATEGORY_LABELS,
+  categoriesForBuilding,
   categoriesForType,
   guessCategoryFromTitle,
   type ExpenseCategory,
@@ -222,14 +224,17 @@ export function ExpenseForm({
   const [pending, startTransition] = useTransition();
   const isEdit = Boolean(initialExpense?.expenseId);
   const features = getTemplate(spaceType).features;
-  const showIncomeExpense = features.incomeExpense;
+  const isBuilding = features.buildingCharges;
+  /** Income/expense toggle — not for building shared costs. */
+  const showIncomeExpense = features.incomeExpense && !isBuilding;
   const showManualSplits = features.manualSplits;
   const isSoloLedger = features.solo;
-  const isHouseholdLedger =
-    features.householdLedger || features.buildingCharges;
+  /** Family shared ledger only — do not conflate with building. */
+  const isHouseholdLedger = features.householdLedger;
   const isPartnerEqual = spaceType === "PARTNER";
   const hideSplits = !showManualSplits;
-  const showPaidByPicker = !hideSplits || isHouseholdLedger;
+  const showPaidByPicker =
+    (!hideSplits || isHouseholdLedger) && !isBuilding;
   const initialDate = initialExpense?.date ?? todayIsoDateTehran();
   const [changeDate, setChangeDate] = useState(
     Boolean(initialExpense && initialDate !== todayIsoDateTehran()),
@@ -276,15 +281,19 @@ export function ExpenseForm({
       guessCategoryFromTitle(
         debouncedTitle,
         showIncomeExpense ? transactionType : "EXPENSE",
+        { building: isBuilding },
       ),
-    [debouncedTitle, showIncomeExpense, transactionType],
+    [debouncedTitle, showIncomeExpense, transactionType, isBuilding],
   );
 
   const activeCategory = manualCategory ?? predictedCategory;
   const showSmartChip = !isEdit && debouncedTitle.length >= 2;
+  const categoryLabelFor = (code: ExpenseCategory) =>
+    (isBuilding ? BUILDING_CATEGORY_LABELS[code] : undefined) ??
+    CATEGORY_LABELS[code];
   const chipLabel = customCategoryLabel
     ? customCategoryLabel
-    : CATEGORY_LABELS[activeCategory];
+    : categoryLabelFor(activeCategory);
   const chipEmoji = customCategoryLabel
     ? "🏷️"
     : CATEGORY_EMOJI[activeCategory];
@@ -436,6 +445,25 @@ export function ExpenseForm({
               },
             ],
           }
+        : isBuilding
+          ? {
+              ...base,
+              paidById: currentUserId,
+              splitMode: "EQUAL",
+              transactionType: "EXPENSE",
+              date:
+                !changeDate && !isEdit
+                  ? todayIsoDateTehran()
+                  : values.date || todayIsoDateTehran(),
+              splits: [
+                {
+                  userId: currentUserId,
+                  amount: values.totalAmount,
+                  selected: true,
+                  share: DEFAULT_SHARE,
+                },
+              ],
+            }
         : isHouseholdLedger
           ? {
               ...base,
@@ -506,20 +534,24 @@ export function ExpenseForm({
     });
   }
 
-  const categoryOptions = categoriesForType(
-    showIncomeExpense ? transactionType : "EXPENSE",
-  );
-  const submitLabel = showIncomeExpense
-    ? transactionType === "INCOME"
-      ? isEdit
-        ? "ذخیره درآمد"
-        : "ثبت درآمد"
+  const categoryOptions = isBuilding
+    ? categoriesForBuilding()
+    : categoriesForType(showIncomeExpense ? transactionType : "EXPENSE");
+  const submitLabel = isBuilding
+    ? isEdit
+      ? "ذخیره هزینه مشاع"
+      : "ثبت هزینه"
+    : showIncomeExpense
+      ? transactionType === "INCOME"
+        ? isEdit
+          ? "ذخیره درآمد"
+          : "ثبت درآمد"
+        : isEdit
+          ? "ذخیره هزینه"
+          : "ثبت هزینه"
       : isEdit
-        ? "ذخیره هزینه"
-        : "ثبت هزینه"
-    : isEdit
-      ? "ذخیره تغییرات"
-      : "ثبت هزینه";
+        ? "ذخیره تغییرات"
+        : "ثبت هزینه";
 
   return (
     <Form {...form}>
@@ -602,9 +634,11 @@ export function ExpenseForm({
                 <FormControl>
                   <Input
                     placeholder={
-                      showIncomeExpense && transactionType === "INCOME"
-                        ? "مثلاً حقوق فروردین"
-                        : "مثلاً ناهار"
+                      isBuilding
+                        ? "مثلاً قبض برق مشاع یا تعمیر آسانسور"
+                        : showIncomeExpense && transactionType === "INCOME"
+                          ? "مثلاً حقوق فروردین"
+                          : "مثلاً ناهار"
                     }
                     className="h-11 rounded-xl border-border/70 bg-sheet-muted"
                     {...field}
@@ -648,6 +682,7 @@ export function ExpenseForm({
                 spaceId={spaceId}
                 options={categoryOptions}
                 predictedCategory={predictedCategory}
+                labelOverrides={isBuilding ? BUILDING_CATEGORY_LABELS : undefined}
                 value={
                   customCategoryLabel
                     ? { kind: "custom", label: customCategoryLabel }
@@ -703,7 +738,7 @@ export function ExpenseForm({
                     <SelectContent>
                       {categoryOptions.map((code) => (
                         <SelectItem key={code} value={code}>
-                          {CATEGORY_LABELS[code]}
+                          {categoryLabelFor(code)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -874,6 +909,10 @@ export function ExpenseForm({
           ) : isPartnerEqual ? (
             <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
               هزینه به‌صورت مساوی بین شما و طرف مقابل تسهیم می‌شود.
+            </p>
+          ) : isBuilding ? (
+            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
+              این هزینه مشاع از صندوق ساختمان کسر می‌شود.
             </p>
           ) : isHouseholdLedger ? (
             <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">

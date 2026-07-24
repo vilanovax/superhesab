@@ -45,6 +45,8 @@ type CategoryPickerSheetProps = {
   predictedCategory: ExpenseCategory;
   value: CategoryPickerValue | null;
   onSelect: (value: CategoryPickerValue) => void;
+  /** Override builtin labels (e.g. building shared-cost names). */
+  labelOverrides?: Partial<Record<ExpenseCategory, string>>;
 };
 
 export function CategoryPickerSheet({
@@ -55,10 +57,14 @@ export function CategoryPickerSheet({
   predictedCategory,
   value,
   onSelect,
+  labelOverrides,
 }: CategoryPickerSheetProps) {
   const [query, setQuery] = useState("");
   const [customDraft, setCustomDraft] = useState("");
   const [customs, setCustoms] = useState<string[]>([]);
+
+  const labelFor = (code: ExpenseCategory) =>
+    labelOverrides?.[code] ?? CATEGORY_LABELS[code];
 
   useEffect(() => {
     if (!open) return;
@@ -71,10 +77,11 @@ export function CategoryPickerSheet({
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((code) => {
-      const label = CATEGORY_LABELS[code].toLowerCase();
+      const label = labelFor(code).toLowerCase();
       return label.includes(q) || code.toLowerCase().includes(q);
     });
-  }, [options, query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFor is stable via labelOverrides
+  }, [options, query, labelOverrides]);
 
   const filteredCustoms = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -121,7 +128,7 @@ export function CategoryPickerSheet({
               حدس فعلی{" "}
               <span className="font-semibold text-foreground">
                 {CATEGORY_EMOJI[predictedCategory]}{" "}
-                {CATEGORY_LABELS[predictedCategory]}
+                {labelFor(predictedCategory)}
               </span>
               — یا دسته خودت را بساز.
             </DrawerDescription>
@@ -220,7 +227,7 @@ export function CategoryPickerSheet({
                           {CATEGORY_EMOJI[code]}
                         </span>
                         <span className="text-caption font-bold text-foreground">
-                          {CATEGORY_LABELS[code]}
+                          {labelFor(code)}
                         </span>
                       </button>
                     );

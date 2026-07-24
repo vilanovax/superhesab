@@ -19,7 +19,7 @@ const SCHEMA_SIGNATURE = [
   "personal.depth.v1",
   "building.template.v1",
   "space.archivedAt.v1",
-  "space.defaultPlanYear.v1",
+  "space.defaultPlanYear.v2",
 ].join("|");
 
 function createPrismaClient() {

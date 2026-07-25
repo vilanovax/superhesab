@@ -56,6 +56,7 @@ type FamilyReportPanelProps = {
   currency: SpaceCurrency;
   /** Precomputed full-family chart (server). */
   initialReport: CategoryExpenseRow[];
+  categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
 };
 
 function aggregateRows(
@@ -112,6 +113,7 @@ export function FamilyReportPanel({
   monthlyBudget,
   currency,
   initialReport,
+  categoryBudgets,
 }: FamilyReportPanelProps) {
   const [filter, setFilter] = useState<string>("all");
   const [, startTransition] = useTransition();
@@ -194,7 +196,11 @@ export function FamilyReportPanel({
         </div>
       ) : null}
 
-      <PersonalReportChart data={reportData} currency={currency} />
+      <PersonalReportChart
+        data={reportData}
+        currency={currency}
+        categoryBudgets={categoryBudgets}
+      />
     </div>
   );
 }

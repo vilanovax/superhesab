@@ -262,6 +262,8 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
         ? start
         : expenseDate;
 
+    const payerId = space.ownerId;
+
     try {
       await prisma.$transaction(async (tx) => {
         const expense = await tx.expense.create({
@@ -269,7 +271,7 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
             spaceId,
             title: rule.title,
             totalAmount: rule.amount,
-            paidById: space.ownerId,
+            paidById: payerId,
             createdById: rule.createdById,
             updatedById: rule.createdById,
             transactionType: rule.transactionType,
@@ -279,7 +281,7 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
             splits: {
               create: [
                 {
-                  userId: space.ownerId,
+                  userId: payerId,
                   owedAmount: rule.amount,
                   share: DEFAULT_SHARE,
                 },

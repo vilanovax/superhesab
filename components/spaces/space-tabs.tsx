@@ -278,6 +278,7 @@ export function SpaceTabs({
               monthlyBudget={monthlyBudget}
               currency={currency}
               initialReport={personalReportData}
+              categoryBudgets={categoryBudgets}
             />
           ) : (
             <>

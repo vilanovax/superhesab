@@ -13,6 +13,7 @@
 - `type: 'FAMILY'`
 - `incomeExpense: true`
 - `budget: true`
+- `categoryBudgets: true` / `recurring: true` — عمق حسابداری مثل PERSONAL — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
 - `invites: true`
 - `settlements: false`
 - `manualSplits: false`
@@ -45,3 +46,4 @@
 4. Role picker لینک دعوت ✅  
 5. گزارش خانوادگی با فیلتر پرداخت‌کننده ✅  
 6. تب بدهی / طلب (`debts: true`) ✅  
+7. عمق حسابداری مشترک با PERSONAL (`categoryBudgets` + `recurring`) ✅  

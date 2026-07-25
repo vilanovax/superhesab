@@ -124,6 +124,7 @@
 
 - `Space.type = FAMILY` — ۲ تا ۸ عضو؛ دعوت با نقش EDITOR/VIEWER
 - `incomeExpense` + `budget` + `householdLedger`؛ `settlements: false`
+- `categoryBudgets` + `recurring` — هم‌تراز PERSONAL — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
 - `debts: true` — وام/اقساط بیرونی (جدا از Expense)؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
 - Paid By بین اعضا؛ بدون Split UI؛ EDITOR فقط تراکنش Expense خودش را ویرایش می‌کند
 

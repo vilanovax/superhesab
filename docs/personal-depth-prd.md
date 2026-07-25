@@ -6,11 +6,11 @@
 
 ## ۲. مرزها
 
-- فقط `PERSONAL` (`categoryBudgets` + `recurring` در registry).
-- `FAMILY` فقط `monthlyBudget` فعلی را نگه می‌دارد.
+- `PERSONAL` و `FAMILY` (`categoryBudgets` + `recurring` در registry).
 - بدون فورک Expense؛ بدون cron — materialize هنگام باز کردن فضا.
 - بودجه دسته‌ای: فقط enumهای هزینه (`SPEND_CATEGORIES`)؛ بدون `categoryLabel` سفارشی در v1.
 - `Space.monthlyBudget` سقف کل می‌ماند؛ دسته‌ای مکمل است.
+- روی `FAMILY`: materialize با `paidById = ownerId` و split صددرصدی (سازگار با `householdLedger`).
 
 ## ۳. مدل داده
 
@@ -33,9 +33,11 @@
 
 ## ۵. Materialize تکرارپذیر
 
-روی باز شدن فضای PERSONAL: برای هر rule فعال اگر `dayOfMonth` رسیده و occurrence برای ماه جاری نباشد → Expense + split 100٪ به مالک + RecurringOccurrence.
+روی باز شدن فضای PERSONAL یا FAMILY: برای هر rule فعال اگر `dayOfMonth` رسیده و occurrence برای ماه جاری نباشد → Expense + split 100٪ به مالک + RecurringOccurrence.
 
 ## ۶. UI
 
-- تنظیمات: سقف ماهانه + لیست بودجه دسته + CRUD قوانین تکرارپذیر.
+- تنظیمات: سقف ماهانه + لیست بودجه دسته + CRUD قوانین تکرارپذیر (OWNER).
+- گزارش: سقف دسته روی نمودار هزینه (PERSONAL و FAMILY).
+- هیرو PERSONAL: run-rate زیر نوار بودجه.
 - گزارش: نوار مصرف در برابر سقف دسته (در صورت تعریف).

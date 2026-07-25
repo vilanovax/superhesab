@@ -21,6 +21,8 @@ import {
   type FamilyReportMember,
 } from "@/components/spaces/family-report-panel";
 import type { DebtDTO } from "@/app/actions/debt";
+import type { InternalLoanDTO } from "@/app/actions/internalLoan";
+import type { SavingsPotDTO } from "@/app/actions/savingsPot";
 import type {
   AnnualChargeCalendarDTO,
   BuildingDashboardDTO,
@@ -28,6 +30,8 @@ import type {
   ChargePaymentProofDTO,
 } from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
+import { FamilySavingsLoanPanel } from "@/components/spaces/family-savings-loan-panel";
+import type { FundMemberOption } from "@/components/spaces/savings-pot-panel";
 import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import { BuildingUnitsPanel } from "@/components/spaces/building-units-panel";
@@ -73,6 +77,10 @@ type SpaceTabsProps = {
   familyReportMembers?: FamilyReportMember[];
   monthlyBudget?: number | null;
   debts?: DebtDTO[];
+  savingsPots?: SavingsPotDTO[];
+  internalLoans?: InternalLoanDTO[];
+  fundMembers?: FundMemberOption[];
+  currentFundMemberId?: string | null;
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
   buildingDashboard?: BuildingDashboardDTO | null;
   buildingCalendar?: AnnualChargeCalendarDTO | null;
@@ -112,6 +120,10 @@ export function SpaceTabs({
   familyReportMembers = [],
   monthlyBudget = null,
   debts = [],
+  savingsPots = [],
+  internalLoans = [],
+  fundMembers = [],
+  currentFundMemberId = null,
   categoryBudgets,
   buildingDashboard = null,
   buildingCalendar = null,
@@ -134,10 +146,15 @@ export function SpaceTabs({
   const isHousehold = features.householdLedger;
   const showDebts = features.debts;
   const showBuilding = features.buildingCharges;
+  const showSavings = Boolean(features.savingsPot);
+  const showInternalLoans = Boolean(features.internalLoans);
+  const showFamilyFunds = showSavings || showInternalLoans;
 
   if (showIncomeReport && !showSettlements) {
     const extraTabs =
-      (showDebts ? 1 : 0) + (showBuilding ? 2 : 0); // charges + units
+      (showDebts ? 1 : 0) +
+      (showBuilding ? 2 : 0) +
+      (showFamilyFunds ? 1 : 0);
     const tabCount = 2 + extraTabs;
     const defaultTab =
       initialTab &&
@@ -145,7 +162,8 @@ export function SpaceTabs({
         initialTab === "charges" ||
         initialTab === "units" ||
         initialTab === "expenses" ||
-        initialTab === "debts")
+        initialTab === "debts" ||
+        initialTab === "funds")
         ? initialTab
         : showBuilding
           ? "charges"
@@ -159,11 +177,13 @@ export function SpaceTabs({
         <TabsList
           className={cn(
             "grid h-11 w-full rounded-2xl bg-muted/70 p-1",
-            tabCount >= 4
-              ? "grid-cols-4"
-              : tabCount === 3
-                ? "grid-cols-3"
-                : "grid-cols-2",
+            tabCount >= 5
+              ? "grid-cols-5"
+              : tabCount >= 4
+                ? "grid-cols-4"
+                : tabCount === 3
+                  ? "grid-cols-3"
+                  : "grid-cols-2",
           )}
         >
           <TabsTrigger value="expenses" className="rounded-xl">
@@ -185,6 +205,11 @@ export function SpaceTabs({
           {showDebts ? (
             <TabsTrigger value="debts" className="rounded-xl">
               بدهی / طلب
+            </TabsTrigger>
+          ) : null}
+          {showFamilyFunds ? (
+            <TabsTrigger value="funds" className="rounded-xl">
+              صندوق و وام
             </TabsTrigger>
           ) : null}
         </TabsList>
@@ -284,6 +309,21 @@ export function SpaceTabs({
               currency={currency}
               canMutate={canMutate}
               sharedHousehold={isHousehold}
+            />
+          </TabsContent>
+        ) : null}
+        {showFamilyFunds ? (
+          <TabsContent value="funds" className="mt-3">
+            <FamilySavingsLoanPanel
+              spaceId={spaceId}
+              pots={savingsPots}
+              loans={internalLoans}
+              members={fundMembers}
+              currentMemberId={currentFundMemberId}
+              currency={currency}
+              canMutate={canMutate}
+              showSavings={showSavings}
+              showLoans={showInternalLoans}
             />
           </TabsContent>
         ) : null}

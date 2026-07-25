@@ -18,6 +18,7 @@
 - `manualSplits: false`
 - `householdLedger: true` — در بک‌اند یک Split صددرصدی به نام شخص پرداخت‌کننده ثبت می‌شود تا با Schema سازگار بماند؛ هیچ تراز/Settlement بین اعضا تولید یا نمایش داده نمی‌شود.
 - `debts: true` — وام/اقساط به طرف‌های بیرون از خانواده (جداول `Debt` / `DebtPayment`؛ نه Expense).
+- `savingsPot: true` / `internalLoans: true` — صندوق پس‌انداز و وام داخلی بین اعضا؛ جدا از Expense/Debt/Settlement — [`docs/family-savings-loan-prd.md`](./family-savings-loan-prd.md).
 - **ظرفیت اعضا:** ۲ الی ۸ نفر (حداکثر سخت؛ حداقل نرم برای دعوت).
 
 ## ۳. حقوق دسترسی و نقش‌ها (RBAC)

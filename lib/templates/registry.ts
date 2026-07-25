@@ -44,6 +44,16 @@ export type TemplateFeatures = {
    * See building-template-prd.
    */
   buildingCharges: boolean;
+  /**
+   * FAMILY: shared savings goals (SavingsPot) — isolated from Expense.
+   * See family-savings-loan-prd.
+   */
+  savingsPot?: boolean;
+  /**
+   * FAMILY: lend between SpaceMembers (InternalLoan) — isolated from Debt/Settlement.
+   * See family-savings-loan-prd.
+   */
+  internalLoans?: boolean;
 };
 
 export type TemplateDefinition = {
@@ -63,6 +73,8 @@ const baseExtras = {
   categoryBudgets: false as const,
   recurring: false as const,
   buildingCharges: false as const,
+  savingsPot: false as const,
+  internalLoans: false as const,
 };
 
 export const templates: Record<SpaceType, TemplateDefinition> = {
@@ -119,6 +131,8 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       categoryBudgets: true,
       recurring: true,
       buildingCharges: false,
+      savingsPot: false,
+      internalLoans: false,
     },
   },
   FAMILY: {
@@ -140,6 +154,8 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       categoryBudgets: false,
       recurring: false,
       buildingCharges: false,
+      savingsPot: true,
+      internalLoans: true,
     },
   },
   BUILDING: {
@@ -161,6 +177,8 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       categoryBudgets: false,
       recurring: false,
       buildingCharges: true,
+      savingsPot: false,
+      internalLoans: false,
     },
   },
 };

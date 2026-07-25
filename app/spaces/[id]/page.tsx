@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { listSpaceDebts } from "@/app/actions/debt";
+import { listInternalLoans } from "@/app/actions/internalLoan";
+import { listSavingsPots } from "@/app/actions/savingsPot";
 import {
   getAnnualChargeCalendar,
   getBuildingDashboard,
@@ -206,7 +208,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, savingsPots, internalLoans, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -310,6 +312,8 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           : getExpenseLinesForMonth(id, new Date())
         : Promise.resolve([]),
       features.debts ? listSpaceDebts(id) : Promise.resolve([]),
+      features.savingsPot ? listSavingsPots(id) : Promise.resolve([]),
+      features.internalLoans ? listInternalLoans(id) : Promise.resolve([]),
       features.categoryBudgets
         ? prisma.categoryBudget.findMany({
             where: { spaceId: id },
@@ -377,6 +381,19 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     isVirtual: m.user.isVirtual,
     defaultShare: m.defaultShare,
   }));
+
+  const fundMembers = space.members.map((m) => ({
+    memberId: m.id,
+    userId: m.user.id,
+    label:
+      m.user.id === session.userId
+        ? "من"
+        : m.user.name?.trim().split(/\s+/)[0] ||
+          m.user.phone ||
+          "عضو",
+  }));
+  const currentFundMemberId =
+    space.members.find((m) => m.user.id === session.userId)?.id ?? null;
 
   const partner = space.members.find((m) => m.user.id !== session.userId)?.user;
   const partnerLabel =
@@ -741,6 +758,10 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         }))}
         monthlyBudget={space.monthlyBudget}
         debts={debts}
+        savingsPots={savingsPots}
+        internalLoans={internalLoans}
+        fundMembers={fundMembers}
+        currentFundMemberId={currentFundMemberId}
         categoryBudgets={Object.fromEntries(
           categoryBudgetRows.map((r) => [
             r.category as ExpenseCategory,

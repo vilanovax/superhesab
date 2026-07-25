@@ -7,6 +7,7 @@ import { logout } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { APP_VERSION } from "@/lib/app-version";
 import { CURRENCY_LABELS, type SpaceCurrency } from "@/lib/format";
 import {
   ACCENT_OPTIONS,
@@ -375,6 +376,16 @@ export function AppSettingsPanel({
           </p>
         ) : null}
       </div>
+
+      <footer className="mt-auto border-t border-border/40 pt-3 text-center">
+        <p className="text-caption text-muted-foreground">
+          سوپرحساب
+          <span className="mx-1.5 text-border">·</span>
+          <span dir="ltr" className="tabular-nums">
+            ver {APP_VERSION}
+          </span>
+        </p>
+      </footer>
     </div>
   );
 }

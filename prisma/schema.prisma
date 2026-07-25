@@ -129,6 +129,8 @@ model Space {
   buildingSuggestions BuildingSuggestion[]
   buildingAnnouncements BuildingAnnouncement[]
   buildingNotifications BuildingNotification[]
+  savingsPots         SavingsPot[]
+  internalLoans       InternalLoan[]
 
   @@index([ownerId])
   @@index([type])
@@ -147,6 +149,10 @@ model SpaceMember {
 
   space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  savingsTransactions SavingsTransaction[]
+  loansGiven          InternalLoan[] @relation("InternalLoanFrom")
+  loansReceived       InternalLoan[] @relation("InternalLoanTo")
 
   @@unique([spaceId, userId])
   @@index([userId])
@@ -553,4 +559,104 @@ model BuildingNotification {
   @@index([spaceId, userId])
   @@index([spaceId, kind])
   @@index([createdAt])
+}
+
+// ——— FAMILY additive: savings pot + internal loan (see docs/family-savings-loan-prd.md) ———
+
+enum SavingsPotStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum SavingsTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum InternalLoanStatus {
+  ACTIVE
+  SETTLED
+}
+
+/// FAMILY: shared savings goal — isolated from Expense (no monthly budget pollution).
+model SavingsPot {
+  id           String           @id @default(cuid())
+  spaceId      String
+  title        String
+  /// Target amount in smallest currency unit
+  targetAmount Int
+  deadline     DateTime?
+  status       SavingsPotStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  space        Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  transactions SavingsTransaction[]
+
+  @@index([spaceId])
+  @@index([spaceId, status])
+  @@index([deadline])
+}
+
+model SavingsTransaction {
+  id        String                  @id @default(cuid())
+  potId     String
+  /// SpaceMember who deposited / withdrew
+  memberId  String
+  /// Amount in smallest currency unit (always > 0)
+  amount    Int
+  type      SavingsTransactionType
+  note      String?
+  date      DateTime                @default(now())
+  createdAt DateTime                @default(now())
+
+  pot    SavingsPot  @relation(fields: [potId], references: [id], onDelete: Cascade)
+  member SpaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([potId])
+  @@index([memberId])
+  @@index([date])
+  @@index([potId, type])
+}
+
+/// FAMILY: lend between members — isolated from external Debt and Settlement.
+model InternalLoan {
+  id             String             @id @default(cuid())
+  spaceId        String
+  fromMemberId   String
+  toMemberId     String
+  /// Principal in smallest currency unit
+  initialAmount  Int
+  dueDate        DateTime?
+  status         InternalLoanStatus @default(ACTIVE)
+  note           String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  space      Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  fromMember SpaceMember          @relation("InternalLoanFrom", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember   SpaceMember          @relation("InternalLoanTo", fields: [toMemberId], references: [id], onDelete: Restrict)
+  payments   InternalLoanPayment[]
+
+  @@index([spaceId])
+  @@index([spaceId, status])
+  @@index([fromMemberId])
+  @@index([toMemberId])
+  @@index([dueDate])
+}
+
+model InternalLoanPayment {
+  id        String   @id @default(cuid())
+  loanId    String
+  /// Partial repayment in smallest currency unit
+  amount    Int
+  date      DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+
+  loan InternalLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([date])
 }

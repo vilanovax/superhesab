@@ -5,6 +5,7 @@ import { listSpaceDebts } from "@/app/actions/debt";
 import {
   getAnnualChargeCalendar,
   getBuildingDashboard,
+  listChargeProofsForManager,
   listUnitsForSettings,
 } from "@/app/actions/building";
 import { ensureRecurringExpenses } from "@/app/actions/recurring";
@@ -205,7 +206,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -332,6 +333,10 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             },
           })
         : Promise.resolve(0),
+      features.buildingCharges &&
+      (membership.role === "OWNER" || membership.role === "EDITOR")
+        ? listChargeProofsForManager(id, planYear)
+        : Promise.resolve([]),
     ]);
 
   if (!space) {
@@ -745,6 +750,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         buildingDashboard={buildingDashboard}
         buildingCalendar={buildingCalendar}
         buildingUnits={buildingUnits}
+        chargeProofs={chargeProofs}
         isOwner={isOwner}
         initialTab={initialTab}
         reportPlanYear={features.buildingCharges ? planYear : undefined}

@@ -123,3 +123,45 @@ export type CreateBuildingAnnouncementInput = z.infer<
 export type UpdateBuildingAnnouncementInput = z.infer<
   typeof updateBuildingAnnouncementSchema
 >;
+
+const proofMime = z.enum(
+  ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+  { error: "فرمت فایل مجاز نیست (jpg/png/webp/pdf)." },
+);
+
+export const createChargeProofUploadIntentSchema = z.object({
+  spaceId: z.string().min(1),
+  unitId: z.string().min(1),
+  year: jalaliPlanYear,
+  month: z.number().int().min(1).max(12),
+  mimeType: proofMime,
+  byteSize: z
+    .number()
+    .int()
+    .positive()
+    .max(8 * 1024 * 1024, { error: "حجم فایل حداکثر ۸ مگابایت است." }),
+  amount: z.number().int().min(0).optional(),
+  note: z.string().trim().max(200).nullable().optional(),
+});
+
+export const confirmChargeProofUploadSchema = z.object({
+  spaceId: z.string().min(1),
+  proofId: z.string().min(1),
+});
+
+export const reviewChargeProofSchema = z.object({
+  spaceId: z.string().min(1),
+  proofId: z.string().min(1),
+  status: z.enum(["APPROVED", "REJECTED"]),
+  reviewNote: z.string().trim().max(300).nullable().optional(),
+  amount: z.number().int().min(0).optional(),
+  paymentStatus: z.enum(["DUE", "PARTIAL", "PAID", "WAIVED"]).optional(),
+});
+
+export type CreateChargeProofUploadIntentInput = z.infer<
+  typeof createChargeProofUploadIntentSchema
+>;
+export type ConfirmChargeProofUploadInput = z.infer<
+  typeof confirmChargeProofUploadSchema
+>;
+export type ReviewChargeProofInput = z.infer<typeof reviewChargeProofSchema>;

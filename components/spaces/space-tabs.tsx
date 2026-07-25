@@ -25,11 +25,13 @@ import type {
   AnnualChargeCalendarDTO,
   BuildingDashboardDTO,
   BuildingUnitRow,
+  ChargePaymentProofDTO,
 } from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
 import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import { BuildingUnitsPanel } from "@/components/spaces/building-units-panel";
+import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
@@ -75,6 +77,7 @@ type SpaceTabsProps = {
   buildingDashboard?: BuildingDashboardDTO | null;
   buildingCalendar?: AnnualChargeCalendarDTO | null;
   buildingUnits?: BuildingUnitRow[];
+  chargeProofs?: ChargePaymentProofDTO[];
   isOwner?: boolean;
   /** Report chart period copy (e.g. سال ۱۴۰۵ for building). */
   reportPeriodLabel?: string;
@@ -113,6 +116,7 @@ export function SpaceTabs({
   buildingDashboard = null,
   buildingCalendar = null,
   buildingUnits = [],
+  chargeProofs = [],
   isOwner = false,
   reportPeriodLabel,
   reportEmptyTitle,
@@ -210,6 +214,7 @@ export function SpaceTabs({
                 currency={currency}
                 canMutate={canMutate}
                 isOwner={isOwner}
+                chargeProofs={chargeProofs}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
@@ -230,6 +235,16 @@ export function SpaceTabs({
           </TabsContent>
         ) : null}
         <TabsContent value="report" className="mt-3">
+          <ReportExportButtons
+            spaceId={spaceId}
+            query={
+              showBuilding && reportPlanYear != null
+                ? reportMonth != null
+                  ? `year=${reportPlanYear}&month=${reportMonth}`
+                  : `year=${reportPlanYear}`
+                : ""
+            }
+          />
           {isHousehold ? (
             <FamilyReportPanel
               currentUserId={currentUserId}
@@ -296,6 +311,7 @@ export function SpaceTabs({
         ) : null}
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
+        <ReportExportButtons spaceId={spaceId} />
         <ExpenseList
           spaceId={spaceId}
           spaceName={spaceName}
@@ -311,6 +327,7 @@ export function SpaceTabs({
       </TabsContent>
       {showSettlements ? (
         <TabsContent value="balances" className="mt-3">
+          <ReportExportButtons spaceId={spaceId} />
           <SpaceBalances
             spaceId={spaceId}
             currentUserId={currentUserId}

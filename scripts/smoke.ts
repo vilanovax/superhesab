@@ -3,6 +3,7 @@
  * Run: npx tsx scripts/smoke.ts
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import {
@@ -86,6 +87,22 @@ async function httpGet(
     body,
     redirected: res.status >= 300 && res.status < 400,
     url: res.headers.get("location") ?? "",
+  };
+}
+
+async function httpGetBinary(
+  path: string,
+  cookie?: string,
+): Promise<{ status: number; contentType: string; byteLength: number }> {
+  const res = await fetch(`${BASE}${path}`, {
+    redirect: "manual",
+    headers: cookie ? { cookie } : undefined,
+  });
+  const buf = await res.arrayBuffer();
+  return {
+    status: res.status,
+    contentType: res.headers.get("content-type") ?? "",
+    byteLength: buf.byteLength,
   };
 }
 
@@ -226,20 +243,25 @@ async function main() {
       },
     });
 
+    const buildingManagers = building?.members.filter(
+      (m) => m.role === "OWNER" || m.role === "EDITOR",
+    );
+    // managers = Ali OWNER + Sara EDITOR; VIEWER may exist after claim E2E
     if (
       building &&
-      building.members.length === 2 &&
+      buildingManagers &&
+      buildingManagers.length === 2 &&
       building.units.length === 3 &&
       building.chargePlans.some((p) => p.year === yearNow && p.baseCharge === 2_000_000)
     ) {
       pass(
-        "building space: 2 members, 3 units, plan",
-        `id=${building.id} year=${yearNow}`,
+        "building space: 2 managers, 3 units, plan",
+        `id=${building.id} year=${yearNow} members=${building.members.length}`,
       );
     } else {
       fail(
         "building space",
-        `members=${building?.members.length} units=${building?.units.length} — re-seed`,
+        `managers=${buildingManagers?.length} units=${building?.units.length} — re-seed`,
       );
     }
 
@@ -399,6 +421,43 @@ async function main() {
           e instanceof Error ? e.message : String(e),
         );
       }
+
+      try {
+        const notifCount = await prisma.buildingNotification.count({
+          where: { spaceId: zafar.id },
+        });
+        pass("building notifications table readable", `count=${notifCount}`);
+      } catch (e) {
+        fail(
+          "building notifications table",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+
+      try {
+        const proofCount = await prisma.chargePaymentProof.count({
+          where: { payment: { unit: { spaceId: zafar.id } } },
+        });
+        pass("building chargePaymentProof table readable", `count=${proofCount}`);
+      } catch (e) {
+        fail(
+          "building chargePaymentProof table",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+
+      if (
+        process.env.S3_BUCKET &&
+        process.env.S3_ACCESS_KEY_ID &&
+        process.env.S3_SECRET_ACCESS_KEY
+      ) {
+        pass("S3 env present (proof upload can presign)");
+      } else {
+        pass(
+          "S3 env skipped",
+          "S3_BUCKET / keys unset — proof upload needs object storage",
+        );
+      }
     }
 
     // Split sum integrity
@@ -490,11 +549,52 @@ async function main() {
         const page = await httpGet(`/spaces/${trip.id}`, cookie);
         if (page.status === 200) pass("HTTP GET trip space 200");
         else fail("HTTP GET trip space", `status=${page.status}`);
+
+        const tripXlsx = await httpGetBinary(
+          `/api/spaces/${trip.id}/export/report?format=xlsx`,
+          cookie,
+        );
+        if (
+          tripXlsx.status === 200 &&
+          tripXlsx.contentType.includes("spreadsheetml") &&
+          tripXlsx.byteLength > 100
+        ) {
+          pass("HTTP export trip report xlsx 200");
+        } else {
+          fail(
+            "HTTP export trip report xlsx",
+            `status=${tripXlsx.status} type=${tripXlsx.contentType} bytes=${tripXlsx.byteLength}`,
+          );
+        }
       }
       if (partner) {
         const page = await httpGet(`/spaces/${partner.id}`, cookie);
         if (page.status === 200) pass("HTTP GET partner space 200");
         else fail("HTTP GET partner space", `status=${page.status}`);
+      }
+
+      const personal = await prisma.space.findFirst({
+        where: { type: "PERSONAL", members: { some: { userId: ali.id } } },
+        select: { id: true },
+      });
+      if (personal) {
+        const personalXlsx = await httpGetBinary(
+          `/api/spaces/${personal.id}/export/report?format=xlsx`,
+          cookie,
+        );
+        if (
+          personalXlsx.status === 200 &&
+          personalXlsx.contentType.includes("spreadsheetml")
+        ) {
+          pass("HTTP export personal report xlsx 200");
+        } else {
+          fail(
+            "HTTP export personal report xlsx",
+            `status=${personalXlsx.status} type=${personalXlsx.contentType}`,
+          );
+        }
+      } else {
+        pass("HTTP export personal report", "no PERSONAL space for Ali — skip");
       }
 
       const buildingSpace = await prisma.space.findFirst({
@@ -529,23 +629,253 @@ async function main() {
           `/spaces/${buildingSpace.id}/board`,
           cookie,
         );
-        if (board.status === 200) {
-          pass("HTTP GET building برد page 200");
+        const boardLooksOk =
+          board.status === 200 &&
+          (board.body.includes("برد") ||
+            board.body.includes("اعلان") ||
+            board.body.includes("پیشنهاد"));
+        if (boardLooksOk) {
+          pass("HTTP GET building /board 200 (برد UI)");
+        } else if (board.status === 200) {
+          pass("HTTP GET building /board 200", "label not in HTML (RSC?)");
         } else {
-          fail("HTTP GET building برد", `status=${board.status}`);
+          fail("HTTP GET building /board", `status=${board.status}`);
         }
 
         const unitsTab = await httpGet(
           `/spaces/${buildingSpace.id}?tab=units`,
           cookie,
         );
-        if (unitsTab.status === 200) {
-          pass("HTTP GET building units tab 200");
+        const unitsLooksOk =
+          unitsTab.status === 200 &&
+          (unitsTab.body.includes("واحد") ||
+            unitsTab.body.includes("۱۲") ||
+            unitsTab.body.includes("۱۴"));
+        if (unitsLooksOk) {
+          pass("HTTP GET building ?tab=units 200 (واحد UI)");
+        } else if (unitsTab.status === 200) {
+          pass("HTTP GET building ?tab=units 200", "label not in HTML (RSC?)");
         } else {
-          fail("HTTP GET building units", `status=${unitsTab.status}`);
+          fail("HTTP GET building units tab", `status=${unitsTab.status}`);
+        }
+
+        const oldBoardTab = await httpGet(
+          `/spaces/${buildingSpace.id}?tab=suggestions`,
+          cookie,
+        );
+        if (
+          (oldBoardTab.status === 307 || oldBoardTab.status === 302) &&
+          oldBoardTab.url.includes("/board")
+        ) {
+          pass(
+            "HTTP redirect ?tab=suggestions → /board",
+            oldBoardTab.url.slice(0, 80),
+          );
+        } else {
+          fail(
+            "HTTP redirect ?tab=suggestions → /board",
+            `status=${oldBoardTab.status} loc=${oldBoardTab.url}`,
+          );
+        }
+
+        const settingsSlim = await httpGet(
+          `/spaces/${buildingSpace.id}/settings`,
+          cookie,
+        );
+        if (settingsSlim.status === 200) {
+          const hasPlan =
+            settingsSlim.body.includes("پایه") ||
+            settingsSlim.body.includes("سال مالی") ||
+            settingsSlim.body.includes("تنظیمات");
+          const leakedUnitCrud =
+            settingsSlim.body.includes("کپی لینک ساکن") ||
+            settingsSlim.body.includes("تولید مجدد لینک");
+          if (hasPlan && !leakedUnitCrud) {
+            pass("HTTP building settings slim (no unit-invite CRUD)");
+          } else if (hasPlan) {
+            fail(
+              "HTTP building settings slim",
+              "unit invite actions still rendered on settings",
+            );
+          } else {
+            pass("HTTP building settings 200", "copy not in HTML (RSC?)");
+          }
         }
       } else {
         fail("HTTP building pages", "seed building space missing — re-seed");
+      }
+
+      // ——— E2E claim: Reza claims unit ۱۴ on برج آسمان تست (idempotent) ———
+      if (buildingSpace && reza) {
+        try {
+          // Clear prior claim state for Reza on this building
+          await prisma.unit.updateMany({
+            where: { spaceId: buildingSpace.id, linkedUserId: reza.id },
+            data: { linkedUserId: null, linkedAt: null },
+          });
+          const priorMember = await prisma.spaceMember.findUnique({
+            where: {
+              spaceId_userId: {
+                spaceId: buildingSpace.id,
+                userId: reza.id,
+              },
+            },
+          });
+          if (priorMember?.role === "VIEWER") {
+            await prisma.spaceMember.delete({
+              where: { id: priorMember.id },
+            });
+          }
+
+          const claimUnit = await prisma.unit.findFirst({
+            where: {
+              spaceId: buildingSpace.id,
+              name: "۱۴",
+              isActive: true,
+            },
+          });
+          if (!claimUnit) {
+            fail("E2E claim setup", "unit ۱۴ missing — re-seed");
+          } else {
+            const freshToken = randomBytes(18).toString("hex");
+            await prisma.unit.update({
+              where: { id: claimUnit.id },
+              data: {
+                inviteToken: freshToken,
+                linkedUserId: null,
+                linkedAt: null,
+              },
+            });
+
+            const rezaToken = await signSessionToken({
+              userId: reza.id,
+              phone: reza.phone,
+            });
+            const rezaCookie = `${SESSION_COOKIE}=${rezaToken}`;
+
+            const claimRes = await httpGet(
+              `/invite/unit/${freshToken}`,
+              rezaCookie,
+            );
+            const toResident =
+              (claimRes.status === 307 ||
+                claimRes.status === 302 ||
+                claimRes.status === 303) &&
+              claimRes.url.includes(`/spaces/${buildingSpace.id}/resident`);
+
+            if (toResident) {
+              pass(
+                "E2E claim HTTP → /resident",
+                `status=${claimRes.status}`,
+              );
+            } else if (claimRes.status === 200) {
+              // Error page (claim failed) — surface body hint
+              const errHint = claimRes.body.includes("اتصال به واحد ممکن نیست")
+                ? "claim rejected UI"
+                : "200 without redirect";
+              fail("E2E claim HTTP → /resident", errHint);
+            } else {
+              fail(
+                "E2E claim HTTP → /resident",
+                `status=${claimRes.status} loc=${claimRes.url}`,
+              );
+            }
+
+            const linked = await prisma.unit.findUnique({
+              where: { id: claimUnit.id },
+              select: { linkedUserId: true, linkedAt: true },
+            });
+            if (linked?.linkedUserId === reza.id && linked.linkedAt) {
+              pass("E2E claim DB: unit ۱۴ linked to Reza");
+            } else {
+              fail(
+                "E2E claim DB: unit linked",
+                `linkedUserId=${linked?.linkedUserId ?? "null"}`,
+              );
+            }
+
+            const viewer = await prisma.spaceMember.findUnique({
+              where: {
+                spaceId_userId: {
+                  spaceId: buildingSpace.id,
+                  userId: reza.id,
+                },
+              },
+              select: { role: true },
+            });
+            if (viewer?.role === "VIEWER") {
+              pass("E2E claim DB: Reza is VIEWER member");
+            } else {
+              fail(
+                "E2E claim DB: VIEWER membership",
+                `role=${viewer?.role ?? "missing"}`,
+              );
+            }
+
+            const portal = await httpGet(
+              `/spaces/${buildingSpace.id}/resident`,
+              rezaCookie,
+            );
+            const portalOk =
+              portal.status === 200 &&
+              (portal.body.includes("پرتال") ||
+                portal.body.includes("واحد") ||
+                portal.body.includes("۱۴"));
+            if (portalOk) {
+              pass("E2E claim HTTP resident portal 200");
+            } else if (portal.status === 200) {
+              pass(
+                "E2E claim HTTP resident portal 200",
+                "label not in HTML (RSC?)",
+              );
+            } else {
+              fail(
+                "E2E claim HTTP resident portal",
+                `status=${portal.status}`,
+              );
+            }
+
+            const dashAsViewer = await httpGet(
+              `/spaces/${buildingSpace.id}`,
+              rezaCookie,
+            );
+            if (
+              (dashAsViewer.status === 307 || dashAsViewer.status === 302) &&
+              dashAsViewer.url.includes("/resident")
+            ) {
+              pass("E2E claim: VIEWER manager dash → /resident");
+            } else {
+              fail(
+                "E2E claim: VIEWER redirect",
+                `status=${dashAsViewer.status} loc=${dashAsViewer.url}`,
+              );
+            }
+
+            // Manager board forbidden to VIEWER → resident
+            const boardAsViewer = await httpGet(
+              `/spaces/${buildingSpace.id}/board`,
+              rezaCookie,
+            );
+            if (
+              (boardAsViewer.status === 307 || boardAsViewer.status === 302) &&
+              boardAsViewer.url.includes("/resident")
+            ) {
+              pass("E2E claim: VIEWER /board → /resident");
+            } else {
+              fail(
+                "E2E claim: VIEWER /board redirect",
+                `status=${boardAsViewer.status} loc=${boardAsViewer.url}`,
+              );
+            }
+          }
+        } catch (e) {
+          fail(
+            "E2E claim unit",
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      } else {
+        fail("E2E claim unit", "building space or Reza missing — re-seed");
       }
 
       // ظفر calendar year deep-link
@@ -564,29 +894,74 @@ async function main() {
           fail("HTTP GET ظفر calendar", `status=${cal.status}`);
         }
 
-        const unit = await prisma.unit.findFirst({
-          where: { spaceId: zafarHttp.id, isActive: true },
-          select: { inviteToken: true },
-        });
-        if (unit?.inviteToken) {
-          const invite = await httpGet(
-            `/invite/unit/${unit.inviteToken}`,
-            cookie,
+        const zafarBoard = await httpGet(
+          `/spaces/${zafarHttp.id}/board`,
+          cookie,
+        );
+        if (zafarBoard.status === 200) {
+          pass("HTTP GET ظفر /board 200");
+        } else {
+          fail("HTTP GET ظفر /board", `status=${zafarBoard.status}`);
+        }
+
+        const zafarUnits = await httpGet(
+          `/spaces/${zafarHttp.id}?tab=units`,
+          cookie,
+        );
+        if (zafarUnits.status === 200) {
+          pass("HTTP GET ظفر ?tab=units 200");
+        } else {
+          fail("HTTP GET ظفر units tab", `status=${zafarUnits.status}`);
+        }
+
+        const buildingXlsx = await httpGetBinary(
+          `/api/spaces/${zafarHttp.id}/export/building?format=xlsx&year=1405`,
+          cookie,
+        );
+        if (
+          buildingXlsx.status === 200 &&
+          buildingXlsx.contentType.includes("spreadsheetml") &&
+          buildingXlsx.byteLength > 100
+        ) {
+          pass("HTTP export building xlsx 200");
+        } else {
+          fail(
+            "HTTP export building xlsx",
+            `status=${buildingXlsx.status} type=${buildingXlsx.contentType} bytes=${buildingXlsx.byteLength}`,
           );
-          // Ali may already be OWNER — claim may succeed (redirect) or fail (already linked / other)
-          if (
-            invite.status === 200 ||
-            invite.status === 303 ||
-            invite.status === 307 ||
-            invite.status === 302
-          ) {
-            pass(
-              "HTTP GET unit invite claim route",
-              `status=${invite.status} loc=${invite.url.slice(0, 60)}`,
-            );
-          } else {
-            fail("HTTP unit invite", `status=${invite.status}`);
-          }
+        }
+
+        const buildingPdf = await httpGetBinary(
+          `/api/spaces/${zafarHttp.id}/export/building?format=pdf&year=1405`,
+          cookie,
+        );
+        if (
+          buildingPdf.status === 200 &&
+          buildingPdf.contentType.includes("pdf") &&
+          buildingPdf.byteLength > 50
+        ) {
+          pass("HTTP export building pdf 200");
+        } else {
+          fail(
+            "HTTP export building pdf",
+            `status=${buildingPdf.status} type=${buildingPdf.contentType}`,
+          );
+        }
+
+        const buildingReport = await httpGetBinary(
+          `/api/spaces/${zafarHttp.id}/export/report?format=xlsx&year=1405`,
+          cookie,
+        );
+        if (
+          buildingReport.status === 200 &&
+          buildingReport.contentType.includes("spreadsheetml")
+        ) {
+          pass("HTTP export building shared report xlsx 200");
+        } else {
+          fail(
+            "HTTP export building shared report",
+            `status=${buildingReport.status} type=${buildingReport.contentType}`,
+          );
         }
       }
 

@@ -87,9 +87,12 @@ model User {
   debtPayments     DebtPayment[]   @relation("DebtPaymentCreatedBy")
   recurringRules   RecurringRule[] @relation("RecurringRuleCreatedBy")
   chargePayments   ChargePayment[] @relation("ChargePaymentCreatedBy")
+  chargePaymentProofsUploaded ChargePaymentProof[] @relation("ChargePaymentProofUploadedBy")
+  chargePaymentProofsReviewed ChargePaymentProof[] @relation("ChargePaymentProofReviewedBy")
   linkedUnits      Unit[]          @relation("UnitLinkedUser")
   buildingSuggestions BuildingSuggestion[] @relation("BuildingSuggestionAuthor")
   buildingAnnouncements BuildingAnnouncement[] @relation("BuildingAnnouncementAuthor")
+  buildingNotifications BuildingNotification[] @relation("BuildingNotificationRecipient")
 
   @@index([phone])
   @@index([email])
@@ -125,6 +128,7 @@ model Space {
   chargePlans     ChargePlan[]
   buildingSuggestions BuildingSuggestion[]
   buildingAnnouncements BuildingAnnouncement[]
+  buildingNotifications BuildingNotification[]
 
   @@index([ownerId])
   @@index([type])
@@ -424,12 +428,45 @@ model ChargePayment {
 
   unit      Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
   createdBy User @relation("ChargePaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  proofs    ChargePaymentProof[]
 
   @@unique([unitId, year, month])
   @@index([unitId])
   @@index([year, month])
   @@index([status])
   @@index([createdById])
+}
+
+/// BUILDING: resident payment receipt uploaded to object storage (phase 28).
+enum ChargeProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ChargePaymentProof {
+  id           String            @id @default(cuid())
+  paymentId    String
+  uploadedById String
+  storageKey   String
+  mimeType     String
+  byteSize     Int
+  note         String?
+  status       ChargeProofStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  payment    ChargePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  uploadedBy User          @relation("ChargePaymentProofUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  reviewedBy User?         @relation("ChargePaymentProofReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([uploadedById])
+  @@index([status])
+  @@index([createdAt])
 }
 
 /// BUILDING B2B2C: resident suggestion / request box (phase 24).
@@ -484,5 +521,36 @@ model BuildingAnnouncement {
   @@index([spaceId, archivedAt])
   @@index([spaceId, pinned])
   @@index([authorId])
+  @@index([createdAt])
+}
+
+/// BUILDING B2B2C: in-app inbox for linked residents (phase 27).
+enum BuildingNotificationKind {
+  ANNOUNCEMENT
+  CHARGE_PAYMENT
+  PAYMENT_PROOF
+}
+
+model BuildingNotification {
+  id        String                   @id @default(cuid())
+  spaceId   String
+  /// Recipient (linked resident user).
+  userId    String
+  kind      BuildingNotificationKind
+  title     String
+  body      String
+  /// Deep-link tab in resident portal: announcements | payments
+  hrefTab   String?
+  /// Related announcementId or chargePaymentId
+  refId     String?
+  readAt    DateTime?
+  createdAt DateTime                 @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation("BuildingNotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([spaceId, userId])
+  @@index([spaceId, kind])
   @@index([createdAt])
 }

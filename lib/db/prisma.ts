@@ -24,6 +24,8 @@ const SCHEMA_FINGERPRINT = [
   "building.suggestions.v1",
   "building.announcements.v1",
   "building.calendar.v1",
+  "building.notifications.v1",
+  "building.paymentProof.v1",
 ].join("|");
 
 void SCHEMA_FINGERPRINT;

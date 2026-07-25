@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
+  CHARGE_STATUS_LABELS,
+  monthLabelFa,
   tehranCivilMonth,
   tehranCivilYear,
   unitArrears,
@@ -14,7 +16,8 @@ import {
   type PaymentSlice,
 } from "@/lib/building";
 import { jalaliYearBounds } from "@/lib/jalali";
-import { parseExpenseDateInput } from "@/lib/format";
+import { parseExpenseDateInput, type SpaceCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/formatters";
 import { asMoney } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
@@ -27,6 +30,9 @@ import {
   updateBuildingSuggestionStatusSchema,
   createBuildingAnnouncementSchema,
   updateBuildingAnnouncementSchema,
+  createChargeProofUploadIntentSchema,
+  confirmChargeProofUploadSchema,
+  reviewChargeProofSchema,
   type CreateUnitInput,
   type UpdateUnitInput,
   type UpsertChargePaymentInput,
@@ -35,7 +41,16 @@ import {
   type UpdateBuildingSuggestionStatusInput,
   type CreateBuildingAnnouncementInput,
   type UpdateBuildingAnnouncementInput,
+  type CreateChargeProofUploadIntentInput,
+  type ConfirmChargeProofUploadInput,
+  type ReviewChargeProofInput,
 } from "@/lib/validations/building";
+import {
+  chargeProofObjectKey,
+  isStorageConfigured,
+  presignGetObject,
+  presignPutObject,
+} from "@/lib/storage/s3";
 import type { SuggestionStatusValue } from "@/lib/building";
 
 export type BuildingActionResult =
@@ -513,6 +528,7 @@ export async function upsertChargePayment(
     : new Date();
 
   try {
+    const amount = asMoney(parsed.data.amount);
     const row = await prisma.chargePayment.upsert({
       where: {
         unitId_year_month: {
@@ -525,20 +541,39 @@ export async function upsertChargePayment(
         unitId: parsed.data.unitId,
         year: parsed.data.year,
         month: parsed.data.month,
-        amount: asMoney(parsed.data.amount),
+        amount,
         status: parsed.data.status,
         date,
         note: parsed.data.note?.trim() || null,
         createdById: session.userId,
       },
       update: {
-        amount: asMoney(parsed.data.amount),
+        amount,
         status: parsed.data.status,
         date,
         note: parsed.data.note?.trim() || null,
       },
     });
+
+    if (unit.linkedUserId) {
+      const spaceCurrency = await prisma.space.findUnique({
+        where: { id: parsed.data.spaceId },
+        select: { currency: true },
+      });
+      const currency = (spaceCurrency?.currency ?? "TOMAN") as SpaceCurrency;
+      await notifyBuildingUsers({
+        spaceId: parsed.data.spaceId,
+        userIds: [unit.linkedUserId],
+        kind: "CHARGE_PAYMENT",
+        title: `وصول شارژ ${monthLabelFa(parsed.data.month)}`,
+        body: `${CHARGE_STATUS_LABELS[parsed.data.status]} · ${formatCurrency(amount, currency)}`,
+        hrefTab: "payments",
+        refId: row.id,
+      });
+    }
+
     revalidatePath(`/spaces/${parsed.data.spaceId}`);
+    revalidatePath(`/spaces/${parsed.data.spaceId}/resident`);
     return { ok: true, id: row.id };
   } catch {
     return { ok: false, error: "ثبت وصول ناموفق بود." };
@@ -703,14 +738,21 @@ export async function claimUnit(token: string): Promise<ClaimUnitResult> {
       }
       // Do not downgrade OWNER/EDITOR to VIEWER if already a manager.
     });
-
-    revalidatePath(`/spaces/${unit.spaceId}`);
-    revalidatePath(`/spaces/${unit.spaceId}/settings`);
-    revalidatePath(`/spaces/${unit.spaceId}/resident`);
-    return { ok: true, spaceId: unit.spaceId, unitId: unit.id };
   } catch {
     return { ok: false, error: "اتصال به واحد ناموفق بود." };
   }
+
+  // Safe outside transaction: invite page may call claim during render;
+  // revalidatePath must not turn a successful claim into a false error.
+  try {
+    revalidatePath(`/spaces/${unit.spaceId}`);
+    revalidatePath(`/spaces/${unit.spaceId}/settings`);
+    revalidatePath(`/spaces/${unit.spaceId}/resident`);
+  } catch {
+    // ignore — redirect / next navigation refreshes anyway
+  }
+
+  return { ok: true, spaceId: unit.spaceId, unitId: unit.id };
 }
 
 export async function unlinkUnitResident(
@@ -1159,7 +1201,30 @@ export async function createBuildingAnnouncement(
         pinned: pinned ?? false,
       },
     });
+
+    const linked = await prisma.unit.findMany({
+      where: { spaceId, isActive: true, linkedUserId: { not: null } },
+      select: { linkedUserId: true },
+    });
+    const userIds = [
+      ...new Set(
+        linked
+          .map((u) => u.linkedUserId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    await notifyBuildingUsers({
+      spaceId,
+      userIds,
+      kind: "ANNOUNCEMENT",
+      title,
+      body: body.length > 160 ? `${body.slice(0, 157)}…` : body,
+      hrefTab: "announcements",
+      refId: row.id,
+    });
+
     revalidatePath(`/spaces/${spaceId}`);
+    revalidatePath(`/spaces/${spaceId}/board`);
     revalidatePath(`/spaces/${spaceId}/resident`);
     return { ok: true, id: row.id };
   } catch {
@@ -1244,5 +1309,564 @@ export async function updateBuildingAnnouncement(
     return { ok: true, id: announcementId };
   } catch {
     return { ok: false, error: "به‌روزرسانی اعلان ناموفق بود." };
+  }
+}
+
+// ─── Phase 27: in-app notifications (resident inbox) ────────────────────────
+
+export type BuildingNotificationKindValue =
+  | "ANNOUNCEMENT"
+  | "CHARGE_PAYMENT"
+  | "PAYMENT_PROOF";
+
+export type BuildingNotificationDTO = {
+  id: string;
+  kind: BuildingNotificationKindValue;
+  title: string;
+  body: string;
+  hrefTab: string | null;
+  refId: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
+async function notifyBuildingUsers(input: {
+  spaceId: string;
+  userIds: string[];
+  kind: BuildingNotificationKindValue;
+  title: string;
+  body: string;
+  hrefTab?: string;
+  refId?: string;
+}): Promise<void> {
+  const userIds = [...new Set(input.userIds.filter(Boolean))];
+  if (userIds.length === 0) return;
+  await prisma.buildingNotification.createMany({
+    data: userIds.map((userId) => ({
+      spaceId: input.spaceId,
+      userId,
+      kind: input.kind,
+      title: input.title,
+      body: input.body,
+      hrefTab: input.hrefTab ?? null,
+      refId: input.refId ?? null,
+    })),
+  });
+}
+
+function toNotificationDTO(row: {
+  id: string;
+  kind: BuildingNotificationKindValue;
+  title: string;
+  body: string;
+  hrefTab: string | null;
+  refId: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+}): BuildingNotificationDTO {
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    body: row.body,
+    hrefTab: row.hrefTab,
+    refId: row.refId,
+    read: Boolean(row.readAt),
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** Resident inbox for the current user in a building space. */
+export async function listMyBuildingNotifications(
+  spaceId: string,
+): Promise<BuildingNotificationDTO[]> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) return [];
+  const building = await assertBuilding(spaceId, session.userId);
+  if (!building.ok) return [];
+
+  const rows = await prisma.buildingNotification.findMany({
+    where: { spaceId, userId: session.userId },
+    orderBy: { createdAt: "desc" },
+    take: 60,
+  });
+  return rows.map(toNotificationDTO);
+}
+
+export async function countUnreadBuildingNotifications(
+  spaceId: string,
+): Promise<number> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) return 0;
+  return prisma.buildingNotification.count({
+    where: { spaceId, userId: session.userId, readAt: null },
+  });
+}
+
+export async function markBuildingNotificationRead(
+  spaceId: string,
+  notificationId: string,
+): Promise<BuildingActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+
+  const row = await prisma.buildingNotification.findFirst({
+    where: { id: notificationId, spaceId, userId: session.userId },
+    select: { id: true, readAt: true },
+  });
+  if (!row) return { ok: false, error: "اعلان پیدا نشد." };
+  if (!row.readAt) {
+    await prisma.buildingNotification.update({
+      where: { id: notificationId },
+      data: { readAt: new Date() },
+    });
+  }
+  revalidatePath(`/spaces/${spaceId}/resident`);
+  return { ok: true, id: notificationId };
+}
+
+export async function markAllBuildingNotificationsRead(
+  spaceId: string,
+): Promise<BuildingActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+
+  await prisma.buildingNotification.updateMany({
+    where: { spaceId, userId: session.userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+  revalidatePath(`/spaces/${spaceId}/resident`);
+  return { ok: true };
+}
+
+// ─── Phase 28: charge payment proofs ────────────────────────────────────────
+
+export type ChargeProofStatusValue = "PENDING" | "APPROVED" | "REJECTED";
+
+export type ChargePaymentProofDTO = {
+  id: string;
+  paymentId: string;
+  unitId: string;
+  unitName: string;
+  year: number;
+  month: number;
+  amount: number;
+  mimeType: string;
+  byteSize: number;
+  note: string | null;
+  status: ChargeProofStatusValue;
+  uploadedByName: string | null;
+  createdAt: string;
+  reviewNote: string | null;
+};
+
+export type ChargeProofUploadIntentResult =
+  | {
+      ok: true;
+      proofId: string;
+      paymentId: string;
+      uploadUrl: string;
+      storageKey: string;
+    }
+  | { ok: false; error: string };
+
+export type ChargeProofDownloadResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+async function notifyBuildingManagers(
+  spaceId: string,
+  payload: {
+    kind: BuildingNotificationKindValue;
+    title: string;
+    body: string;
+    hrefTab?: string;
+    refId?: string;
+  },
+) {
+  const managers = await prisma.spaceMember.findMany({
+    where: {
+      spaceId,
+      role: { in: ["OWNER", "EDITOR"] },
+    },
+    select: { userId: true },
+  });
+  await notifyBuildingUsers({
+    spaceId,
+    userIds: managers.map((m) => m.userId),
+    ...payload,
+  });
+}
+
+/** Resident: start upload — upserts payment shell + creates PENDING proof + presign. */
+export async function createChargeProofUploadIntent(
+  input: CreateChargeProofUploadIntentInput,
+): Promise<ChargeProofUploadIntentResult> {
+  if (!isStorageConfigured()) {
+    return {
+      ok: false,
+      error: "ذخیره‌سازی فایل پیکربندی نشده است (S3/R2).",
+    };
+  }
+
+  const session = await requireUser();
+  const parsed = createChargeProofUploadIntentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const { spaceId, unitId, year, month, mimeType, byteSize, amount, note } =
+    parsed.data;
+  const building = await assertBuilding(spaceId, session.userId);
+  if (!building.ok) return building;
+
+  const unit = await prisma.unit.findFirst({
+    where: {
+      id: unitId,
+      spaceId,
+      isActive: true,
+      linkedUserId: session.userId,
+    },
+  });
+  if (!unit) {
+    return { ok: false, error: "واحد متصل به حساب شما پیدا نشد." };
+  }
+
+  const through =
+    year === tehranCivilYear() ? tehranCivilMonth() : year < tehranCivilYear() ? 12 : 0;
+  if (month > through && year >= tehranCivilYear()) {
+    return { ok: false, error: "برای ماه آینده نمی‌توان رسید فرستاد." };
+  }
+
+  const plan = await prisma.chargePlan.findUnique({
+    where: { spaceId_year: { spaceId, year } },
+  });
+  const monthly = unitMonthlyCharge(plan?.baseCharge ?? 0, unit.multiplier);
+  const payAmount =
+    amount != null && amount > 0
+      ? asMoney(amount)
+      : monthly > 0
+        ? monthly
+        : 0;
+
+  try {
+    const payment = await prisma.chargePayment.upsert({
+      where: {
+        unitId_year_month: { unitId, year, month },
+      },
+      create: {
+        unitId,
+        year,
+        month,
+        amount: payAmount,
+        status: payAmount > 0 && monthly > 0 && payAmount < monthly ? "PARTIAL" : "PARTIAL",
+        date: new Date(),
+        note: note?.trim() || "رسید در انتظار تایید مدیر",
+        createdById: session.userId,
+      },
+      update: {},
+    });
+
+    const storageKey = chargeProofObjectKey({
+      spaceId,
+      paymentId: payment.id,
+      mimeType,
+    });
+    const { uploadUrl } = await presignPutObject({
+      key: storageKey,
+      mimeType,
+      byteSize,
+    });
+
+    const proof = await prisma.chargePaymentProof.create({
+      data: {
+        paymentId: payment.id,
+        uploadedById: session.userId,
+        storageKey,
+        mimeType,
+        byteSize,
+        note: note?.trim() || null,
+        status: "PENDING",
+      },
+    });
+
+    return {
+      ok: true,
+      proofId: proof.id,
+      paymentId: payment.id,
+      uploadUrl,
+      storageKey,
+    };
+  } catch {
+    return { ok: false, error: "آماده‌سازی آپلود ناموفق بود." };
+  }
+}
+
+/** Resident: after successful PUT to S3 — notify managers. */
+export async function confirmChargeProofUpload(
+  input: ConfirmChargeProofUploadInput,
+): Promise<BuildingActionResult> {
+  const session = await requireUser();
+  const parsed = confirmChargeProofUploadSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const { spaceId, proofId } = parsed.data;
+  const proof = await prisma.chargePaymentProof.findFirst({
+    where: {
+      id: proofId,
+      uploadedById: session.userId,
+      payment: { unit: { spaceId } },
+    },
+    select: {
+      id: true,
+      payment: { select: { month: true, unit: { select: { name: true } } } },
+    },
+  });
+  if (!proof) return { ok: false, error: "رسید پیدا نشد." };
+
+  await notifyBuildingManagers(spaceId, {
+    kind: "PAYMENT_PROOF",
+    title: `رسید واحد ${proof.payment.unit.name}`,
+    body: `رسید شارژ ${monthLabelFa(proof.payment.month)} در انتظار بررسی است.`,
+    hrefTab: "charges",
+    refId: proof.id,
+  });
+
+  revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/resident`);
+  return { ok: true, id: proofId };
+}
+
+export async function listChargeProofsForManager(
+  spaceId: string,
+  year?: number,
+): Promise<ChargePaymentProofDTO[]> {
+  const session = await requireUser();
+  const access = await assertBuilding(spaceId, session.userId, {
+    needMutate: true,
+  });
+  if (!access.ok) return [];
+
+  const y = year ?? tehranCivilYear();
+  const rows = await prisma.chargePaymentProof.findMany({
+    where: {
+      payment: { year: y, unit: { spaceId } },
+    },
+    select: {
+      id: true,
+      paymentId: true,
+      mimeType: true,
+      byteSize: true,
+      note: true,
+      status: true,
+      reviewNote: true,
+      createdAt: true,
+      uploadedBy: { select: { name: true, phone: true } },
+      payment: {
+        select: {
+          unitId: true,
+          year: true,
+          month: true,
+          amount: true,
+          unit: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: 100,
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    paymentId: r.paymentId,
+    unitId: r.payment.unitId,
+    unitName: r.payment.unit.name,
+    year: r.payment.year,
+    month: r.payment.month,
+    amount: r.payment.amount,
+    mimeType: r.mimeType,
+    byteSize: r.byteSize,
+    note: r.note,
+    status: r.status,
+    uploadedByName: r.uploadedBy.name?.trim() || r.uploadedBy.phone,
+    createdAt: r.createdAt.toISOString(),
+    reviewNote: r.reviewNote,
+  }));
+}
+
+export async function listMyChargeProofs(
+  spaceId: string,
+): Promise<ChargePaymentProofDTO[]> {
+  const session = await requireUser();
+  const building = await assertBuilding(spaceId, session.userId);
+  if (!building.ok) return [];
+
+  const rows = await prisma.chargePaymentProof.findMany({
+    where: {
+      uploadedById: session.userId,
+      payment: { unit: { spaceId } },
+    },
+    select: {
+      id: true,
+      paymentId: true,
+      mimeType: true,
+      byteSize: true,
+      note: true,
+      status: true,
+      reviewNote: true,
+      createdAt: true,
+      uploadedBy: { select: { name: true, phone: true } },
+      payment: {
+        select: {
+          unitId: true,
+          year: true,
+          month: true,
+          amount: true,
+          unit: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 40,
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    paymentId: r.paymentId,
+    unitId: r.payment.unitId,
+    unitName: r.payment.unit.name,
+    year: r.payment.year,
+    month: r.payment.month,
+    amount: r.payment.amount,
+    mimeType: r.mimeType,
+    byteSize: r.byteSize,
+    note: r.note,
+    status: r.status,
+    uploadedByName: r.uploadedBy.name?.trim() || r.uploadedBy.phone,
+    createdAt: r.createdAt.toISOString(),
+    reviewNote: r.reviewNote,
+  }));
+}
+
+export async function reviewChargeProof(
+  input: ReviewChargeProofInput,
+): Promise<BuildingActionResult> {
+  const session = await requireUser();
+  const parsed = reviewChargeProofSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const { spaceId, proofId, status, reviewNote, amount, paymentStatus } =
+    parsed.data;
+  const access = await assertBuilding(spaceId, session.userId, {
+    needMutate: true,
+  });
+  if (!access.ok) return access;
+
+  const proof = await prisma.chargePaymentProof.findFirst({
+    where: { id: proofId, payment: { unit: { spaceId } } },
+    select: {
+      id: true,
+      paymentId: true,
+      uploadedById: true,
+      payment: { select: { month: true, unit: { select: { name: true } } } },
+    },
+  });
+  if (!proof) return { ok: false, error: "رسید پیدا نشد." };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.chargePaymentProof.update({
+        where: { id: proofId },
+        data: {
+          status,
+          reviewedById: session.userId,
+          reviewedAt: new Date(),
+          reviewNote: reviewNote?.trim() || null,
+        },
+      });
+      if (status === "APPROVED") {
+        await tx.chargePayment.update({
+          where: { id: proof.paymentId },
+          data: {
+            ...(amount != null ? { amount: asMoney(amount) } : {}),
+            status: paymentStatus ?? "PAID",
+          },
+        });
+      }
+    });
+
+    await notifyBuildingUsers({
+      spaceId,
+      userIds: [proof.uploadedById],
+      kind: "PAYMENT_PROOF",
+      title:
+        status === "APPROVED"
+          ? `رسید واحد ${proof.payment.unit.name} تایید شد`
+          : `رسید واحد ${proof.payment.unit.name} رد شد`,
+      body:
+        reviewNote?.trim() ||
+        (status === "APPROVED"
+          ? `شارژ ${monthLabelFa(proof.payment.month)} تایید شد.`
+          : `شارژ ${monthLabelFa(proof.payment.month)} رد شد.`),
+      hrefTab: "payments",
+      refId: proofId,
+    });
+
+    revalidatePath(`/spaces/${spaceId}`);
+    revalidatePath(`/spaces/${spaceId}/resident`);
+    return { ok: true, id: proofId };
+  } catch {
+    return { ok: false, error: "بررسی رسید ناموفق بود." };
+  }
+}
+
+export async function getChargeProofDownloadUrl(
+  spaceId: string,
+  proofId: string,
+): Promise<ChargeProofDownloadResult> {
+  if (!isStorageConfigured()) {
+    return { ok: false, error: "ذخیره‌سازی فایل پیکربندی نشده است." };
+  }
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) return { ok: false, error: "دسترسی ندارید." };
+
+  const proof = await prisma.chargePaymentProof.findFirst({
+    where: { id: proofId, payment: { unit: { spaceId } } },
+    select: { storageKey: true, uploadedById: true },
+  });
+  if (!proof) return { ok: false, error: "رسید پیدا نشد." };
+
+  const isManager = canMutateMoney(membership.role);
+  if (!isManager && proof.uploadedById !== session.userId) {
+    return { ok: false, error: "دسترسی ندارید." };
+  }
+
+  try {
+    const url = await presignGetObject(proof.storageKey);
+    return { ok: true, url };
+  } catch {
+    return { ok: false, error: "لینک دانلود ساخته نشد." };
   }
 }

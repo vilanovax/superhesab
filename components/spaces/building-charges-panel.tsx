@@ -9,9 +9,12 @@ import {
   type AnnualChargeCalendarDTO,
   type BuildingDashboardDTO,
   type ChargePaymentDTO,
+  type ChargePaymentProofDTO,
   type UnitDTO,
 } from "@/app/actions/building";
 import { BuildingAnnualCalendar } from "@/components/spaces/building-annual-calendar";
+import { BuildingExportButtons } from "@/components/spaces/building-export-buttons";
+import { BuildingProofsInbox } from "@/components/spaces/building-proofs-inbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -60,6 +63,7 @@ type BuildingChargesPanelProps = {
   currency: SpaceCurrency;
   canMutate: boolean;
   isOwner: boolean;
+  chargeProofs?: ChargePaymentProofDTO[];
 };
 
 export function BuildingChargesPanel({
@@ -71,6 +75,7 @@ export function BuildingChargesPanel({
   currency,
   canMutate,
   isOwner,
+  chargeProofs = [],
 }: BuildingChargesPanelProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
@@ -211,6 +216,19 @@ export function BuildingChargesPanel({
 
   return (
     <div className="space-y-3">
+      <BuildingExportButtons
+        spaceId={spaceId}
+        year={dashboard.year}
+        canExport={canMutate}
+      />
+      {canMutate ? (
+        <BuildingProofsInbox
+          spaceId={spaceId}
+          proofs={chargeProofs}
+          currency={currency}
+          canReview={canMutate}
+        />
+      ) : null}
       {/* Compact KPI strip */}
       <div className="grid grid-cols-3 gap-1.5">
         <StatCard

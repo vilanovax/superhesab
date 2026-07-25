@@ -18,6 +18,8 @@ type BuildingAnnouncementsBoardProps = {
   announcements: BuildingAnnouncementDTO[];
   /** Manager can compose / pin / archive / edit. */
   canMutate: boolean;
+  /** Unread announcement ids — show «جدید» for residents. */
+  highlightIds?: string[];
 };
 
 type Draft = {
@@ -190,7 +192,9 @@ export function BuildingAnnouncementsBoard({
   spaceId,
   announcements,
   canMutate,
+  highlightIds = [],
 }: BuildingAnnouncementsBoardProps) {
+  const highlightSet = new Set(highlightIds);
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
   const [pending, startTransition] = useTransition();
@@ -432,6 +436,11 @@ export function BuildingAnnouncementsBoard({
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
+                      {highlightSet.has(a.id) ? (
+                        <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-micro font-semibold text-amber-800 dark:text-amber-200">
+                          جدید
+                        </span>
+                      ) : null}
                       {a.pinned ? (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-micro font-semibold text-primary">
                           <PinIcon className="size-3" />

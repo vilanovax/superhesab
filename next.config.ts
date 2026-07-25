@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  /** Keep pdfkit/exceljs out of the bundler so AFM font data resolves on disk. */
+  serverExternalPackages: ["pdfkit", "exceljs", "fontkit"],
   turbopack: {
     root: projectRoot,
   },

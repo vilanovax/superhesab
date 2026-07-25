@@ -3,7 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import {
   getResidentPortalData,
   listBuildingAnnouncements,
+  listMyBuildingNotifications,
   listMyBuildingSuggestions,
+  listMyChargeProofs,
 } from "@/app/actions/building";
 import { ResidentPortal } from "@/components/spaces/resident-portal";
 import { SpaceTheme } from "@/components/spaces/space-theme";
@@ -62,10 +64,13 @@ export default async function ResidentPortalPage({
     );
   }
 
-  const [suggestions, announcements] = await Promise.all([
-    listMyBuildingSuggestions(id),
-    listBuildingAnnouncements(id),
-  ]);
+  const [suggestions, announcements, notifications, chargeProofs] =
+    await Promise.all([
+      listMyBuildingSuggestions(id),
+      listBuildingAnnouncements(id),
+      listMyBuildingNotifications(id),
+      listMyChargeProofs(id),
+    ]);
 
   return (
     <main
@@ -90,6 +95,8 @@ export default async function ResidentPortalPage({
         data={data}
         suggestions={suggestions}
         announcements={announcements}
+        notifications={notifications}
+        chargeProofs={chargeProofs}
       />
     </main>
   );

@@ -12,6 +12,7 @@ import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
+import { SpaceBackupButton } from "@/components/settings/backup-panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -301,11 +302,7 @@ export default async function SpaceSettingsPage({
               مدیران ساختمان
             </h2>
             <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
-              هم‌مدیران با نقش ویرایشگر دعوت می‌شوند. ساکن‌ها فقط از لینک اختصاصی
-              واحد وصل می‌شوند و اینجا دیده نمی‌شوند.
-            </p>
-            <p className="mt-2 text-caption font-semibold tabular-nums text-muted-foreground">
-              {managerInviteRows.length} مدیر فعال
+              {managerInviteRows.length} مدیر · ساکن‌ها از لینک واحد دعوت می‌شوند
             </p>
           </div>
           <InviteMembersButton
@@ -317,10 +314,9 @@ export default async function SpaceSettingsPage({
             trigger={
               <Button
                 type="button"
-                variant="outline"
                 className="h-11 w-full rounded-xl active:scale-[0.98]"
               >
-                دعوت و مدیریت مدیران
+                مدیریت مدیران
               </Button>
             }
           />
@@ -328,7 +324,7 @@ export default async function SpaceSettingsPage({
       ) : null}
 
       {showFundPlan ? (
-        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+        <section className="animate-fade-up rounded-2xl border border-border/70 bg-card/90 p-4 backdrop-blur-sm sm:p-5">
           <FundPlanSettings
             spaceId={space.id}
             currency={space.currency}
@@ -358,6 +354,12 @@ export default async function SpaceSettingsPage({
             disabled={!isOwner}
           />
         </section>
+      ) : null}
+
+      {isOwner ? (
+        <div className="animate-fade-up">
+          <SpaceBackupButton spaceId={space.id} spaceName={space.name} />
+        </div>
       ) : null}
     </main>
   );

@@ -14,6 +14,15 @@ import {
   unitMonthlyCharge,
 } from "../lib/building";
 import { simplifyDebts } from "../lib/debtSimplification";
+import {
+  assertFundPaymentAmount,
+  assertUniqueWinnerAssignment,
+  buildCycleIntegrity,
+  buildPeriodReport,
+  expectedPaymentForShare,
+} from "../lib/fund";
+import { parseBackupFile } from "../lib/backup/validate";
+import { BACKUP_APP, BACKUP_VERSION } from "../lib/backup/types";
 import { signSessionToken, SESSION_COOKIE } from "../lib/session-token";
 import { getTemplate } from "../lib/templates/registry";
 
@@ -164,6 +173,102 @@ async function main() {
       pass("empty space: 0 expenses (empty-state)", `id=${empty.id}`);
     } else {
       fail("empty space", "not empty or missing");
+    }
+
+    // ——— FUND rotating math / validation ———
+    const fundTpl = getTemplate("FUND").features;
+    if (fundTpl.fundRotating && fundTpl.invites && !fundTpl.settlements) {
+      pass("fund registry: rotating on, settlements off");
+    } else {
+      fail("fund registry", JSON.stringify(fundTpl));
+    }
+    if (expectedPaymentForShare(1_000_000, 2) === 1_000_000) {
+      pass("fund math: 1× expected payment");
+    } else {
+      fail("fund math: 1×", String(expectedPaymentForShare(1_000_000, 2)));
+    }
+    if (expectedPaymentForShare(1_000_000, 3) === 1_500_000) {
+      pass("fund math: 1.5× expected payment");
+    } else {
+      fail("fund math: 1.5×", String(expectedPaymentForShare(1_000_000, 3)));
+    }
+    {
+      const dup = assertUniqueWinnerAssignment(
+        [
+          { periodIndex: 1, winnerMemberId: "m1" },
+          { periodIndex: 2, winnerMemberId: null },
+        ],
+        "m1",
+        2,
+      );
+      if (!dup.ok && dup.conflictingPeriod === 1) {
+        pass("fund rule: duplicate winner blocked");
+      } else {
+        fail("fund rule: duplicate winner", JSON.stringify(dup));
+      }
+      const okAssign = assertUniqueWinnerAssignment(
+        [{ periodIndex: 1, winnerMemberId: "m1" }],
+        "m2",
+        2,
+      );
+      if (okAssign.ok) pass("fund rule: new winner allowed");
+      else fail("fund rule: new winner", JSON.stringify(okAssign));
+      const amtOk = assertFundPaymentAmount(1_000_000, undefined);
+      const amtBad = assertFundPaymentAmount(1_000_000, 999_999);
+      if (amtOk.ok && !amtBad.ok) pass("fund rule: payment amount must match");
+      else fail("fund rule: payment amount", `${amtOk.ok}/${amtBad.ok}`);
+      const report = buildPeriodReport({
+        periodIndex: 1,
+        expectedTotal: 2_000_000,
+        collectedTotal: 1_000_000,
+        members: [
+          { name: "علی", paid: true },
+          { name: "سارا", paid: false },
+        ],
+        winnerName: "علی",
+        status: "ASSIGNED",
+      });
+      if (
+        report.shortfall === 1_000_000 &&
+        report.unpaidCount === 1 &&
+        report.unpaidNames[0] === "سارا" &&
+        !report.isComplete
+      ) {
+        pass("fund report: period shortfall + unpaid");
+      } else {
+        fail("fund report: period", JSON.stringify(report));
+      }
+      const integrity = buildCycleIntegrity([
+        { periodIndex: 1, winnerMemberId: "m1" },
+        { periodIndex: 2, winnerMemberId: "m1" },
+        { periodIndex: 3, winnerMemberId: null },
+      ]);
+      if (
+        integrity.duplicateWinnerPeriods.length === 1 &&
+        integrity.openCount === 1
+      ) {
+        pass("fund integrity: detects duplicate winners");
+      } else {
+        fail("fund integrity", JSON.stringify(integrity));
+      }
+    }
+
+    // ——— Backup schema ———
+    {
+      const v1 = parseBackupFile({ version: 1, spaces: [] });
+      if (!v1.ok) pass("backup: rejects v1 schema");
+      else fail("backup: v1 should fail", "accepted");
+
+      const emptyOk = parseBackupFile({
+        version: BACKUP_VERSION,
+        exportedAt: new Date().toISOString(),
+        app: BACKUP_APP,
+        scope: "account",
+        user: { id: "u1", phone: "09", name: null, email: null },
+        spaces: [],
+      });
+      if (emptyOk.ok) pass("backup: accepts v2 empty account file");
+      else fail("backup: v2 empty", emptyOk.error);
     }
 
     // ——— Building template ———

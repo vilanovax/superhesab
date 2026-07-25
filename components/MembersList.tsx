@@ -60,6 +60,10 @@ type MembersListProps = {
    * BUILDING: co-managers are EDITOR only; VIEWER is reserved for unit claim.
    */
   editorOnlyRoles?: boolean;
+  /**
+   * FUND: compact sheet — primary invite CTA, dense member rows + share, manual add footer.
+   */
+  fundLayout?: boolean;
 };
 
 function CheckIcon({ className }: { className?: string }) {
@@ -125,6 +129,7 @@ export function MembersList({
   maxMembers = null,
   showShareControls = true,
   editorOnlyRoles = false,
+  fundLayout = false,
 }: MembersListProps) {
   const router = useRouter();
   const isOwner = currentUserRole === "OWNER";
@@ -229,6 +234,413 @@ export function MembersList({
   const atCapacity =
     maxMembers != null && members.length >= maxMembers;
 
+  if (editorOnlyRoles) {
+    return (
+      <div className="space-y-4">
+        {isOwner ? (
+          <Button
+            type="button"
+            onClick={copySpaceLink}
+            className={cn(
+              "h-11 w-full gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
+              spaceLinkState === "done" &&
+                "bg-success text-success-foreground hover:bg-success/90",
+            )}
+          >
+            {spaceLinkState === "done" ? (
+              <CheckIcon className="size-4" />
+            ) : (
+              <CopyIcon className="size-4" />
+            )}
+            {spaceLinkState === "done" ? "لینک کپی شد" : "کپی لینک دعوت هم‌مدیر"}
+          </Button>
+        ) : null}
+
+        <section>
+          <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
+            <p className="text-caption font-semibold text-muted-foreground">
+              مدیران فعلی
+            </p>
+            <p className="text-caption tabular-nums text-muted-foreground">
+              {members.length}
+            </p>
+          </div>
+
+          {roleError ? (
+            <p className="mb-2 text-xs text-destructive" role="alert">
+              {roleError}
+            </p>
+          ) : null}
+
+          <ul className="overflow-hidden rounded-2xl border border-border/50 bg-card">
+            {members.map((m, i) => {
+              const claimDone = claimCopiedId === m.userId;
+              return (
+                <li
+                  key={m.userId}
+                  className={cn(
+                    "flex items-center gap-3 px-3.5 py-3",
+                    i > 0 && "border-t border-border/40",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      m.avatarUrl ??
+                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
+                    }
+                    alt=""
+                    width={36}
+                    height={36}
+                    className="size-9 shrink-0 rounded-full bg-secondary"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-semibold text-foreground">
+                      {memberLabel(m)}
+                    </p>
+                    <p className="truncate text-caption text-muted-foreground">
+                      {m.isVirtual ? "بدون حساب اپ" : m.phone}
+                    </p>
+                  </div>
+                  {isOwner && m.isVirtual ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 shrink-0 rounded-lg px-2 text-caption active:scale-[0.97]",
+                        claimDone
+                          ? "bg-success-soft text-success"
+                          : "text-muted-foreground",
+                      )}
+                      onClick={() => copyClaimLink(m.userId)}
+                    >
+                      {claimDone ? "کپی شد" : "لینک ادعا"}
+                    </Button>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-bold",
+                      m.role === "OWNER"
+                        ? "bg-primary/12 text-primary"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {m.role === "OWNER" ? "مالک" : "مدیر"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        {isOwner ? (
+          <section className="border-t border-border/40 pt-3.5">
+            <p className="text-caption font-semibold text-muted-foreground">
+              افزودن بدون اپ
+            </p>
+            <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground/90">
+              نام را بزنید؛ بعداً با لینک ادعا وصل می‌شود.
+            </p>
+            <form
+              onSubmit={onAddVirtual}
+              className="mt-2.5 flex items-center gap-2"
+            >
+              <Input
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="نام مدیر"
+                className="h-10 flex-1 rounded-xl border-border/60 bg-card"
+                maxLength={40}
+                required
+                minLength={2}
+                disabled={atCapacity || pending}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                variant="secondary"
+                className="h-10 shrink-0 rounded-xl px-3.5 active:scale-[0.97]"
+                disabled={atCapacity || pending}
+              >
+                {pending ? "…" : "افزودن"}
+              </Button>
+            </form>
+            {manualError ? (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {manualError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (fundLayout) {
+    return (
+      <div className="space-y-4">
+        {isOwner ? (
+          <div className="space-y-2">
+            {inviteRolePicker ? (
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <p className="text-caption text-muted-foreground">
+                  نقش لینک دعوت
+                </p>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(v) =>
+                    setInviteRole(v as "EDITOR" | "VIEWER")
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[7.5rem] rounded-lg text-caption">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EDITOR">عضو فعال</SelectItem>
+                    <SelectItem value="VIEWER">ناظر</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              onClick={copySpaceLink}
+              className={cn(
+                "h-11 w-full gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
+                spaceLinkState === "done" &&
+                  "bg-success text-success-foreground hover:bg-success/90",
+              )}
+            >
+              {spaceLinkState === "done" ? (
+                <CheckIcon className="size-4" />
+              ) : (
+                <CopyIcon className="size-4" />
+              )}
+              {spaceLinkState === "done" ? "لینک کپی شد" : "کپی لینک دعوت عضو"}
+            </Button>
+            {maxMembers != null ? (
+              <p className="text-center text-caption tabular-nums text-muted-foreground">
+                {members.length} / {maxMembers} عضو
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section>
+          <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
+            <p className="text-caption font-semibold text-muted-foreground">
+              اعضا
+            </p>
+            <p className="text-caption text-muted-foreground">
+              {shareCaption}
+              <span className="ms-1.5 tabular-nums">· {members.length}</span>
+            </p>
+          </div>
+
+          {roleError ? (
+            <p className="mb-2 text-xs text-destructive" role="alert">
+              {roleError}
+            </p>
+          ) : null}
+
+          <ul className="max-h-[min(48dvh,20rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card">
+            {members.map((m, i) => {
+              const share = m.defaultShare ?? DEFAULT_SHARE;
+              const claimDone = claimCopiedId === m.userId;
+              return (
+                <li
+                  key={m.userId}
+                  className={cn(
+                    "px-3 py-2.5",
+                    i > 0 && "border-t border-border/40",
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        m.avatarUrl ??
+                        `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
+                      }
+                      alt=""
+                      width={36}
+                      height={36}
+                      className="size-9 shrink-0 rounded-full bg-secondary"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body-sm font-semibold text-foreground">
+                        {memberLabel(m)}
+                      </p>
+                      <p className="truncate text-caption text-muted-foreground">
+                        {m.isVirtual ? "بدون حساب اپ" : m.phone}
+                      </p>
+                    </div>
+                    {isOwner && m.isVirtual ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "size-8 shrink-0 rounded-lg active:scale-[0.96]",
+                          claimDone
+                            ? "bg-success-soft text-success"
+                            : "text-muted-foreground",
+                        )}
+                        onClick={() => copyClaimLink(m.userId)}
+                        aria-label={
+                          claimDone ? "لینک ادعا کپی شد" : "کپی لینک ادعا"
+                        }
+                      >
+                        {claimDone ? (
+                          <CheckIcon className="size-4" />
+                        ) : (
+                          <LinkIcon className="size-4" />
+                        )}
+                      </Button>
+                    ) : null}
+                    {isOwner && m.role !== "OWNER" ? (
+                      <Select
+                        value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
+                        onValueChange={(v) =>
+                          onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
+                        }
+                        disabled={pending}
+                      >
+                        <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-lg text-caption">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EDITOR">فعال</SelectItem>
+                          <SelectItem value="VIEWER">ناظر</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-bold",
+                          m.role === "OWNER"
+                            ? "bg-primary/12 text-primary"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {m.role === "OWNER" ? "مالک" : roleLabelFa(m.role)}
+                      </span>
+                    )}
+                  </div>
+
+                  {isOwner && showShareControls ? (
+                    <div className="mt-2 flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-7 rounded-md active:scale-[0.96]"
+                        disabled={pending || share <= MIN_SHARE}
+                        onClick={() =>
+                          onChangeShare(
+                            m.userId,
+                            clampShare(share - SHARE_STEP),
+                          )
+                        }
+                        aria-label="کاهش ضریب"
+                      >
+                        −
+                      </Button>
+                      <span className="min-w-10 text-center text-caption font-semibold tabular-nums text-foreground">
+                        ×{formatShareLabel(share)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-7 rounded-md active:scale-[0.96]"
+                        disabled={pending || share >= MAX_SHARE}
+                        onClick={() =>
+                          onChangeShare(
+                            m.userId,
+                            clampShare(share + SHARE_STEP),
+                          )
+                        }
+                        aria-label="افزایش ضریب"
+                      >
+                        +
+                      </Button>
+                    </div>
+                  ) : showShareControls && share !== DEFAULT_SHARE ? (
+                    <p className="mt-1.5 text-end text-caption tabular-nums text-muted-foreground">
+                      ×{formatShareLabel(share)}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        {isOwner ? (
+          <section className="border-t border-border/40 pt-3.5">
+            <p className="text-caption font-semibold text-muted-foreground">
+              افزودن بدون اپ
+            </p>
+            <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground/90">
+              نام را بزنید؛ بعداً با لینک ادعا وصل می‌شود.
+            </p>
+            <form
+              onSubmit={onAddVirtual}
+              className="mt-2.5 flex items-center gap-2"
+            >
+              <Input
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="نام عضو"
+                className="h-10 flex-1 rounded-xl border-border/60 bg-card"
+                maxLength={40}
+                required
+                minLength={2}
+                disabled={atCapacity || pending}
+              />
+              <Select
+                value={manualRole}
+                onValueChange={(v) =>
+                  setManualRole(v as "EDITOR" | "VIEWER")
+                }
+                disabled={atCapacity || pending}
+              >
+                <SelectTrigger className="h-10 w-[5.5rem] shrink-0 rounded-xl text-caption">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EDITOR">فعال</SelectItem>
+                  <SelectItem value="VIEWER">ناظر</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="submit"
+                size="sm"
+                variant="secondary"
+                className="h-10 shrink-0 rounded-xl px-3 active:scale-[0.97]"
+                disabled={atCapacity || pending}
+              >
+                {pending ? "…" : "افزودن"}
+              </Button>
+            </form>
+            {manualError ? (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {manualError}
+              </p>
+            ) : null}
+            {atCapacity ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                ظرفیت اعضا تکمیل است.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {isOwner ? (
@@ -236,29 +648,23 @@ export function MembersList({
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-body-sm font-semibold text-foreground">
-                {editorOnlyRoles ? "دعوت مدیر" : "دعوت"}
+                دعوت
               </p>
               <p className="text-caption text-muted-foreground">
                 {spaceLinkState === "done"
                   ? "لینک کپی شد"
-                  : editorOnlyRoles
-                    ? `دعوت هم‌مدیر به «${spaceName}»`
-                    : `دعوت به «${spaceName}»`}
+                  : `دعوت به «${spaceName}»`}
               </p>
             </div>
             {maxMembers != null ? (
               <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-caption font-semibold tabular-nums text-muted-foreground">
                 {members.length} / {maxMembers}
               </span>
-            ) : editorOnlyRoles ? (
-              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-caption font-semibold tabular-nums text-muted-foreground">
-                {members.length} مدیر
-              </span>
             ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {inviteRolePicker && !editorOnlyRoles ? (
+            {inviteRolePicker ? (
               <Select
                 value={inviteRole}
                 onValueChange={(v) =>
@@ -290,11 +696,7 @@ export function MembersList({
               ) : (
                 <CopyIcon className="size-4" />
               )}
-              {spaceLinkState === "done"
-                ? "کپی شد"
-                : editorOnlyRoles
-                  ? "کپی لینک دعوت مدیر"
-                  : "کپی لینک فضا"}
+              {spaceLinkState === "done" ? "کپی شد" : "کپی لینک فضا"}
             </Button>
           </div>
 
@@ -303,41 +705,37 @@ export function MembersList({
             className="rounded-2xl border border-border/55 bg-muted/25 p-3"
           >
             <p className="text-caption font-medium text-foreground">
-              {editorOnlyRoles ? "افزودن مدیر دستی" : "افزودن دستی"}
+              افزودن دستی
             </p>
             <p className="mt-0.5 text-caption text-muted-foreground">
-              {editorOnlyRoles
-                ? "بدون اپ — بعداً با لینک ادعا وصل می‌شود"
-                : "بدون اپ — بعداً با لینک ادعا وصل می‌شود"}
+              بدون اپ — بعداً با لینک ادعا وصل می‌شود
             </p>
             <div className="mt-2.5 flex gap-2">
               <Input
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder={editorOnlyRoles ? "نام مدیر" : "نام عضو"}
+                placeholder="نام عضو"
                 className="h-10 rounded-xl border-border/70 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
                 disabled={atCapacity || pending}
               />
-              {!editorOnlyRoles ? (
-                <Select
-                  value={manualRole}
-                  onValueChange={(v) =>
-                    setManualRole(v as "EDITOR" | "VIEWER")
-                  }
-                  disabled={atCapacity || pending}
-                >
-                  <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EDITOR">ویرایشگر</SelectItem>
-                    <SelectItem value="VIEWER">ناظر</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : null}
+              <Select
+                value={manualRole}
+                onValueChange={(v) =>
+                  setManualRole(v as "EDITOR" | "VIEWER")
+                }
+                disabled={atCapacity || pending}
+              >
+                <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EDITOR">ویرایشگر</SelectItem>
+                  <SelectItem value="VIEWER">ناظر</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               type="submit"
@@ -345,13 +743,7 @@ export function MembersList({
               className="mt-2 h-10 w-full rounded-xl active:scale-[0.98]"
               disabled={atCapacity || pending}
             >
-              {pending
-                ? "…"
-                : atCapacity
-                  ? "ظرفیت تکمیل است"
-                  : editorOnlyRoles
-                    ? "افزودن مدیر"
-                    : "افزودن"}
+              {pending ? "…" : atCapacity ? "ظرفیت تکمیل است" : "افزودن"}
             </Button>
             {manualError ? (
               <p className="mt-2 text-xs text-destructive" role="alert">
@@ -365,7 +757,7 @@ export function MembersList({
       <section className="space-y-2.5">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-body-sm font-semibold text-foreground">
-            {editorOnlyRoles ? "مدیران" : "اعضا"}
+            اعضا
             <span className="ms-1.5 text-caption font-normal text-muted-foreground">
               ({members.length})
             </span>

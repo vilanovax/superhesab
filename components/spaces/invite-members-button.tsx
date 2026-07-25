@@ -23,6 +23,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import type { SpaceRole, SpaceType } from "@/types";
+import { cn } from "@/lib/utils";
 
 export type InviteMemberRow = MembersListRow;
 
@@ -92,6 +93,8 @@ export function InviteMembersButton({
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const isBuilding = spaceType === "BUILDING";
+  const isFund = spaceType === "FUND";
+  const compactSheet = isBuilding || isFund;
 
   // Invite / member management is OWNER-only (VIEWER and EDITOR cannot share)
   if (currentUserRole !== "OWNER") {
@@ -107,9 +110,11 @@ export function InviteMembersButton({
       >
         {isBuilding
           ? "مدیریت مدیران"
-          : inviteRolePicker
-            ? "دعوت عضو خانواده"
-            : "دعوت طرف مقابل"}
+          : isFund
+            ? "مدیریت اعضا"
+            : inviteRolePicker
+              ? "دعوت عضو خانواده"
+              : "دعوت طرف مقابل"}
       </Button>
     ) : variant === "empty" ? (
       <Button
@@ -119,9 +124,11 @@ export function InviteMembersButton({
       >
         {isBuilding
           ? "دعوت هم‌مدیر"
-          : inviteRolePicker
-            ? "دعوت عضو خانواده"
-            : "دعوت همسفر"}
+          : isFund
+            ? "دعوت عضو صندوق"
+            : inviteRolePicker
+              ? "دعوت عضو خانواده"
+              : "دعوت همسفر"}
       </Button>
     ) : (
       <Button
@@ -129,7 +136,13 @@ export function InviteMembersButton({
         size="icon"
         variant="ghost"
         className="size-8 rounded-full border border-on-hero/30 bg-on-hero/15 text-on-hero hover:bg-on-hero/25 hover:text-on-hero"
-        aria-label={isBuilding ? "مدیریت مدیران" : "دعوت از اعضا"}
+        aria-label={
+          isBuilding
+            ? "مدیریت مدیران"
+            : isFund
+              ? "مدیریت اعضا"
+              : "دعوت از اعضا"
+        }
       >
         <UserPlusIcon className="size-4" />
       </Button>
@@ -137,15 +150,17 @@ export function InviteMembersButton({
 
   const title = isBuilding
     ? "مدیران ساختمان"
-    : variant === "banner"
-      ? inviteRolePicker
-        ? "دعوت به خانواده"
-        : "دعوت به حساب مشترک"
-      : "مدیریت اعضا";
+    : isFund
+      ? "اعضای صندوق"
+      : variant === "banner"
+        ? inviteRolePicker
+          ? "دعوت به خانواده"
+          : "دعوت به حساب مشترک"
+        : "مدیریت اعضا";
   const description = isBuilding
-    ? `دعوت هم‌مدیر برای «${spaceName}» — ساکن‌ها از لینک واحد وصل می‌شوند`
-    : spaceType === "FUND"
-      ? `اعضا، ضریب سهم و لینک ادعا — «${spaceName}»`
+    ? "لینک دعوت برای هم‌مدیر · ساکن‌ها از لینک واحد می‌آیند"
+    : isFund
+      ? "لینک دعوت، ضریب سهم و عضو دستی"
       : variant === "banner"
         ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
         : `نقش‌ها، لینک ادعا و عضو دستی برای «${spaceName}»`;
@@ -161,6 +176,7 @@ export function InviteMembersButton({
       maxMembers={maxMembers}
       showShareControls={!isBuilding}
       editorOnlyRoles={isBuilding}
+      fundLayout={isFund}
     />
   );
 
@@ -182,12 +198,33 @@ export function InviteMembersButton({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent className="border-border/60 bg-sheet">
-        <DrawerHeader className="shrink-0 pb-2 text-start">
+      <DrawerContent
+        className={cn(
+          "border-border/60 bg-sheet",
+          compactSheet && "max-h-[78dvh]",
+        )}
+      >
+        <DrawerHeader
+          className={cn(
+            "shrink-0 text-start",
+            compactSheet ? "pb-1.5 pt-1" : "pb-2",
+          )}
+        >
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>{description}</DrawerDescription>
+          <DrawerDescription
+            className={compactSheet ? "text-caption" : undefined}
+          >
+            {description}
+          </DrawerDescription>
         </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">{panel}</div>
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-4",
+            compactSheet ? "pb-6" : "pb-8",
+          )}
+        >
+          {panel}
+        </div>
       </DrawerContent>
     </Drawer>
   );

@@ -151,6 +151,16 @@
 
 ---
 
+## بک‌آپ دفاتر
+
+جزئیات: [`docs/backup-prd.md`](./backup-prd.md).
+
+- Export JSON v2 (حساب / تک‌دفتر) — فقط OWNER  
+- Restore همیشه دفتر جدید می‌سازد  
+- گزارش Excel/PDF جدا از بک‌آپ فنی می‌ماند  
+
+---
+
 ## نقشه راه اجرایی برای Cursor (ترتیب پیشنهادی)
 
 1. Scaffold + Postgres + Prisma schema (هسته) ✅

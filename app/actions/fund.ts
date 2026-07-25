@@ -4,9 +4,17 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
+  assertFundPaymentAmount,
+  assertPeriodInPlan,
+  assertUniqueWinnerAssignment,
+  buildCycleIntegrity,
+  buildPeriodReport,
   collectedTotal,
   expectedPaymentForShare,
   expectedPoolTotal,
+  winnerPeriodByMember,
+  type FundCycleIntegrity,
+  type FundPeriodReport,
 } from "@/lib/fund";
 import { asMoney, formatShareLabel } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
@@ -49,6 +57,10 @@ export type FundDashboardDTO = {
   collectedTotal: number;
   members: FundMemberRow[];
   periods: { periodIndex: number; winnerName: string | null; status: string }[];
+  /** memberId → period they already won (for disabling select options) */
+  winnerTakenByMember: Record<string, number>;
+  periodReport: FundPeriodReport | null;
+  cycleIntegrity: FundCycleIntegrity | null;
 };
 
 async function assertFundEnabled(spaceId: string, userId: string) {
@@ -74,6 +86,15 @@ async function assertFundEnabled(spaceId: string, userId: string) {
 
 function memberName(user: { name: string | null; phone: string }): string {
   return user.name?.trim() || user.phone || "عضو";
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "P2002"
+  );
 }
 
 export async function getFundDashboard(
@@ -134,6 +155,47 @@ export async function getFundDashboard(
     };
   });
 
+  const expectedTotal = plan
+    ? expectedPoolTotal(
+        shareAmount,
+        members.map((m) => ({ defaultShare: m.defaultShare })),
+      )
+    : 0;
+  const collected = collectedTotal(periodPayments);
+  const turnStatus = turn ? (turn.status as "OPEN" | "ASSIGNED") : null;
+  const winnerName = turn?.winner ? memberName(turn.winner.user) : null;
+
+  const taken = winnerPeriodByMember(
+    turns.map((t) => ({
+      periodIndex: t.periodIndex,
+      winnerMemberId: t.winnerMemberId,
+    })),
+  );
+  const winnerTakenByMember: Record<string, number> = {};
+  for (const [id, p] of taken) {
+    winnerTakenByMember[id] = p;
+  }
+
+  const periodReport = plan
+    ? buildPeriodReport({
+        periodIndex: activePeriod,
+        expectedTotal,
+        collectedTotal: collected,
+        members: memberRows.map((m) => ({ name: m.name, paid: m.paid })),
+        winnerName,
+        status: turnStatus,
+      })
+    : null;
+
+  const cycleIntegrity = plan
+    ? buildCycleIntegrity(
+        turns.map((t) => ({
+          periodIndex: t.periodIndex,
+          winnerMemberId: t.winnerMemberId,
+        })),
+      )
+    : null;
+
   return {
     spaceId,
     plan: plan
@@ -141,21 +203,19 @@ export async function getFundDashboard(
       : null,
     periodIndex: activePeriod,
     winnerMemberId: turn?.winnerMemberId ?? null,
-    winnerName: turn?.winner ? memberName(turn.winner.user) : null,
-    turnStatus: turn ? (turn.status as "OPEN" | "ASSIGNED") : null,
-    expectedTotal: plan
-      ? expectedPoolTotal(
-          shareAmount,
-          members.map((m) => ({ defaultShare: m.defaultShare })),
-        )
-      : 0,
-    collectedTotal: collectedTotal(periodPayments),
+    winnerName,
+    turnStatus,
+    expectedTotal,
+    collectedTotal: collected,
     members: memberRows,
     periods: turns.map((t) => ({
       periodIndex: t.periodIndex,
       winnerName: t.winner ? memberName(t.winner.user) : null,
       status: t.status,
     })),
+    winnerTakenByMember,
+    periodReport,
+    cycleIntegrity,
   };
 }
 
@@ -256,8 +316,23 @@ export async function assignFundTurn(
   if (!plan) {
     return { ok: false, error: "ابتدا پلن صندوق را تعریف کنید." };
   }
-  if (data.periodIndex < 1 || data.periodIndex > plan.periodCount) {
-    return { ok: false, error: "شماره دوره نامعتبر است." };
+
+  const periodOk = assertPeriodInPlan(data.periodIndex, plan.periodCount);
+  if (!periodOk.ok) return periodOk;
+
+  const turn = await prisma.fundTurn.findUnique({
+    where: {
+      spaceId_periodIndex: {
+        spaceId: data.spaceId,
+        periodIndex: data.periodIndex,
+      },
+    },
+  });
+  if (!turn) {
+    return {
+      ok: false,
+      error: "دوره در پلن وجود ندارد. پلن را دوباره ذخیره کنید.",
+    };
   }
 
   if (data.winnerMemberId) {
@@ -269,28 +344,36 @@ export async function assignFundTurn(
     }
   }
 
+  const otherTurns = await prisma.fundTurn.findMany({
+    where: { spaceId: data.spaceId },
+    select: { periodIndex: true, winnerMemberId: true },
+  });
+  const uniqueOk = assertUniqueWinnerAssignment(
+    otherTurns,
+    data.winnerMemberId,
+    data.periodIndex,
+  );
+  if (!uniqueOk.ok) {
+    return { ok: false, error: uniqueOk.error };
+  }
+
   try {
-    await prisma.fundTurn.upsert({
-      where: {
-        spaceId_periodIndex: {
-          spaceId: data.spaceId,
-          periodIndex: data.periodIndex,
-        },
-      },
-      create: {
-        spaceId: data.spaceId,
-        periodIndex: data.periodIndex,
-        winnerMemberId: data.winnerMemberId,
-        status: data.winnerMemberId ? "ASSIGNED" : "OPEN",
-      },
-      update: {
+    await prisma.fundTurn.update({
+      where: { id: turn.id },
+      data: {
         winnerMemberId: data.winnerMemberId,
         status: data.winnerMemberId ? "ASSIGNED" : "OPEN",
       },
     });
     revalidatePath(`/spaces/${data.spaceId}`);
     return { ok: true };
-  } catch {
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return {
+        ok: false,
+        error: "این عضو قبلاً در دورهٔ دیگری برنده شده است.",
+      };
+    }
     return { ok: false, error: "ثبت نوبت ناموفق بود." };
   }
 }
@@ -319,8 +402,23 @@ export async function setFundPayment(
   if (!plan) {
     return { ok: false, error: "ابتدا پلن صندوق را تعریف کنید." };
   }
-  if (data.periodIndex < 1 || data.periodIndex > plan.periodCount) {
-    return { ok: false, error: "شماره دوره نامعتبر است." };
+
+  const periodOk = assertPeriodInPlan(data.periodIndex, plan.periodCount);
+  if (!periodOk.ok) return periodOk;
+
+  const turn = await prisma.fundTurn.findUnique({
+    where: {
+      spaceId_periodIndex: {
+        spaceId: data.spaceId,
+        periodIndex: data.periodIndex,
+      },
+    },
+  });
+  if (!turn) {
+    return {
+      ok: false,
+      error: "دوره در پلن وجود ندارد. پلن را دوباره ذخیره کنید.",
+    };
   }
 
   const member = await prisma.spaceMember.findFirst({
@@ -340,10 +438,16 @@ export async function setFundPayment(
         },
       });
     } else {
-      const amount = asMoney(
-        data.amount ??
-          expectedPaymentForShare(plan.shareAmount, member.defaultShare),
+      const expected = expectedPaymentForShare(
+        plan.shareAmount,
+        member.defaultShare,
       );
+      const amountCheck = assertFundPaymentAmount(expected, data.amount);
+      if (!amountCheck.ok) {
+        return { ok: false, error: amountCheck.error };
+      }
+      const amount = asMoney(amountCheck.amount);
+
       await prisma.fundPayment.upsert({
         where: {
           spaceId_periodIndex_memberId: {

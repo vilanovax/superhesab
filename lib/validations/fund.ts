@@ -20,8 +20,9 @@ export const setFundPaymentSchema = z.object({
   spaceId: z.string().min(1),
   periodIndex: z.number().int().min(1),
   memberId: z.string().min(1),
-  /** true = mark paid (expected amount); false = remove payment */
+  /** true = mark paid (must equal expected share); false = remove payment */
   paid: z.boolean(),
+  /** Optional; when set must equal expectedPaymentForShare exactly */
   amount: z.number().int().min(1).optional(),
 });
 

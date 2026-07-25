@@ -264,6 +264,8 @@ export function ExpenseForm({
   );
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [debouncedTitle, setDebouncedTitle] = useState("");
+  /** Trip split list — collapsed by default to keep the bottom sheet compact. */
+  const [splitsOpen, setSplitsOpen] = useState(false);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -292,6 +294,12 @@ export function ExpenseForm({
     }, CATEGORY_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [watchedTitle]);
+
+  useEffect(() => {
+    if (form.formState.errors.splits) {
+      setSplitsOpen(true);
+    }
+  }, [form.formState.errors.splits]);
 
   const predictedCategory = useMemo(
     () =>
@@ -950,17 +958,45 @@ export function ExpenseForm({
 
         {!hideSplits ? (
         <div className="rounded-2xl border border-border/55 bg-card p-3.5">
-          <div className="mb-2.5 flex items-baseline justify-between gap-2">
-            <p className="text-body-sm font-semibold text-foreground">چه کسانی</p>
-            <p className="text-caption text-muted-foreground">
-              {selectedCount} نفر
-              {splitMode === "EQUAL" && totalShareWeight > 0
-                ? ` · ${totalShareWeight} سهم`
-                : ""}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSplitsOpen((o) => !o)}
+            className="flex w-full items-center gap-2 text-start active:opacity-80"
+            aria-expanded={splitsOpen}
+            aria-controls="expense-splits-panel"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-body-sm font-semibold text-foreground">
+                چه کسانی
+              </p>
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                {selectedCount} نفر
+                {splitMode === "EQUAL" && totalShareWeight > 0
+                  ? ` · ${totalShareWeight} سهم`
+                  : ""}
+                {!splitsOpen ? " · برای ویرایش باز کنید" : ""}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-transform duration-200 ease-out",
+                splitsOpen && "rotate-180",
+              )}
+              aria-hidden
+            >
+              <ChevronDownIcon className="size-4" />
+            </span>
+          </button>
 
-          <ul className="divide-y divide-border/45">
+          <div
+            id="expense-splits-panel"
+            className={cn(
+              "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+              splitsOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            )}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <ul className="mt-2.5 divide-y divide-border/45 border-t border-border/40 pt-2.5">
             {members.map((member, index) => {
               const selected = splits?.[index]?.selected ?? false;
               const equalAmount = selected
@@ -1138,25 +1174,27 @@ export function ExpenseForm({
                 </li>
               );
             })}
-          </ul>
+              </ul>
 
-          {splitMode === "EXACT" ? (
-            <div
-              className={cn(
-                "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
-                remaining === 0
-                  ? "bg-success-soft text-success"
-                  : remaining > 0
-                    ? "bg-muted text-muted-foreground"
-                    : "bg-destructive-soft text-destructive",
-              )}
-            >
-              <span>باقی‌مانده</span>
-              <span className="font-bold tabular-nums">
-                {formatCurrency(remaining, _currency)}
-              </span>
+              {splitMode === "EXACT" ? (
+                <div
+                  className={cn(
+                    "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
+                    remaining === 0
+                      ? "bg-success-soft text-success"
+                      : remaining > 0
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-destructive-soft text-destructive",
+                  )}
+                >
+                  <span>باقی‌مانده</span>
+                  <span className="font-bold tabular-nums">
+                    {formatCurrency(remaining, _currency)}
+                  </span>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
         ) : null}
 
@@ -1191,5 +1229,22 @@ export function ExpenseForm({
         </div>
       </form>
     </Form>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

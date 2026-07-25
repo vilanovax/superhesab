@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { exportUserBackup, updateProfile } from "@/app/actions/settings";
+import { updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
+import { AccountBackupPanel } from "@/components/settings/backup-panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,29 +91,6 @@ export function AppSettingsPanel({
       }
       setMessage("پروفایل ذخیره شد.");
       router.refresh();
-    });
-  }
-
-  function onBackup() {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      try {
-        const data = await exportUserBackup();
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        const stamp = new Date().toISOString().slice(0, 10);
-        a.href = url;
-        a.download = `superhesab-backup-${stamp}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setMessage("فایل بک‌آپ دانلود شد.");
-      } catch {
-        setError("خروجی بک‌آپ ناموفق بود.");
-      }
     });
   }
 
@@ -324,23 +302,7 @@ export function AppSettingsPanel({
 
         {tab === "data" ? (
           <div className="space-y-3">
-            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-sm">
-              <h2 className="text-body-sm font-semibold text-foreground">
-                بک‌آپ
-              </h2>
-              <p className="mt-0.5 text-caption text-muted-foreground">
-                خروجی JSON از فضاها و هزینه‌ها
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 h-11 w-full rounded-xl"
-                disabled={pending}
-                onClick={onBackup}
-              >
-                دانلود بک‌آپ
-              </Button>
-            </section>
+            <AccountBackupPanel />
 
             <section className="rounded-2xl border border-destructive/20 bg-card p-4 shadow-sm">
               <h2 className="text-body-sm font-semibold text-destructive">

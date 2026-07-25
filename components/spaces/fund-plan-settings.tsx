@@ -62,61 +62,66 @@ export function FundPlanSettings({
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-body-sm font-semibold text-foreground">
-          پلن صندوق
-        </h2>
-        <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
-          مبلغ یک سهم کامل (۱×) و تعداد دوره‌های نوبت. کاهش دوره‌ها، نوبت‌ها و
-          پرداخت‌های بعد از آن را حذف می‌کند.
-        </p>
-      </div>
-
-      {hasPlan ? (
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/55 px-3.5 py-3">
-          <div>
-            <p className="text-caption text-muted-foreground">سهم پایه فعلی</p>
-            <p className="mt-0.5 text-body-sm font-semibold tabular-nums text-foreground">
+    <div className="space-y-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-body-sm font-semibold text-foreground">
+            پلن صندوق
+          </h2>
+          <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
+            {hasPlan
+              ? "کاهش دوره‌ها، نوبت‌های بعدی را حذف می‌کند."
+              : "مبلغ یک سهم کامل (۱×) و تعداد دوره‌ها."}
+          </p>
+        </div>
+        {hasPlan ? (
+          <div className="shrink-0 rounded-xl bg-muted/60 px-2.5 py-1.5 text-end">
+            <p className="text-[0.65rem] font-medium text-muted-foreground">
+              فعلی
+            </p>
+            <p className="text-caption font-semibold tabular-nums text-foreground">
               {formatCurrency(initialShareAmount!, currency)}
             </p>
-          </div>
-          <div>
-            <p className="text-caption text-muted-foreground">تعداد دوره</p>
-            <p className="mt-0.5 text-body-sm font-semibold tabular-nums text-foreground">
-              {initialPeriodCount}
+            <p className="text-[0.65rem] tabular-nums text-muted-foreground">
+              {initialPeriodCount} دوره
             </p>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
-      <form onSubmit={onSubmit} className="space-y-3.5">
-        <div className="space-y-2">
-          <Label htmlFor="fundShareAmount">مبلغ هر سهم (۱×)</Label>
-          <MoneyInput
-            id="fundShareAmount"
-            value={shareAmount}
-            onValueChange={setShareAmount}
-            disabled={disabled || pending}
-            placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}`}
-            className="h-12 rounded-xl"
-            required
-          />
-        </div>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="fundShareAmount" className="text-caption">
+              مبلغ هر سهم (۱×)
+            </Label>
+            <MoneyInput
+              id="fundShareAmount"
+              value={shareAmount}
+              onValueChange={setShareAmount}
+              disabled={disabled || pending}
+              placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}`}
+              className="h-11 rounded-xl"
+              required
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="fundPeriodCount">تعداد دوره</Label>
-          <Input
-            id="fundPeriodCount"
-            value={periodCount}
-            onChange={(e) => setPeriodCount(e.target.value)}
-            inputMode="numeric"
-            disabled={disabled || pending}
-            placeholder="مثلاً ۱۲"
-            className="h-12 rounded-xl tabular-nums"
-            required
-          />
-          <p className="text-xs text-muted-foreground">حداقل ۲، حداکثر ۶۰ دوره.</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="fundPeriodCount" className="text-caption">
+              تعداد دوره
+            </Label>
+            <Input
+              id="fundPeriodCount"
+              value={periodCount}
+              onChange={(e) => setPeriodCount(e.target.value)}
+              inputMode="numeric"
+              disabled={disabled || pending}
+              placeholder="مثلاً ۱۲"
+              className="h-11 rounded-xl tabular-nums"
+              required
+            />
+            <p className="text-[0.65rem] text-muted-foreground">۲ تا ۶۰</p>
+          </div>
         </div>
 
         {error ? (
@@ -127,12 +132,12 @@ export function FundPlanSettings({
 
         {disabled ? (
           <p className="text-sm text-muted-foreground">
-            فقط مالک می‌تواند پلن صندوق را تغییر دهد.
+            فقط مالک می‌تواند پلن را تغییر دهد.
           </p>
         ) : (
           <Button
             type="submit"
-            className="h-12 w-full rounded-xl active:scale-[0.98]"
+            className="h-11 w-full rounded-xl active:scale-[0.98]"
             disabled={pending}
           >
             {pending ? "…" : hasPlan ? "ذخیره پلن" : "ایجاد پلن و دوره‌ها"}

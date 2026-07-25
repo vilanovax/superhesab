@@ -526,13 +526,23 @@ async function main() {
         }
 
         const board = await httpGet(
-          `/spaces/${buildingSpace.id}?tab=suggestions`,
+          `/spaces/${buildingSpace.id}/board`,
           cookie,
         );
         if (board.status === 200) {
-          pass("HTTP GET building برد tab 200");
+          pass("HTTP GET building برد page 200");
         } else {
           fail("HTTP GET building برد", `status=${board.status}`);
+        }
+
+        const unitsTab = await httpGet(
+          `/spaces/${buildingSpace.id}?tab=units`,
+          cookie,
+        );
+        if (unitsTab.status === 200) {
+          pass("HTTP GET building units tab 200");
+        } else {
+          fail("HTTP GET building units", `status=${unitsTab.status}`);
         }
       } else {
         fail("HTTP building pages", "seed building space missing — re-seed");

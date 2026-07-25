@@ -545,19 +545,21 @@ export async function upsertChargePayment(
   }
 }
 
-export async function listUnitsForSettings(spaceId: string): Promise<
-  {
-    id: string;
-    name: string;
-    area: number | null;
-    multiplier: number;
-    isActive: boolean;
-    inviteToken: string;
-    linkedUserId: string | null;
-    linkedUserName: string | null;
-    linkedAt: string | null;
-  }[]
-> {
+export type BuildingUnitRow = {
+  id: string;
+  name: string;
+  area: number | null;
+  multiplier: number;
+  isActive: boolean;
+  inviteToken: string;
+  linkedUserId: string | null;
+  linkedUserName: string | null;
+  linkedAt: string | null;
+};
+
+export async function listUnitsForSettings(
+  spaceId: string,
+): Promise<BuildingUnitRow[]> {
   const session = await requireUser();
   const access = await assertBuilding(spaceId, session.userId);
   if (!access.ok) return [];

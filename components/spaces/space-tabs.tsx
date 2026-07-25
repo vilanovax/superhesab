@@ -23,14 +23,13 @@ import {
 import type { DebtDTO } from "@/app/actions/debt";
 import type {
   AnnualChargeCalendarDTO,
-  BuildingAnnouncementDTO,
   BuildingDashboardDTO,
-  BuildingSuggestionDTO,
+  BuildingUnitRow,
 } from "@/app/actions/building";
 import { DebtPanel } from "@/components/spaces/debt-panel";
 import { BuildingChargesPanel } from "@/components/spaces/building-charges-panel";
-import { BuildingCommunityHub } from "@/components/spaces/building-community-hub";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
+import { BuildingUnitsPanel } from "@/components/spaces/building-units-panel";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
@@ -75,8 +74,7 @@ type SpaceTabsProps = {
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
   buildingDashboard?: BuildingDashboardDTO | null;
   buildingCalendar?: AnnualChargeCalendarDTO | null;
-  buildingSuggestions?: BuildingSuggestionDTO[];
-  buildingAnnouncements?: BuildingAnnouncementDTO[];
+  buildingUnits?: BuildingUnitRow[];
   isOwner?: boolean;
   /** Report chart period copy (e.g. سال ۱۴۰۵ for building). */
   reportPeriodLabel?: string;
@@ -114,8 +112,7 @@ export function SpaceTabs({
   categoryBudgets,
   buildingDashboard = null,
   buildingCalendar = null,
-  buildingSuggestions = [],
-  buildingAnnouncements = [],
+  buildingUnits = [],
   isOwner = false,
   reportPeriodLabel,
   reportEmptyTitle,
@@ -136,15 +133,15 @@ export function SpaceTabs({
 
   if (showIncomeReport && !showSettlements) {
     const extraTabs =
-      (showDebts ? 1 : 0) + (showBuilding ? 2 : 0); // charges + suggestions
+      (showDebts ? 1 : 0) + (showBuilding ? 2 : 0); // charges + units
     const tabCount = 2 + extraTabs;
     const defaultTab =
       initialTab &&
       (initialTab === "report" ||
         initialTab === "charges" ||
+        initialTab === "units" ||
         initialTab === "expenses" ||
-        initialTab === "debts" ||
-        initialTab === "suggestions")
+        initialTab === "debts")
         ? initialTab
         : showBuilding
           ? "charges"
@@ -173,14 +170,14 @@ export function SpaceTabs({
               شارژ
             </TabsTrigger>
           ) : null}
+          {showBuilding ? (
+            <TabsTrigger value="units" className="rounded-xl">
+              واحد
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="report" className="rounded-xl">
             گزارش
           </TabsTrigger>
-          {showBuilding ? (
-            <TabsTrigger value="suggestions" className="rounded-xl">
-              برد
-            </TabsTrigger>
-          ) : null}
           {showDebts ? (
             <TabsTrigger value="debts" className="rounded-xl">
               بدهی / طلب
@@ -207,6 +204,7 @@ export function SpaceTabs({
               <BuildingChargesPanel
                 spaceId={spaceId}
                 settingsHref={`/spaces/${spaceId}/settings`}
+                unitsHref={`/spaces/${spaceId}?tab=units`}
                 dashboard={buildingDashboard}
                 calendar={buildingCalendar}
                 currency={currency}
@@ -218,6 +216,17 @@ export function SpaceTabs({
                 بارگذاری داشبورد شارژ ممکن نیست.
               </div>
             )}
+          </TabsContent>
+        ) : null}
+        {showBuilding ? (
+          <TabsContent value="units" className="mt-3">
+            <BuildingUnitsPanel
+              spaceId={spaceId}
+              currency={currency}
+              units={buildingUnits}
+              baseCharge={buildingDashboard?.plan?.baseCharge ?? 0}
+              canManage={isOwner}
+            />
           </TabsContent>
         ) : null}
         <TabsContent value="report" className="mt-3">
@@ -252,16 +261,6 @@ export function SpaceTabs({
             </>
           )}
         </TabsContent>
-        {showBuilding ? (
-          <TabsContent value="suggestions" className="mt-3">
-            <BuildingCommunityHub
-              spaceId={spaceId}
-              suggestions={buildingSuggestions}
-              announcements={buildingAnnouncements}
-              canMutate={canMutate}
-            />
-          </TabsContent>
-        ) : null}
         {showDebts ? (
           <TabsContent value="debts" className="mt-3">
             <DebtPanel

@@ -3,11 +3,10 @@ import { notFound } from "next/navigation";
 import { listCategoryBudgets } from "@/app/actions/categoryBudget";
 import {
   getChargePlanForYear,
-  listUnitsForSettings,
 } from "@/app/actions/building";
 import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
-import { BuildingSettings } from "@/components/spaces/building-settings";
+import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
@@ -62,20 +61,25 @@ export default async function SpaceSettingsPage({
   const template = getTemplate(space.type);
   const templateDataset = getTemplateDataset(space.type);
   const isOwner = membership.role === "OWNER";
-  const showBudget = template.features.budget;
+  const showBudget = template.features.budget && !template.features.buildingCharges;
   const showCategoryBudgets = template.features.categoryBudgets;
   const showRecurring = template.features.recurring;
   const showBuilding = template.features.buildingCharges;
   const currentJalali = tehranCivilYear();
   const planYear = space.defaultPlanYear ?? currentJalali;
 
-  const [categoryBudgets, recurringRules, buildingUnits, buildingPlan] =
-    await Promise.all([
-      showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
-      showRecurring ? listRecurringRules(id) : Promise.resolve([]),
-      showBuilding ? listUnitsForSettings(id) : Promise.resolve([]),
-      showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
-    ]);
+  const [categoryBudgets, recurringRules, buildingPlan] = await Promise.all([
+    showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
+    showRecurring ? listRecurringRules(id) : Promise.resolve([]),
+    showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
+  ]);
+
+  const roleLabel =
+    membership.role === "OWNER"
+      ? "مالک"
+      : membership.role === "EDITOR"
+        ? "ویرایشگر"
+        : membership.role;
 
   return (
     <main
@@ -102,7 +106,7 @@ export default async function SpaceSettingsPage({
         <h1 className="mt-1 text-2xl font-bold text-on-hero">{space.name}</h1>
         <p className="mt-2 text-sm text-on-hero/75">
           {showBuilding
-            ? "نام، سال مالی، پلن شارژ و مدیریت واحدهای ساختمان."
+            ? "نام، سال مالی و پایه ماهانه شارژ."
             : showBudget
               ? showCategoryBudgets || showRecurring
                 ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
@@ -113,152 +117,132 @@ export default async function SpaceSettingsPage({
 
       <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
         {showBuilding ? (
-          <div className="mb-1">
-            <h2 className="text-body-sm font-semibold text-foreground">
-              اطلاعات کلی
-            </h2>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              نام فضا، واحد پول و سال پیش‌فرض شارژ
-            </p>
-          </div>
-        ) : null}
-        <form action={updateSpaceSettingsAndRedirect} className="space-y-4">
-          <input type="hidden" name="spaceId" value={space.id} />
+          <BuildingSettingsForm
+            spaceId={space.id}
+            initialName={space.name}
+            currency={space.currency}
+            planYear={planYear}
+            baseCharge={buildingPlan?.baseCharge ?? 0}
+            templateLabel={template.label}
+            roleLabel={roleLabel}
+            disabled={!isOwner}
+            error={error}
+          />
+        ) : (
+          <form action={updateSpaceSettingsAndRedirect} className="space-y-4">
+            <input type="hidden" name="spaceId" value={space.id} />
 
-          <div className="space-y-2">
-            <Label htmlFor="name">نام فضا</Label>
-            <Input
-              id="name"
-              name="name"
-              required
-              minLength={2}
-              defaultValue={space.name}
-              disabled={!isOwner}
-              className="rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="currency">واحد پول</Label>
-            <select
-              id="currency"
-              name="currency"
-              defaultValue={space.currency}
-              disabled={!isOwner}
-              className="flex h-12 w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
-            >
-              {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map((code) => (
-                <option key={code} value={code}>
-                  {CURRENCY_LABELS[code]}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              این واحد کنار «مبلغ کل» و مبالغ نمایش داده می‌شود.
-            </p>
-          </div>
-
-          {showBudget ? (
             <div className="space-y-2">
-              <Label htmlFor="monthlyBudget">سقف بودجه ماهانه</Label>
+              <Label htmlFor="name">نام فضا</Label>
               <Input
-                id="monthlyBudget"
-                name="monthlyBudget"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step={1}
-                defaultValue={space.monthlyBudget ?? ""}
-                placeholder="مثلاً ۵۰۰۰۰۰۰"
+                id="name"
+                name="name"
+                required
+                minLength={2}
+                defaultValue={space.name}
                 disabled={!isOwner}
-                className="rounded-xl tabular-nums"
+                className="rounded-xl"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currency">واحد پول</Label>
+              <select
+                id="currency"
+                name="currency"
+                defaultValue={space.currency}
+                disabled={!isOwner}
+                className="flex h-12 w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
+              >
+                {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map(
+                  (code) => (
+                    <option key={code} value={code}>
+                      {CURRENCY_LABELS[code]}
+                    </option>
+                  ),
+                )}
+              </select>
               <p className="text-xs text-muted-foreground">
-                خالی بگذارید تا نوار بودجه در داشبورد نمایش داده نشود.
+                کنار مبالغ نمایش داده می‌شود.
               </p>
             </div>
-          ) : (
-            <label
-              className={`flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-sheet-muted px-3.5 py-3.5 ${!isOwner ? "opacity-60" : ""}`}
-            >
-              <input
-                type="checkbox"
-                name="roundUpToThousand"
-                defaultChecked={space.roundUpToThousand}
-                disabled={!isOwner}
-                className="mt-0.5 size-5 shrink-0 rounded-md border border-input accent-[var(--primary)]"
-              />
-              <span className="min-w-0 space-y-1">
-                <span className="block text-body-sm font-semibold text-foreground">
-                  رند کردن مبالغ به هزار
-                </span>
-                <span className="block text-label leading-relaxed text-muted-foreground">
-                  در تب ترازها، مانده و پیشنهاد تسویه به سمت بالا به نزدیک‌ترین
-                  هزار رند می‌شود (مثلاً ۲۹۶٬۶۶۶ → ۲۹۷٬۰۰۰) تا پرداخت نقدی
-                  ساده‌تر باشد.
-                </span>
-              </span>
-            </label>
-          )}
 
-          {showBudget ? (
-            <input type="hidden" name="roundUpToThousand" value="" />
-          ) : (
-            <input type="hidden" name="monthlyBudget" value="" />
-          )}
+            {showBudget ? (
+              <div className="space-y-2">
+                <Label htmlFor="monthlyBudget">سقف بودجه ماهانه</Label>
+                <Input
+                  id="monthlyBudget"
+                  name="monthlyBudget"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  defaultValue={space.monthlyBudget ?? ""}
+                  placeholder="مثلاً ۵۰۰۰۰۰۰"
+                  disabled={!isOwner}
+                  className="rounded-xl tabular-nums"
+                />
+                <p className="text-xs text-muted-foreground">
+                  خالی = بدون نوار بودجه در داشبورد.
+                </p>
+              </div>
+            ) : (
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-sheet-muted px-3.5 py-3.5 ${!isOwner ? "opacity-60" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  name="roundUpToThousand"
+                  defaultChecked={space.roundUpToThousand}
+                  disabled={!isOwner}
+                  className="mt-0.5 size-5 shrink-0 rounded-md border border-input accent-[var(--primary)]"
+                />
+                <span className="min-w-0 space-y-1">
+                  <span className="block text-body-sm font-semibold text-foreground">
+                    رند کردن مبالغ به هزار
+                  </span>
+                  <span className="block text-label leading-relaxed text-muted-foreground">
+                    در تب ترازها، مانده و پیشنهاد تسویه به سمت بالا به نزدیک‌ترین
+                    هزار رند می‌شود.
+                  </span>
+                </span>
+              </label>
+            )}
 
-          {showBuilding ? (
-            <div className="space-y-2">
-              <Label htmlFor="defaultPlanYear">سال پیش‌فرض (شمسی)</Label>
-              <Input
-                id="defaultPlanYear"
-                name="defaultPlanYear"
-                type="text"
-                inputMode="numeric"
-                defaultValue={space.defaultPlanYear ?? currentJalali}
-                placeholder={`مثلاً ${currentJalali}`}
-                disabled={!isOwner}
-                className="rounded-xl tabular-nums"
-              />
-              <p className="text-xs text-muted-foreground">
-                سال مالی پیش‌فرض تب شارژ. برای وارد کردن دادهٔ سال قبل، همین‌جا
-                سال را عوض کنید (مثلاً ۱۴۰۴).
-              </p>
-            </div>
-          ) : (
+            {showBudget ? (
+              <input type="hidden" name="roundUpToThousand" value="" />
+            ) : (
+              <input type="hidden" name="monthlyBudget" value="" />
+            )}
             <input type="hidden" name="defaultPlanYear" value="" />
-          )}
 
-          <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground">
-            قالب:{" "}
-            <span className="font-medium text-foreground">{template.label}</span>
-            {" · "}
-            نقش شما:{" "}
-            <span className="font-medium text-foreground">
-              {membership.role === "OWNER"
-                ? "مالک"
-                : membership.role === "EDITOR"
-                  ? "ویرایشگر"
-                  : membership.role}
-            </span>
-          </div>
+            <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground">
+              قالب:{" "}
+              <span className="font-medium text-foreground">
+                {template.label}
+              </span>
+              {" · "}
+              نقش شما:{" "}
+              <span className="font-medium text-foreground">{roleLabel}</span>
+            </div>
 
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
 
-          {!isOwner ? (
-            <p className="text-sm text-muted-foreground">
-              فقط مالک فضا می‌تواند تنظیمات را ذخیره کند.
-            </p>
-          ) : (
-            <Button type="submit" className="h-12 w-full rounded-xl">
-              ذخیره تنظیمات
-            </Button>
-          )}
-        </form>
+            {!isOwner ? (
+              <p className="text-sm text-muted-foreground">
+                فقط مالک فضا می‌تواند تنظیمات را ذخیره کند.
+              </p>
+            ) : (
+              <Button type="submit" className="h-12 w-full rounded-xl">
+                ذخیره تنظیمات
+              </Button>
+            )}
+          </form>
+        )}
       </section>
 
       {showCategoryBudgets ? (
@@ -277,27 +261,6 @@ export default async function SpaceSettingsPage({
             spaceId={space.id}
             initial={recurringRules}
             currency={space.currency}
-            disabled={!isOwner}
-          />
-        </section>
-      ) : null}
-
-      {showBuilding ? (
-        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
-          <div>
-            <h2 className="text-body-sm font-semibold text-foreground">
-              شارژ و واحدها
-            </h2>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              پلن سالانه و تعریف واحدها برای وصول شارژ
-            </p>
-          </div>
-          <BuildingSettings
-            spaceId={space.id}
-            currency={space.currency}
-            units={buildingUnits}
-            planYear={planYear}
-            planBaseCharge={buildingPlan?.baseCharge ?? null}
             disabled={!isOwner}
           />
         </section>

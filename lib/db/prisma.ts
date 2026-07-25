@@ -4,15 +4,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
-  /** Busts stale PrismaClient after `prisma generate` / schema changes under HMR. */
-  prismaSchemaSignature: string | undefined;
 };
 
 /**
- * Changes when generated enums or additive fields change —
- * invalidates the cached client in dev (field adds don't touch SpaceType alone).
+ * Dev fingerprint — when Turbopack re-evaluates this module after
+ * `prisma generate`, we always drop the cached client so DMMF/enums
+ * (e.g. BUILDING_GARDENING) cannot go stale under HMR.
  */
-const SCHEMA_SIGNATURE = [
+const SCHEMA_FINGERPRINT = [
   Object.keys(SpaceType).sort().join(","),
   Object.keys(ExpenseCategory).sort().join(","),
   "expense.categoryLabel",
@@ -27,6 +26,8 @@ const SCHEMA_SIGNATURE = [
   "building.calendar.v1",
 ].join("|");
 
+void SCHEMA_FINGERPRINT;
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -37,18 +38,18 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-if (
-  process.env.NODE_ENV !== "production" &&
-  globalForPrisma.prisma &&
-  globalForPrisma.prismaSchemaSignature !== SCHEMA_SIGNATURE
-) {
-  void globalForPrisma.prisma.$disconnect();
+const isDev = process.env.NODE_ENV !== "production";
+
+if (isDev && globalForPrisma.prisma) {
+  // Module re-eval (HMR / generate): discard stale singleton before export.
+  void globalForPrisma.prisma.$disconnect().catch(() => undefined);
   globalForPrisma.prisma = undefined;
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+if (isDev) {
   globalForPrisma.prisma = prisma;
-  globalForPrisma.prismaSchemaSignature = SCHEMA_SIGNATURE;
+} else {
+  globalForPrisma.prisma ??= prisma;
 }

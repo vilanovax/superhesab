@@ -7,11 +7,10 @@ import {
   regenerateUnitInviteToken,
   unlinkUnitResident,
   updateUnit,
-  upsertChargePlan,
+  type BuildingUnitRow,
 } from "@/app/actions/building";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MoneyInput } from "@/components/ui/money-input";
 import {
   Drawer,
   DrawerContent,
@@ -19,78 +18,101 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import {
-  formatJalaliYear,
-  tehranCivilYear,
-  unitMonthlyCharge,
-} from "@/lib/building";
-import { currencyLabel, type SpaceCurrency } from "@/lib/format";
+import { unitMonthlyCharge } from "@/lib/building";
+import { type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
-type UnitRow = {
-  id: string;
-  name: string;
-  area: number | null;
-  multiplier: number;
-  isActive: boolean;
-  inviteToken: string;
-  linkedUserId: string | null;
-  linkedUserName: string | null;
-  linkedAt: string | null;
-};
-
-type BuildingSettingsProps = {
+type BuildingUnitsPanelProps = {
   spaceId: string;
   currency: SpaceCurrency;
-  units: UnitRow[];
-  planYear: number;
-  planBaseCharge: number | null;
-  disabled?: boolean;
+  units: BuildingUnitRow[];
+  baseCharge: number;
+  /** Owner can mutate units; editors see read-only. */
+  canManage: boolean;
 };
 
-export function BuildingSettings({
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M12.5 6.5 4 15v3.5H7.5L16 10.5M12.5 6.5l2.1-2.1a1.5 1.5 0 0 1 2.1 0l1.9 1.9a1.5 1.5 0 0 1 0 2.1L16 10.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MoreIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function faDigits(n: number): string {
+  return String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]!);
+}
+
+export function BuildingUnitsPanel({
   spaceId,
   currency,
   units: initialUnits,
-  planYear,
-  planBaseCharge,
-  disabled = false,
-}: BuildingSettingsProps) {
+  baseCharge,
+  canManage,
+}: BuildingUnitsPanelProps) {
   const router = useRouter();
+  const showToast = useUiStore((s) => s.showToast);
   const [units, setUnits] = useState(initialUnits);
-  const [year, setYear] = useState(String(planYear));
-  const [baseCharge, setBaseCharge] = useState(planBaseCharge ?? 0);
   const [unitName, setUnitName] = useState("");
   const [unitArea, setUnitArea] = useState("");
   const [unitMult, setUnitMult] = useState("1000");
   const [addOpen, setAddOpen] = useState(false);
-  const [editUnit, setEditUnit] = useState<UnitRow | null>(null);
+  const [editUnit, setEditUnit] = useState<BuildingUnitRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editArea, setEditArea] = useState("");
   const [editMult, setEditMult] = useState("1000");
   const [editActive, setEditActive] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  const unitLabel = currencyLabel(currency);
-  const yearNum = Math.trunc(Number(year)) || tehranCivilYear();
 
   useEffect(() => {
     setUnits(initialUnits);
   }, [initialUnits]);
 
   useEffect(() => {
-    setYear(String(planYear));
-    setBaseCharge(planBaseCharge ?? 0);
-  }, [planYear, planBaseCharge]);
+    if (!menuId) return;
+    function onDocClick() {
+      setMenuId(null);
+    }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [menuId]);
 
   const activeCount = useMemo(
     () => units.filter((u) => u.isActive).length,
     [units],
   );
-
   const claimedCount = useMemo(
     () => units.filter((u) => Boolean(u.linkedUserId)).length,
     [units],
@@ -101,24 +123,27 @@ export function BuildingSettings({
     return `${window.location.origin}/invite/unit/${token}`;
   }
 
-  async function copyInvite(unit: UnitRow) {
+  function chargePreview(multiplier: number): number {
+    return unitMonthlyCharge(Math.trunc(baseCharge) || 0, multiplier);
+  }
+
+  async function copyInvite(unit: BuildingUnitRow) {
+    setMenuId(null);
     try {
       await navigator.clipboard.writeText(unitInviteUrl(unit.inviteToken));
-      setOkMsg(`لینک واحد ${unit.name} کپی شد.`);
-      setError(null);
+      showToast(`لینک واحد ${unit.name} کپی شد`);
     } catch {
-      setError("کپی لینک ناموفق بود.");
+      showToast("کپی لینک ناموفق بود", "error");
     }
   }
 
-  function onUnlink(unit: UnitRow) {
+  function onUnlink(unit: BuildingUnitRow) {
     if (!unit.linkedUserId) return;
-    setError(null);
-    setOkMsg(null);
+    setMenuId(null);
     startTransition(async () => {
       const result = await unlinkUnitResident(spaceId, unit.id);
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, "error");
         return;
       }
       setUnits((prev) =>
@@ -128,18 +153,17 @@ export function BuildingSettings({
             : u,
         ),
       );
-      setOkMsg(`اتصال واحد ${unit.name} قطع شد.`);
+      showToast(`اتصال واحد ${unit.name} قطع شد`);
       router.refresh();
     });
   }
 
-  function onRegenerate(unit: UnitRow) {
-    setError(null);
-    setOkMsg(null);
+  function onRegenerate(unit: BuildingUnitRow) {
+    setMenuId(null);
     startTransition(async () => {
       const result = await regenerateUnitInviteToken(spaceId, unit.id);
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, "error");
         return;
       }
       if (result.inviteToken) {
@@ -154,49 +178,26 @@ export function BuildingSettings({
           await navigator.clipboard.writeText(
             unitInviteUrl(result.inviteToken),
           );
-          setOkMsg(`لینک جدید واحد ${unit.name} ساخته و کپی شد.`);
+          showToast(`لینک جدید واحد ${unit.name} کپی شد`);
         } catch {
-          setOkMsg(`لینک جدید واحد ${unit.name} ساخته شد.`);
+          showToast(`لینک جدید واحد ${unit.name} ساخته شد`);
         }
       }
       router.refresh();
     });
   }
 
-  function openEdit(unit: UnitRow) {
+  function openEdit(unit: BuildingUnitRow) {
+    setMenuId(null);
     setEditUnit(unit);
     setEditName(unit.name);
     setEditArea(unit.area != null ? String(unit.area) : "");
     setEditMult(String(unit.multiplier));
     setEditActive(unit.isActive);
-    setError(null);
-  }
-
-  function onSavePlan(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setOkMsg(null);
-    startTransition(async () => {
-      const result = await upsertChargePlan({
-        spaceId,
-        year: yearNum,
-        baseCharge: Math.trunc(baseCharge) || 0,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setOkMsg(
-        `پلن شارژ سال ${formatJalaliYear(yearNum)} ذخیره شد.`,
-      );
-      router.refresh();
-    });
   }
 
   function onAddUnit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setOkMsg(null);
     startTransition(async () => {
       const areaRaw = unitArea.trim();
       const result = await createUnit({
@@ -206,14 +207,14 @@ export function BuildingSettings({
         multiplier: Math.trunc(Number(unitMult)) || 1000,
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, "error");
         return;
       }
       setUnitName("");
       setUnitArea("");
       setUnitMult("1000");
       setAddOpen(false);
-      setOkMsg("واحد اضافه شد.");
+      showToast("واحد اضافه شد");
       router.refresh();
     });
   }
@@ -221,10 +222,8 @@ export function BuildingSettings({
   function onSaveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editUnit) return;
-    setError(null);
-    setOkMsg(null);
     const areaRaw = editArea.trim();
-    const next: UnitRow = {
+    const next: BuildingUnitRow = {
       ...editUnit,
       name: editName.trim(),
       area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
@@ -241,257 +240,198 @@ export function BuildingSettings({
         isActive: next.isActive,
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, "error");
         return;
       }
       setUnits((prev) => prev.map((u) => (u.id === next.id ? next : u)));
       setEditUnit(null);
-      setOkMsg("واحد به‌روزرسانی شد.");
+      showToast("واحد به‌روزرسانی شد");
       router.refresh();
     });
   }
 
-  function chargePreview(multiplier: number): number {
-    return unitMonthlyCharge(Math.trunc(baseCharge) || 0, multiplier);
-  }
-
   return (
-    <div className="space-y-5">
-      {/* Charge plan */}
-      <form
-        onSubmit={onSavePlan}
-        className="space-y-3 rounded-2xl border border-border/55 bg-sheet-muted/40 p-3.5"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-body-sm font-semibold text-foreground">
-              پلن شارژ
-            </h2>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              پایه ماهانه × ضریب واحد (۱۰۰۰ = ۱ برابر)
-            </p>
-          </div>
+    <div className="space-y-3">
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <h2 className="text-body-sm font-semibold text-foreground">واحدها</h2>
+          <p className="mt-0.5 text-caption text-muted-foreground">
+            {units.length === 0
+              ? "هنوز واحدی تعریف نشده"
+              : `${faDigits(activeCount)} فعال · ${faDigits(claimedCount)} متصل`}
+          </p>
           {baseCharge > 0 ? (
-            <span className="shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-micro font-semibold text-primary">
-              {formatJalaliYear(yearNum)}
-            </span>
+            <p className="mt-0.5 text-micro text-muted-foreground">
+              شارژ = پایه {formatCurrency(baseCharge, currency)} × ضریب
+            </p>
           ) : null}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <label className="text-label text-muted-foreground">سال شمسی</label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={year}
-              disabled={disabled || pending}
-              onChange={(e) => setYear(e.target.value.replace(/[^\d]/g, ""))}
-              className="h-11 rounded-xl tabular-nums"
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-label text-muted-foreground">
-              پایه ماهانه ({unitLabel})
-            </label>
-            <MoneyInput
-              value={baseCharge}
-              onValueChange={setBaseCharge}
-              disabled={disabled || pending}
-              className="h-11 rounded-xl font-semibold"
-            />
-          </div>
-        </div>
-        {!disabled ? (
+        {canManage ? (
           <Button
-            type="submit"
-            className="h-11 w-full rounded-xl text-primary-foreground"
-            disabled={pending}
+            type="button"
+            className="h-9 rounded-xl px-3 text-caption font-semibold"
+            onClick={() => setAddOpen(true)}
           >
-            {pending ? "…" : "ذخیره پلن شارژ"}
+            <PlusIcon className="size-3.5" />
+            واحد جدید
           </Button>
         ) : null}
-      </form>
+      </div>
 
-      {/* Units */}
-      <div className="space-y-3">
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <h2 className="text-body-sm font-semibold text-foreground">
-              واحدها
-            </h2>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              {units.length === 0
-                ? "هنوز واحدی تعریف نشده"
-                : `${activeCount.toLocaleString("fa-IR")} فعال · ${claimedCount.toLocaleString("fa-IR")} متصل به اپ`}
-            </p>
-          </div>
-          {!disabled ? (
+      {units.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center">
+          <p className="text-body-sm font-semibold text-foreground">
+            واحدی ثبت نشده
+          </p>
+          <p className="mt-1 text-caption text-muted-foreground">
+            برای وصول شارژ، حداقل یک واحد فعال لازم است.
+          </p>
+          {canManage ? (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 rounded-xl text-caption font-semibold"
-              onClick={() => {
-                setAddOpen(true);
-                setError(null);
-              }}
+              className="mt-3 h-10 rounded-xl"
+              onClick={() => setAddOpen(true)}
             >
-              + واحد جدید
+              <PlusIcon className="size-3.5" />
+              افزودن اولین واحد
             </Button>
           ) : null}
         </div>
-
-        {units.length > 0 ? (
-          <ul className="space-y-2">
-            {units.map((u) => {
-              const monthly = chargePreview(u.multiplier);
-              const claimed = Boolean(u.linkedUserId);
-              return (
-                <li
-                  key={u.id}
-                  className={cn(
-                    "rounded-2xl border bg-card px-3.5 py-3 transition-colors",
-                    u.isActive
-                      ? "border-border/55"
-                      : "border-border/40 bg-muted/30 opacity-80",
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-xl text-caption font-bold",
-                        claimed
-                          ? "bg-success-soft text-success"
-                          : u.isActive
-                            ? "bg-secondary text-secondary-foreground"
-                            : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {u.name}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="truncate text-body-sm font-semibold text-foreground">
-                          واحد {u.name}
-                        </p>
-                        <span
-                          className={cn(
-                            "rounded-md px-1.5 py-0.5 text-micro font-medium",
-                            claimed
-                              ? "bg-success-soft text-success"
-                              : "bg-destructive-soft/70 text-destructive",
-                          )}
-                        >
-                          {claimed ? "متصل شده" : "نپیوسته"}
-                        </span>
-                        {!u.isActive ? (
-                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
-                            غیرفعال
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 text-caption text-muted-foreground">
-                        {claimed && u.linkedUserName
-                          ? `${u.linkedUserName} · `
-                          : ""}
-                        {u.area != null ? `${u.area} م² · ` : ""}
-                        ضریب {(u.multiplier / 1000).toLocaleString("fa-IR", {
-                          maximumFractionDigits: 2,
-                        })}
-                        ×
-                        {monthly > 0
-                          ? ` · ${formatCurrency(monthly, currency)}`
-                          : ""}
+      ) : (
+        <ul className="space-y-2">
+          {units.map((u) => {
+            const monthly = chargePreview(u.multiplier);
+            const claimed = Boolean(u.linkedUserId);
+            return (
+              <li
+                key={u.id}
+                className={cn(
+                  "rounded-2xl border bg-card px-3 py-2.5",
+                  u.isActive
+                    ? "border-border/55"
+                    : "border-border/40 bg-muted/30 opacity-80",
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-xl text-caption font-bold",
+                      claimed
+                        ? "bg-success-soft text-success"
+                        : u.isActive
+                          ? "bg-secondary text-secondary-foreground"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {u.name}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-body-sm font-semibold text-foreground">
+                        واحد {u.name}
                       </p>
+                      <span
+                        className={cn(
+                          "rounded-md px-1.5 py-0.5 text-micro font-medium",
+                          claimed
+                            ? "bg-success-soft text-success"
+                            : "bg-destructive-soft/70 text-destructive",
+                        )}
+                      >
+                        {claimed ? "متصل" : "نپیوسته"}
+                      </span>
+                      {!u.isActive ? (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
+                          غیرفعال
+                        </span>
+                      ) : null}
                     </div>
+                    <p className="mt-0.5 truncate text-caption text-muted-foreground">
+                      {[
+                        claimed && u.linkedUserName ? u.linkedUserName : null,
+                        u.area != null ? `${u.area} م²` : null,
+                        monthly > 0
+                          ? formatCurrency(monthly, currency)
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   </div>
-                  {!disabled ? (
-                    <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-border/40 pt-2.5">
-                      <Button
+
+                  {canManage ? (
+                    <div className="relative flex shrink-0 items-center gap-1">
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-lg text-caption"
+                        aria-label="ویرایش"
+                        title="ویرایش"
                         disabled={pending}
                         onClick={() => openEdit(u)}
+                        className="inline-flex size-9 items-center justify-center rounded-xl border border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-45"
                       >
-                        ویرایش
-                      </Button>
-                      <Button
+                        <PencilIcon className="size-4" />
+                      </button>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-lg text-caption"
+                        aria-label="بیشتر"
+                        aria-expanded={menuId === u.id}
                         disabled={pending}
-                        onClick={() => copyInvite(u)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuId((id) => (id === u.id ? null : u.id));
+                        }}
+                        className={cn(
+                          "inline-flex size-9 items-center justify-center rounded-xl border border-border/60 transition-colors",
+                          menuId === u.id
+                            ? "border-primary/35 bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
                       >
-                        کپی لینک ساکن
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-lg text-caption"
-                        disabled={pending}
-                        onClick={() => onRegenerate(u)}
-                      >
-                        تولید مجدد لینک
-                      </Button>
-                      {claimed ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 rounded-lg text-caption text-destructive"
-                          disabled={pending}
-                          onClick={() => onUnlink(u)}
+                        <MoreIcon className="size-4" />
+                      </button>
+                      {menuId === u.id ? (
+                        <div
+                          role="menu"
+                          className="absolute end-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-border/60 bg-card py-1 shadow-lg"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          قطع اتصال
-                        </Button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2 text-start text-caption font-medium hover:bg-muted"
+                            onClick={() => copyInvite(u)}
+                          >
+                            کپی لینک ساکن
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2 text-start text-caption font-medium hover:bg-muted"
+                            onClick={() => onRegenerate(u)}
+                          >
+                            تولید مجدد لینک
+                          </button>
+                          {claimed ? (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="block w-full px-3 py-2 text-start text-caption font-medium text-destructive hover:bg-destructive-soft"
+                              onClick={() => onUnlink(u)}
+                            >
+                              قطع اتصال
+                            </button>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center">
-            <p className="text-body-sm font-semibold text-foreground">
-              واحدی ثبت نشده
-            </p>
-            <p className="mt-1 text-caption text-muted-foreground">
-              برای وصول شارژ، حداقل یک واحد فعال لازم است.
-            </p>
-            {!disabled ? (
-              <Button
-                type="button"
-                className="mt-3 h-10 rounded-xl text-primary-foreground"
-                onClick={() => setAddOpen(true)}
-              >
-                افزودن اولین واحد
-              </Button>
-            ) : null}
-          </div>
-        )}
-      </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-      {error ? (
-        <p
-          className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
-      {okMsg ? (
-        <p className="rounded-lg bg-success-soft px-2.5 py-1.5 text-caption text-success">
-          {okMsg}
-        </p>
-      ) : null}
-
-      {/* Add unit drawer */}
       <Drawer open={addOpen} onOpenChange={setAddOpen}>
         <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
@@ -500,7 +440,7 @@ export function BuildingSettings({
                 واحد جدید
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                نام، متراژ و ضریب شارژ را وارد کنید
+                نام، متراژ و ضریب شارژ
               </DrawerDescription>
             </DrawerHeader>
           </div>
@@ -556,7 +496,7 @@ export function BuildingSettings({
             <p className="text-micro text-muted-foreground">
               ۱۰۰۰ = شارژ کامل پایه
               {baseCharge > 0
-                ? ` · پیش‌نمایش: ${formatCurrency(chargePreview(Math.trunc(Number(unitMult)) || 1000), currency)}`
+                ? ` · ${formatCurrency(chargePreview(Math.trunc(Number(unitMult)) || 1000), currency)}`
                 : ""}
             </p>
             <div className="flex gap-2 pt-1">
@@ -570,7 +510,7 @@ export function BuildingSettings({
               </Button>
               <Button
                 type="submit"
-                className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
+                className="h-11 flex-[1.4] rounded-xl"
                 disabled={pending}
               >
                 {pending ? "…" : "افزودن"}
@@ -580,7 +520,6 @@ export function BuildingSettings({
         </DrawerContent>
       </Drawer>
 
-      {/* Edit unit drawer */}
       <Drawer
         open={Boolean(editUnit)}
         onOpenChange={(open) => {
@@ -594,7 +533,7 @@ export function BuildingSettings({
                 ویرایش واحد {editUnit?.name}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                نام، متراژ، ضریب و وضعیت فعال
+                نام، متراژ، ضریب و وضعیت
               </DrawerDescription>
             </DrawerHeader>
           </div>
@@ -656,7 +595,7 @@ export function BuildingSettings({
                   : "border-border/60 bg-muted/50 text-muted-foreground",
               )}
             >
-              <span>{editActive ? "واحد فعال است" : "واحد غیرفعال است"}</span>
+              <span>{editActive ? "فعال" : "غیرفعال"}</span>
               <span className="text-caption">
                 {editActive ? "برای غیرفعال‌سازی بزنید" : "برای فعال‌سازی بزنید"}
               </span>
@@ -664,7 +603,7 @@ export function BuildingSettings({
 
             {baseCharge > 0 ? (
               <p className="rounded-xl bg-sheet-muted px-3 py-2 text-caption text-muted-foreground">
-                شارژ ماهانه تخمینی:{" "}
+                شارژ ماهانه:{" "}
                 <span className="font-semibold text-foreground">
                   {formatCurrency(
                     chargePreview(Math.trunc(Number(editMult)) || 1000),
@@ -685,7 +624,7 @@ export function BuildingSettings({
               </Button>
               <Button
                 type="submit"
-                className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
+                className="h-11 flex-[1.4] rounded-xl"
                 disabled={pending}
               >
                 {pending ? "…" : "ذخیره"}

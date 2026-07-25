@@ -54,6 +54,7 @@ const JalaliDatePicker = dynamic(
 type BuildingChargesPanelProps = {
   spaceId: string;
   settingsHref: string;
+  unitsHref: string;
   dashboard: BuildingDashboardDTO;
   calendar: AnnualChargeCalendarDTO | null;
   currency: SpaceCurrency;
@@ -64,6 +65,7 @@ type BuildingChargesPanelProps = {
 export function BuildingChargesPanel({
   spaceId,
   settingsHref,
+  unitsHref,
   dashboard,
   calendar,
   currency,
@@ -195,7 +197,7 @@ export function BuildingChargesPanel({
         </p>
         {isOwner ? (
           <Button asChild className="h-11 rounded-xl">
-            <Link href={settingsHref}>افزودن واحد</Link>
+            <Link href={unitsHref}>افزودن واحد</Link>
           </Button>
         ) : null}
       </div>

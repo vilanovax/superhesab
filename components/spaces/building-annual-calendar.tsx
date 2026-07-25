@@ -107,6 +107,11 @@ function cellTitle(
   return `واحد ${unitName} · ${monthName} · ${status}`;
 }
 
+/** Deterministic Persian digits — avoids SSR/CSR `toLocaleString("fa-IR")` drift. */
+function faDigits(n: number): string {
+  return String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]!);
+}
+
 /**
  * Units × Jalali months color grid — mobile-first touch targets & legend.
  */
@@ -152,13 +157,13 @@ export function BuildingAnnualCalendar({
             <p className="mt-0.5 text-caption text-muted-foreground">
               تا {MONTH_LABELS_FA[throughMonth]}:{" "}
               <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                {stats.paid.toLocaleString("fa-IR")} تسویه
+                {faDigits(stats.paid)} تسویه
               </span>
               {stats.due > 0 ? (
                 <>
                   {" · "}
                   <span className="font-semibold text-rose-700 dark:text-rose-400">
-                    {stats.due.toLocaleString("fa-IR")} بدهکار
+                    {faDigits(stats.due)} بدهکار
                   </span>
                 </>
               ) : null}
@@ -242,7 +247,7 @@ export function BuildingAnnualCalendar({
                                 : "text-muted-foreground/80",
                             )}
                           >
-                            {m.toLocaleString("fa-IR")}
+                            {faDigits(m)}
                           </span>
                         </span>
                       </th>

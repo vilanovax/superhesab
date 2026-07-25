@@ -44,6 +44,8 @@ export async function updateSpaceSettings(input: {
   roundUpToThousand: boolean;
   monthlyBudget?: number | null;
   defaultPlanYear?: number | null;
+  /** When set with BUILDING + defaultPlanYear, upserts that year's charge plan. */
+  baseCharge?: number | null;
 }): Promise<SpaceActionResult> {
   const session = await requireUser();
   const parsed = updateSpaceSchema.safeParse(input);
@@ -71,13 +73,20 @@ export async function updateSpaceSettings(input: {
 
   const features = getTemplate(space?.type ?? "TRIP").features;
 
+  const nextPlanYear =
+    features.buildingCharges &&
+    parsed.data.defaultPlanYear &&
+    parsed.data.defaultPlanYear >= 1390
+      ? parsed.data.defaultPlanYear
+      : null;
+
   await prisma.space.update({
     where: { id: parsed.data.spaceId },
     data: {
       name: parsed.data.name,
       currency: parsed.data.currency,
       roundUpToThousand: parsed.data.roundUpToThousand,
-      ...(features.budget
+      ...(features.budget && !features.buildingCharges
         ? {
             monthlyBudget:
               parsed.data.monthlyBudget === undefined
@@ -89,17 +98,34 @@ export async function updateSpaceSettings(input: {
         : {}),
       ...(features.buildingCharges
         ? {
-            defaultPlanYear:
-              parsed.data.defaultPlanYear === undefined
-                ? undefined
-                : parsed.data.defaultPlanYear &&
-                    parsed.data.defaultPlanYear >= 1390
-                  ? parsed.data.defaultPlanYear
-                  : null,
+            defaultPlanYear: nextPlanYear,
           }
         : {}),
     },
   });
+
+  if (
+    features.buildingCharges &&
+    nextPlanYear != null &&
+    input.baseCharge !== undefined &&
+    input.baseCharge !== null
+  ) {
+    const base = Math.max(0, Math.trunc(input.baseCharge));
+    await prisma.chargePlan.upsert({
+      where: {
+        spaceId_year: {
+          spaceId: parsed.data.spaceId,
+          year: nextPlanYear,
+        },
+      },
+      create: {
+        spaceId: parsed.data.spaceId,
+        year: nextPlanYear,
+        baseCharge: base,
+      },
+      update: { baseCharge: base },
+    });
+  }
 
   revalidatePath(`/spaces/${parsed.data.spaceId}`);
   revalidatePath(`/spaces/${parsed.data.spaceId}/settings`);
@@ -125,6 +151,11 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
     planYearRaw === ""
       ? null
       : Number.parseInt(planYearRaw.replace(/\D/g, ""), 10);
+  const baseChargeRaw = String(formData.get("baseCharge") ?? "").trim();
+  const baseChargeParsed =
+    baseChargeRaw === ""
+      ? undefined
+      : Number.parseInt(baseChargeRaw.replace(/\D/g, ""), 10);
   const result = await updateSpaceSettings({
     spaceId,
     name,
@@ -138,6 +169,10 @@ export async function updateSpaceSettingsAndRedirect(formData: FormData) {
       defaultPlanYear != null && Number.isFinite(defaultPlanYear)
         ? defaultPlanYear
         : null,
+    baseCharge:
+      baseChargeParsed != null && Number.isFinite(baseChargeParsed)
+        ? baseChargeParsed
+        : undefined,
   });
   if (!result.ok) {
     redirect(

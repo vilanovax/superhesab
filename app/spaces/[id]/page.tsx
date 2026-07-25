@@ -5,12 +5,12 @@ import { listSpaceDebts } from "@/app/actions/debt";
 import {
   getAnnualChargeCalendar,
   getBuildingDashboard,
-  listBuildingAnnouncements,
-  listBuildingSuggestions,
+  listUnitsForSettings,
 } from "@/app/actions/building";
 import { ensureRecurringExpenses } from "@/app/actions/recurring";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
+import { BuildingBoardNavButton } from "@/components/spaces/building-board-nav-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
@@ -124,6 +124,11 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     redirect(`/spaces/${id}/resident`);
   }
 
+  // Board moved out of the tab bar → dedicated route.
+  if (tabParam === "suggestions") {
+    redirect(`/spaces/${id}/board`);
+  }
+
   const spaceTypeRow = await prisma.space.findUnique({
     where: { id },
     select: { type: true },
@@ -183,9 +188,9 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
   const initialTab =
     tabParam === "report" ||
     tabParam === "charges" ||
+    tabParam === "units" ||
     tabParam === "expenses" ||
-    tabParam === "debts" ||
-    tabParam === "suggestions"
+    tabParam === "debts"
       ? tabParam
       : undefined;
 
@@ -200,7 +205,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingSuggestions, buildingCalendar, buildingAnnouncements] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -314,14 +319,19 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         ? getBuildingDashboard(id, planYear)
         : Promise.resolve(null),
       features.buildingCharges
-        ? listBuildingSuggestions(id)
-        : Promise.resolve([]),
-      features.buildingCharges
         ? getAnnualChargeCalendar(id, planYear)
         : Promise.resolve(null),
       features.buildingCharges
-        ? listBuildingAnnouncements(id, { includeArchived: true })
+        ? listUnitsForSettings(id)
         : Promise.resolve([]),
+      features.buildingCharges
+        ? prisma.buildingSuggestion.count({
+            where: {
+              spaceId: id,
+              status: { in: ["OPEN", "IN_PROGRESS"] },
+            },
+          })
+        : Promise.resolve(0),
     ]);
 
   if (!space) {
@@ -416,6 +426,12 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
                   ? "خانواده"
                   : "شخصی"}
             </span>
+            {isBuildingShell ? (
+              <BuildingBoardNavButton
+                spaceId={space.id}
+                badgeCount={openBoardSuggestions}
+              />
+            ) : null}
             <Button
               asChild
               variant="outline"
@@ -728,8 +744,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         )}
         buildingDashboard={buildingDashboard}
         buildingCalendar={buildingCalendar}
-        buildingSuggestions={buildingSuggestions}
-        buildingAnnouncements={buildingAnnouncements}
+        buildingUnits={buildingUnits}
         isOwner={isOwner}
         initialTab={initialTab}
         reportPlanYear={features.buildingCharges ? planYear : undefined}

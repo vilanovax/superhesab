@@ -22,7 +22,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import type { SpaceRole } from "@/types";
+import type { SpaceRole, SpaceType } from "@/types";
 
 export type InviteMemberRow = MembersListRow;
 
@@ -33,8 +33,10 @@ type InviteMembersButtonProps = {
   currentUserRole: SpaceRole;
   /** icon = hero +; banner = partner empty-state CTA; empty = expense empty secondary */
   variant?: "icon" | "banner" | "empty";
-  /** FAMILY: role picker on invite link */
+  /** FAMILY / FUND: role picker on invite link */
   inviteRolePicker?: boolean;
+  spaceType?: SpaceType;
+  maxMembers?: number | null;
 };
 
 function useIsDesktop() {
@@ -68,6 +70,12 @@ function UserPlusIcon({ className }: { className?: string }) {
   );
 }
 
+function shareCaptionFor(type?: SpaceType): string {
+  if (type === "FUND") return "ضریب سهم";
+  if (type === "FAMILY" || type === "PERSONAL") return "ضریب";
+  return "ضریب تسهیم";
+}
+
 export function InviteMembersButton({
   spaceId,
   spaceName,
@@ -75,6 +83,8 @@ export function InviteMembersButton({
   currentUserRole,
   variant = "icon",
   inviteRolePicker = false,
+  spaceType,
+  maxMembers = null,
 }: InviteMembersButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
@@ -112,15 +122,18 @@ export function InviteMembersButton({
       </Button>
     );
 
-  const title = variant === "banner"
-    ? inviteRolePicker
-      ? "دعوت به خانواده"
-      : "دعوت به حساب مشترک"
-    : "مدیریت اعضا";
-  const description =
+  const title =
     variant === "banner"
-      ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
-      : `نقش‌ها، لینک ادعا و عضو دستی برای «${spaceName}»`;
+      ? inviteRolePicker
+        ? "دعوت به خانواده"
+        : "دعوت به حساب مشترک"
+      : "مدیریت اعضا";
+  const description =
+    spaceType === "FUND"
+      ? `اعضا، ضریب سهم و لینک ادعا — «${spaceName}»`
+      : variant === "banner"
+        ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
+        : `نقش‌ها، لینک ادعا و عضو دستی برای «${spaceName}»`;
 
   const panel = (
     <MembersList
@@ -129,6 +142,8 @@ export function InviteMembersButton({
       members={members}
       currentUserRole={currentUserRole}
       inviteRolePicker={inviteRolePicker}
+      shareCaption={shareCaptionFor(spaceType)}
+      maxMembers={maxMembers}
     />
   );
 
@@ -151,11 +166,11 @@ export function InviteMembersButton({
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent className="border-border/60 bg-sheet">
-        <DrawerHeader className="text-start">
+        <DrawerHeader className="shrink-0 pb-2 text-start">
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <div className="overflow-y-auto px-4 pb-8">{panel}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">{panel}</div>
       </DrawerContent>
     </Drawer>
   );

@@ -139,6 +139,17 @@
 
 ---
 
+## تمپلیت: صندوق نوبتی (Fund) — فاز A
+
+صندوق قرض‌الحسنه / ROSCA. جزئیات: [`docs/fund-template-prd.md`](./fund-template-prd.md).
+
+- `Space.type = FUND` — پلن سهم، نوبت دستی، تیک وصول (جداول additive: `FundPlan` / `FundTurn` / `FundPayment`)
+- `fundRotating: true` · `invites: true` · بدون Expense / Settlement / Debt
+- سهم اعضا: `SpaceMember.defaultShare` (half-units، Int)
+- فاز B: قرعه / فیش / پرتال عضو — بعدی
+
+---
+
 ## نقشه راه اجرایی برای Cursor (ترتیب پیشنهادی)
 
 1. Scaffold + Postgres + Prisma schema (هسته) ✅

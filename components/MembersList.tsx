@@ -47,6 +47,13 @@ type MembersListProps = {
   currentUserRole: SpaceRole;
   /** Show EDITOR/VIEWER picker when copying the public invite link */
   inviteRolePicker?: boolean;
+  /**
+   * Caption beside the share stepper.
+   * FUND uses share units; trip/partner use equal-split weights.
+   */
+  shareCaption?: string;
+  /** Soft capacity hint, e.g. maxMembers for FUND */
+  maxMembers?: number | null;
 };
 
 function CheckIcon({ className }: { className?: string }) {
@@ -84,12 +91,32 @@ function CopyIcon({ className }: { className?: string }) {
   );
 }
 
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M10 13a5 5 0 0 0 7.07 0l1.41-1.41a5 5 0 0 0-7.07-7.07L10 5.93" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L5.5 12.41a5 5 0 0 0 7.07 7.07L14 18.07" />
+    </svg>
+  );
+}
+
 export function MembersList({
   spaceId,
   spaceName,
   members,
   currentUserRole,
   inviteRolePicker = false,
+  shareCaption = "ضریب تسهیم",
+  maxMembers = null,
 }: MembersListProps) {
   const router = useRouter();
   const isOwner = currentUserRole === "OWNER";
@@ -186,267 +213,278 @@ export function MembersList({
     });
   }
 
+  const atCapacity =
+    maxMembers != null && members.length >= maxMembers;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {isOwner ? (
-        <>
-          <div className="flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                لینک عمومی فضا
+              <p className="text-body-sm font-semibold text-foreground">
+                دعوت
               </p>
               <p className="text-caption text-muted-foreground">
                 {spaceLinkState === "done"
-                  ? "کپی شد"
-                  : `دعوت عمومی به «${spaceName}»`}
+                  ? "لینک فضا کپی شد"
+                  : `دعوت به «${spaceName}»`}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {inviteRolePicker ? (
-                <Select
-                  value={inviteRole}
-                  onValueChange={(v) =>
-                    setInviteRole(v as "EDITOR" | "VIEWER")
-                  }
-                >
-                  <SelectTrigger className="h-10 w-[7.5rem] rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EDITOR">عضو فعال</SelectItem>
-                    <SelectItem value="VIEWER">ناظر</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={copySpaceLink}
-                className={cn(
-                  "h-10 shrink-0 gap-1.5 rounded-xl px-3",
-                  spaceLinkState === "done" &&
-                    "border-success/40 bg-success-soft text-success",
-                )}
-              >
-                {spaceLinkState === "done" ? (
-                  <CheckIcon className="size-4" />
-                ) : (
-                  <CopyIcon className="size-4" />
-                )}
-                کپی لینک فضا
-              </Button>
-            </div>
+            {maxMembers != null ? (
+              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-caption font-semibold tabular-nums text-muted-foreground">
+                {members.length} / {maxMembers}
+              </span>
+            ) : null}
           </div>
 
-          <div className="space-y-2.5 rounded-2xl border border-border/60 bg-card/70 p-3.5">
-            <div>
-              <p className="text-sm font-medium text-foreground">افزودن دستی</p>
-              <p className="mt-0.5 text-caption text-muted-foreground">
-                بدون نصب اپ — بعداً با لینک ادعا وصل می‌شود
-              </p>
-            </div>
-            <form onSubmit={onAddVirtual} className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  placeholder="مثلاً علی"
-                  className="h-11 rounded-xl border-border/70 bg-card"
-                  maxLength={40}
-                  required
-                  minLength={2}
-                />
-                <Select
-                  value={manualRole}
-                  onValueChange={(v) =>
-                    setManualRole(v as "EDITOR" | "VIEWER")
-                  }
-                >
-                  <SelectTrigger className="h-11 w-[7.5rem] shrink-0 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EDITOR">ویرایشگر</SelectItem>
-                    <SelectItem value="VIEWER">ناظر</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                type="submit"
-                className="h-11 w-full rounded-xl"
-                disabled={pending}
+          <div className="flex flex-wrap items-center gap-2">
+            {inviteRolePicker ? (
+              <Select
+                value={inviteRole}
+                onValueChange={(v) =>
+                  setInviteRole(v as "EDITOR" | "VIEWER")
+                }
               >
-                {pending ? "…" : "افزودن عضو دستی"}
-              </Button>
-            </form>
+                <SelectTrigger className="h-10 w-[7.25rem] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EDITOR">عضو فعال</SelectItem>
+                  <SelectItem value="VIEWER">ناظر</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copySpaceLink}
+              className={cn(
+                "h-10 flex-1 gap-1.5 rounded-xl px-3 active:scale-[0.98] sm:flex-none",
+                spaceLinkState === "done" &&
+                  "border-success/40 bg-success-soft text-success",
+              )}
+            >
+              {spaceLinkState === "done" ? (
+                <CheckIcon className="size-4" />
+              ) : (
+                <CopyIcon className="size-4" />
+              )}
+              {spaceLinkState === "done" ? "کپی شد" : "کپی لینک فضا"}
+            </Button>
+          </div>
+
+          <form
+            onSubmit={onAddVirtual}
+            className="rounded-2xl border border-border/55 bg-muted/25 p-3"
+          >
+            <p className="text-caption font-medium text-foreground">
+              افزودن دستی
+            </p>
+            <p className="mt-0.5 text-caption text-muted-foreground">
+              بدون اپ — بعداً با لینک ادعا وصل می‌شود
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <Input
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="نام عضو"
+                className="h-10 rounded-xl border-border/70 bg-card"
+                maxLength={40}
+                required
+                minLength={2}
+                disabled={atCapacity || pending}
+              />
+              <Select
+                value={manualRole}
+                onValueChange={(v) =>
+                  setManualRole(v as "EDITOR" | "VIEWER")
+                }
+                disabled={atCapacity || pending}
+              >
+                <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EDITOR">ویرایشگر</SelectItem>
+                  <SelectItem value="VIEWER">ناظر</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="mt-2 h-10 w-full rounded-xl active:scale-[0.98]"
+              disabled={atCapacity || pending}
+            >
+              {pending ? "…" : atCapacity ? "ظرفیت تکمیل است" : "افزودن"}
+            </Button>
             {manualError ? (
-              <p className="text-xs text-destructive" role="alert">
+              <p className="mt-2 text-xs text-destructive" role="alert">
                 {manualError}
               </p>
             ) : null}
-          </div>
-        </>
+          </form>
+        </section>
       ) : null}
 
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">
-          اعضا ({members.length})
-        </p>
+      <section className="space-y-2.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-body-sm font-semibold text-foreground">
+            اعضا
+            <span className="ms-1.5 text-caption font-normal text-muted-foreground">
+              ({members.length})
+            </span>
+          </p>
+          {isOwner ? (
+            <p className="text-caption text-muted-foreground">{shareCaption}</p>
+          ) : null}
+        </div>
+
         {roleError ? (
           <p className="text-xs text-destructive" role="alert">
             {roleError}
           </p>
         ) : null}
-        <ul className="max-h-64 space-y-2 overflow-y-auto">
-          {members.map((m) => (
-            <li
-              key={m.userId}
-              className="space-y-2 rounded-xl border border-border/60 bg-card/80 px-3 py-2.5"
-            >
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    m.avatarUrl ??
-                    `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
-                  }
-                  alt=""
-                  width={36}
-                  height={36}
-                  className="size-9 rounded-full bg-secondary"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {memberLabel(m)}
-                    {m.isVirtual ? (
-                      <span className="ms-1.5 text-micro font-normal text-muted-foreground">
-                        (مجازی)
-                      </span>
-                    ) : null}
-                  </p>
-                  {!m.isVirtual ? (
-                    <p className="text-xs text-muted-foreground" dir="ltr">
-                      {m.phone}
+
+        <ul className="max-h-[min(52dvh,22rem)] space-y-2 overflow-y-auto pe-0.5">
+          {members.map((m) => {
+            const share = m.defaultShare ?? DEFAULT_SHARE;
+            const claimDone = claimCopiedId === m.userId;
+            return (
+              <li
+                key={m.userId}
+                className="rounded-2xl border border-border/50 bg-card px-3 py-2.5 shadow-sm"
+              >
+                <div className="flex items-center gap-2.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      m.avatarUrl ??
+                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
+                    }
+                    alt=""
+                    width={36}
+                    height={36}
+                    className="size-9 shrink-0 rounded-full bg-secondary ring-1 ring-border/40"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-medium text-foreground">
+                      {memberLabel(m)}
                     </p>
+                    <p className="truncate text-caption text-muted-foreground">
+                      {m.isVirtual
+                        ? "مجازی · بدون حساب اپ"
+                        : m.phone}
+                    </p>
+                  </div>
+
+                  {isOwner && m.isVirtual ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "size-9 shrink-0 rounded-xl active:scale-[0.96]",
+                        claimDone
+                          ? "bg-success-soft text-success"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                      onClick={() => copyClaimLink(m.userId)}
+                      aria-label={
+                        claimDone ? "لینک ادعا کپی شد" : "کپی لینک ادعا"
+                      }
+                      title={claimDone ? "کپی شد" : "کپی لینک ادعا"}
+                    >
+                      {claimDone ? (
+                        <CheckIcon className="size-4" />
+                      ) : (
+                        <LinkIcon className="size-4" />
+                      )}
+                    </Button>
+                  ) : null}
+
+                  {isOwner && m.role !== "OWNER" ? (
+                    <Select
+                      value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
+                      onValueChange={(v) =>
+                        onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
+                      }
+                      disabled={pending}
+                    >
+                      <SelectTrigger className="h-9 w-[6.5rem] shrink-0 rounded-lg text-caption">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EDITOR">ویرایشگر</SelectItem>
+                        <SelectItem value="VIEWER">ناظر</SelectItem>
+                      </SelectContent>
+                    </Select>
                   ) : (
-                    <p className="text-xs text-muted-foreground">بدون حساب اپ</p>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-lg px-2 py-1 text-caption font-semibold",
+                        m.role === "OWNER"
+                          ? "bg-primary/10 text-primary"
+                          : m.role === "VIEWER"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {roleLabelFa(m.role)}
+                    </span>
                   )}
                 </div>
-                {isOwner && m.role !== "OWNER" ? (
-                  <Select
-                    value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
-                    onValueChange={(v) =>
-                      onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
-                    }
-                    disabled={pending}
-                  >
-                    <SelectTrigger className="h-9 w-[6.75rem] shrink-0 rounded-lg text-caption">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EDITOR">ویرایشگر</SelectItem>
-                      <SelectItem value="VIEWER">ناظر</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span
-                    className={cn(
-                      "rounded-lg px-2 py-1 text-caption font-semibold",
-                      m.role === "OWNER"
-                        ? "bg-primary/10 text-primary"
-                        : m.role === "VIEWER"
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-secondary text-secondary-foreground",
-                    )}
-                  >
-                    {m.isVirtual && m.role !== "OWNER"
-                      ? `دستی · ${roleLabelFa(m.role)}`
-                      : roleLabelFa(m.role)}
-                  </span>
-                )}
-              </div>
 
-              {isOwner ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-2.5 py-2">
-                  <p className="text-caption text-muted-foreground">
-                    ضریب پیش‌فرض تسهیم مساوی
-                  </p>
-                  <div className="flex items-center gap-1">
+                {isOwner ? (
+                  <div className="mt-2 flex items-center justify-end gap-1 border-t border-border/35 pt-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="size-8 rounded-lg"
-                      disabled={
-                        pending ||
-                        (m.defaultShare ?? DEFAULT_SHARE) <= MIN_SHARE
-                      }
+                      className="size-8 rounded-lg active:scale-[0.96]"
+                      disabled={pending || share <= MIN_SHARE}
                       onClick={() =>
                         onChangeShare(
                           m.userId,
-                          clampShare(
-                            (m.defaultShare ?? DEFAULT_SHARE) - SHARE_STEP,
-                          ),
+                          clampShare(share - SHARE_STEP),
                         )
                       }
-                      aria-label="کاهش ضریب نیم‌نفر"
+                      aria-label="کاهش ضریب"
                     >
                       −
                     </Button>
-                    <span className="min-w-10 text-center text-body-sm font-semibold tabular-nums">
-                      ×{formatShareLabel(m.defaultShare ?? DEFAULT_SHARE)}
+                    <span className="min-w-12 text-center text-body-sm font-semibold tabular-nums text-foreground">
+                      ×{formatShareLabel(share)}
                     </span>
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="size-8 rounded-lg"
-                      disabled={
-                        pending ||
-                        (m.defaultShare ?? DEFAULT_SHARE) >= MAX_SHARE
-                      }
+                      className="size-8 rounded-lg active:scale-[0.96]"
+                      disabled={pending || share >= MAX_SHARE}
                       onClick={() =>
                         onChangeShare(
                           m.userId,
-                          clampShare(
-                            (m.defaultShare ?? DEFAULT_SHARE) + SHARE_STEP,
-                          ),
+                          clampShare(share + SHARE_STEP),
                         )
                       }
-                      aria-label="افزایش ضریب نیم‌نفر"
+                      aria-label="افزایش ضریب"
                     >
                       +
                     </Button>
                   </div>
-                </div>
-              ) : (m.defaultShare ?? DEFAULT_SHARE) > DEFAULT_SHARE ? (
-                <p className="text-caption text-muted-foreground">
-                  ضریب تسهیم: ×
-                  {formatShareLabel(m.defaultShare ?? DEFAULT_SHARE)}
-                </p>
-              ) : null}
-
-              {isOwner && m.isVirtual ? (
-                <Button
-                  type="button"
-                  className="h-10 w-full rounded-xl text-body-sm"
-                  onClick={() => copyClaimLink(m.userId)}
-                >
-                  {claimCopiedId === m.userId ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <CheckIcon className="size-4" />
-                      لینک ادعا کپی شد
-                    </span>
-                  ) : (
-                    "کپی لینک ادعا"
-                  )}
-                </Button>
-              ) : null}
-            </li>
-          ))}
+                ) : share > DEFAULT_SHARE ? (
+                  <p className="mt-1.5 text-end text-caption text-muted-foreground">
+                    ×{formatShareLabel(share)}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
-      </div>
+      </section>
     </div>
   );
 }

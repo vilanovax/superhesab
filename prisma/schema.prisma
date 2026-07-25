@@ -18,6 +18,7 @@ enum SpaceType {
   PERSONAL
   FAMILY
   BUILDING
+  FUND
 }
 
 enum TransactionType {
@@ -93,6 +94,7 @@ model User {
   buildingSuggestions BuildingSuggestion[] @relation("BuildingSuggestionAuthor")
   buildingAnnouncements BuildingAnnouncement[] @relation("BuildingAnnouncementAuthor")
   buildingNotifications BuildingNotification[] @relation("BuildingNotificationRecipient")
+  fundPaymentsCreated   FundPayment[]          @relation("FundPaymentCreatedBy")
 
   @@index([phone])
   @@index([email])
@@ -131,6 +133,9 @@ model Space {
   buildingNotifications BuildingNotification[]
   savingsPots         SavingsPot[]
   internalLoans       InternalLoan[]
+  fundPlan            FundPlan?
+  fundTurns           FundTurn[]
+  fundPayments        FundPayment[]
 
   @@index([ownerId])
   @@index([type])
@@ -153,6 +158,8 @@ model SpaceMember {
   savingsTransactions SavingsTransaction[]
   loansGiven          InternalLoan[] @relation("InternalLoanFrom")
   loansReceived       InternalLoan[] @relation("InternalLoanTo")
+  fundTurnsWon        FundTurn[]     @relation("FundTurnWinner")
+  fundPayments        FundPayment[]
 
   @@unique([spaceId, userId])
   @@index([userId])
@@ -659,4 +666,72 @@ model InternalLoanPayment {
 
   @@index([loanId])
   @@index([date])
+}
+
+// ——— FUND rotating savings (ROSCA) — see docs/fund-template-prd.md ———
+
+enum FundTurnStatus {
+  OPEN
+  ASSIGNED
+}
+
+/// FUND: one plan per space (share amount + cycle length).
+model FundPlan {
+  id           String   @id @default(cuid())
+  spaceId      String   @unique
+  /// Payment for 1.0× share (2 half-units) in smallest currency unit
+  shareAmount  Int
+  /// Number of periods / turns in the cycle
+  periodCount  Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId])
+}
+
+/// FUND: one slot in the cycle; winner assigned manually in Phase A.
+model FundTurn {
+  id             String         @id @default(cuid())
+  spaceId        String
+  /// 1 … FundPlan.periodCount
+  periodIndex    Int
+  winnerMemberId String?
+  status         FundTurnStatus @default(OPEN)
+  note           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  space  Space        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  winner SpaceMember? @relation("FundTurnWinner", fields: [winnerMemberId], references: [id], onDelete: SetNull)
+
+  @@unique([spaceId, periodIndex])
+  @@index([spaceId])
+  @@index([winnerMemberId])
+  @@index([status])
+}
+
+/// FUND: member payment for a period (manager tick). Isolated from Expense.
+model FundPayment {
+  id          String   @id @default(cuid())
+  spaceId     String
+  periodIndex Int
+  memberId    String
+  /// Amount in smallest currency unit
+  amount      Int
+  date        DateTime @default(now())
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space     Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  member    SpaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  createdBy User        @relation("FundPaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([spaceId, periodIndex, memberId])
+  @@index([spaceId, periodIndex])
+  @@index([memberId])
+  @@index([createdById])
 }

@@ -9,6 +9,7 @@ const QUICK: { type: SpaceType; label: string; primary?: boolean }[] = [
   { type: "TRIP", label: "سفر", primary: true },
   { type: "PARTNER", label: "مشترک" },
   { type: "FAMILY", label: "خانواده" },
+  { type: "FUND", label: "صندوق" },
   { type: "BUILDING", label: "ساختمان" },
   { type: "PERSONAL", label: "شخصی" },
 ];

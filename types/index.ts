@@ -3,7 +3,8 @@ export type SpaceType =
   | "PARTNER"
   | "PERSONAL"
   | "FAMILY"
-  | "BUILDING";
+  | "BUILDING"
+  | "FUND";
 export type SpaceRole = "OWNER" | "EDITOR" | "VIEWER";
 export type SettlementStatus = "PENDING" | "COMPLETED";
 export type { SpaceCurrency } from "@/lib/format";

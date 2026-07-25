@@ -11,7 +11,8 @@ export type TemplateThemeId =
   | "partner"
   | "personal"
   | "family"
-  | "building";
+  | "building"
+  | "fund";
 
 export type TemplateFeatures = {
   checklist: boolean;
@@ -54,6 +55,11 @@ export type TemplateFeatures = {
    * See family-savings-loan-prd.
    */
   internalLoans?: boolean;
+  /**
+   * FUND: rotating savings / ROSCA (FundPlan / FundTurn / FundPayment).
+   * See fund-template-prd.
+   */
+  fundRotating?: boolean;
 };
 
 export type TemplateDefinition = {
@@ -75,6 +81,7 @@ const baseExtras = {
   buildingCharges: false as const,
   savingsPot: false as const,
   internalLoans: false as const,
+  fundRotating: false as const,
 };
 
 export const templates: Record<SpaceType, TemplateDefinition> = {
@@ -133,6 +140,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       buildingCharges: false,
       savingsPot: false,
       internalLoans: false,
+      fundRotating: false,
     },
   },
   FAMILY: {
@@ -156,6 +164,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       buildingCharges: false,
       savingsPot: true,
       internalLoans: true,
+      fundRotating: false,
     },
   },
   BUILDING: {
@@ -179,6 +188,31 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       buildingCharges: true,
       savingsPot: false,
       internalLoans: false,
+      fundRotating: false,
+    },
+  },
+  FUND: {
+    type: "FUND",
+    label: "صندوق نوبتی",
+    theme: "fund",
+    defaultInviteRole: "EDITOR",
+    maxMembers: 40,
+    features: {
+      checklist: false,
+      settlements: false,
+      invites: true,
+      incomeExpense: false,
+      budget: false,
+      solo: false,
+      manualSplits: false,
+      householdLedger: false,
+      debts: false,
+      categoryBudgets: false,
+      recurring: false,
+      buildingCharges: false,
+      savingsPot: false,
+      internalLoans: false,
+      fundRotating: true,
     },
   },
 };

@@ -289,9 +289,11 @@ export default async function AppHomePage({
                     ? "۲نفر"
                     : space.type === "FAMILY"
                       ? "خانه"
-                      : space.type === "BUILDING"
-                        ? "برج"
-                        : "من";
+                      : space.type === "FUND"
+                        ? "صندوق"
+                        : space.type === "BUILDING"
+                          ? "برج"
+                          : "من";
               const accent =
                 space.type === "TRIP"
                   ? "bg-primary"
@@ -299,9 +301,11 @@ export default async function AppHomePage({
                     ? "bg-highlight"
                     : space.type === "FAMILY"
                       ? "bg-ink"
-                      : space.type === "BUILDING"
+                      : space.type === "FUND"
                         ? "bg-primary"
-                        : "bg-success";
+                        : space.type === "BUILDING"
+                          ? "bg-primary"
+                          : "bg-success";
               const chip =
                 space.type === "TRIP"
                   ? "bg-secondary text-primary"
@@ -309,9 +313,11 @@ export default async function AppHomePage({
                     ? "bg-accent text-ink"
                     : space.type === "FAMILY"
                       ? "bg-secondary text-primary"
-                      : space.type === "BUILDING"
-                        ? "bg-muted text-foreground"
-                        : "bg-success-soft text-success";
+                      : space.type === "FUND"
+                        ? "bg-primary/15 text-primary"
+                        : space.type === "BUILDING"
+                          ? "bg-muted text-foreground"
+                          : "bg-success-soft text-success";
               return (
                 <li
                   key={space.id}

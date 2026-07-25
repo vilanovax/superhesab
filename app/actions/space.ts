@@ -19,7 +19,7 @@ const spaceCurrencySchema = z.enum([
 
 const createSpaceSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  type: z.enum(["TRIP", "PARTNER", "PERSONAL", "FAMILY", "BUILDING"]),
+  type: z.enum(["TRIP", "PARTNER", "PERSONAL", "FAMILY", "BUILDING", "FUND"]),
   currency: spaceCurrencySchema.optional(),
 });
 

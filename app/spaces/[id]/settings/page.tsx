@@ -8,6 +8,7 @@ import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
 import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
+import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
@@ -65,14 +66,23 @@ export default async function SpaceSettingsPage({
   const showCategoryBudgets = template.features.categoryBudgets;
   const showRecurring = template.features.recurring;
   const showBuilding = template.features.buildingCharges;
+  const showFundPlan = Boolean(template.features.fundRotating);
+  const showRoundUp = !showBudget && !showBuilding && !showFundPlan;
   const currentJalali = tehranCivilYear();
   const planYear = space.defaultPlanYear ?? currentJalali;
 
-  const [categoryBudgets, recurringRules, buildingPlan] = await Promise.all([
-    showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
-    showRecurring ? listRecurringRules(id) : Promise.resolve([]),
-    showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
-  ]);
+  const [categoryBudgets, recurringRules, buildingPlan, fundPlan] =
+    await Promise.all([
+      showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
+      showRecurring ? listRecurringRules(id) : Promise.resolve([]),
+      showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
+      showFundPlan
+        ? prisma.fundPlan.findUnique({
+            where: { spaceId: id },
+            select: { shareAmount: true, periodCount: true },
+          })
+        : Promise.resolve(null),
+    ]);
 
   const roleLabel =
     membership.role === "OWNER"
@@ -107,11 +117,13 @@ export default async function SpaceSettingsPage({
         <p className="mt-2 text-sm text-on-hero/75">
           {showBuilding
             ? "نام، سال مالی و پایه ماهانه شارژ."
-            : showBudget
-              ? showCategoryBudgets || showRecurring
-                ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
-                : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
-              : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
+            : showFundPlan
+              ? "نام، واحد پول و پلن سهم / دوره‌های صندوق."
+              : showBudget
+                ? showCategoryBudgets || showRecurring
+                  ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
+                  : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
+                : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
         </p>
       </header>
 
@@ -186,7 +198,7 @@ export default async function SpaceSettingsPage({
                   خالی = بدون نوار بودجه در داشبورد.
                 </p>
               </div>
-            ) : (
+            ) : showRoundUp ? (
               <label
                 className={`flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-sheet-muted px-3.5 py-3.5 ${!isOwner ? "opacity-60" : ""}`}
               >
@@ -207,12 +219,17 @@ export default async function SpaceSettingsPage({
                   </span>
                 </span>
               </label>
-            )}
+            ) : null}
 
             {showBudget ? (
               <input type="hidden" name="roundUpToThousand" value="" />
             ) : (
-              <input type="hidden" name="monthlyBudget" value="" />
+              <>
+                <input type="hidden" name="monthlyBudget" value="" />
+                {!showRoundUp ? (
+                  <input type="hidden" name="roundUpToThousand" value="" />
+                ) : null}
+              </>
             )}
             <input type="hidden" name="defaultPlanYear" value="" />
 
@@ -244,6 +261,18 @@ export default async function SpaceSettingsPage({
           </form>
         )}
       </section>
+
+      {showFundPlan ? (
+        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <FundPlanSettings
+            spaceId={space.id}
+            currency={space.currency}
+            initialShareAmount={fundPlan?.shareAmount ?? null}
+            initialPeriodCount={fundPlan?.periodCount ?? null}
+            disabled={!isOwner}
+          />
+        </section>
+      ) : null}
 
       {showCategoryBudgets ? (
         <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">

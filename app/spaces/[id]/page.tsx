@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { listSpaceDebts } from "@/app/actions/debt";
+import { getFundDashboard } from "@/app/actions/fund";
 import { listInternalLoans } from "@/app/actions/internalLoan";
 import { listSavingsPots } from "@/app/actions/savingsPot";
 import {
@@ -18,6 +19,7 @@ import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-butto
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
 import { BuildingMonthHero } from "@/components/spaces/building-dashboard";
+import { FundDashboardPanel } from "@/components/spaces/fund-dashboard-panel";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { SpaceTabs } from "@/components/spaces/space-tabs";
@@ -46,7 +48,12 @@ import type { ReactNode } from "react";
 
 type SpacePageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ year?: string; tab?: string; rm?: string }>;
+  searchParams: Promise<{
+    year?: string;
+    tab?: string;
+    rm?: string;
+    period?: string;
+  }>;
 };
 
 function BackChevron({ className }: { className?: string }) {
@@ -110,7 +117,7 @@ function HeroStat({
 
 export default async function SpacePage({ params, searchParams }: SpacePageProps) {
   const { id } = await params;
-  const { year: yearParam, tab: tabParam, rm: reportMonthParam } =
+  const { year: yearParam, tab: tabParam, rm: reportMonthParam, period: periodParam } =
     await searchParams;
   const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
@@ -178,6 +185,17 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       ? reportMonthRaw
       : null;
 
+  const fundPeriodRaw = Number.parseInt(
+    String(periodParam ?? "").replace(/\D/g, ""),
+    10,
+  );
+  const fundPeriod =
+    features.fundRotating &&
+    Number.isFinite(fundPeriodRaw) &&
+    fundPeriodRaw >= 1
+      ? fundPeriodRaw
+      : undefined;
+
   const monthRange = features.buildingCharges
     ? jalaliMonthBounds(tehranCivilYear(), tehranCivilMonth())
     : tehranMonthRange();
@@ -208,7 +226,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, savingsPots, internalLoans, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, savingsPots, internalLoans, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs, fundDashboard] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -341,6 +359,9 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       (membership.role === "OWNER" || membership.role === "EDITOR")
         ? listChargeProofsForManager(id, planYear)
         : Promise.resolve([]),
+      features.fundRotating
+        ? getFundDashboard(id, fundPeriod)
+        : Promise.resolve(null),
     ]);
 
   if (!space) {
@@ -352,6 +373,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
   const isPersonalShell = features.solo;
   const isFamilyShell = features.householdLedger;
   const isBuildingShell = features.buildingCharges;
+  const isFundShell = Boolean(features.fundRotating);
   const showChecklist = features.checklist;
   const needsPartner = isPartner && space.members.length < 2;
   const partnerOnboarding =
@@ -439,14 +461,16 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           </Link>
         </Button>
 
-        {isPersonalShell || isFamilyShell || isBuildingShell ? (
+        {isPersonalShell || isFamilyShell || isBuildingShell || isFundShell ? (
           <div className="ms-auto flex items-center gap-1.5">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
               {isBuildingShell
                 ? "ساختمان"
-                : isFamilyShell
-                  ? "خانواده"
-                  : "شخصی"}
+                : isFundShell
+                  ? "صندوق نوبتی"
+                  : isFamilyShell
+                    ? "خانواده"
+                    : "شخصی"}
             </span>
             {isBuildingShell ? (
               <BuildingBoardNavButton
@@ -502,7 +526,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       <header
         className={cn(
           "surface-hero animate-fade-up relative mb-4 overflow-hidden px-4",
-          isPersonalShell || isBuildingShell
+          isPersonalShell || isBuildingShell || isFundShell
             ? "rounded-[1.4rem] pb-4 pt-4 shadow-md"
             : "rounded-2xl pb-4 pt-4",
         )}
@@ -542,6 +566,69 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
               settingsHref={`/spaces/${space.id}/settings`}
               isOwner={isOwner}
             />
+          ) : isFundShell ? (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 text-start">
+                  <p className="text-[0.6875rem] font-semibold tracking-[0.08em] text-on-hero/55">
+                    صندوق نوبتی
+                  </p>
+                  <h1 className="mt-1 truncate text-[1.35rem] font-bold leading-none tracking-tight text-on-hero">
+                    {space.name}
+                  </h1>
+                  <p className="mt-1.5 text-caption text-on-hero/65">
+                    {space.members.length} عضو
+                    {fundDashboard?.plan
+                      ? ` · ${fundDashboard.plan.periodCount} دوره`
+                      : " · پلن تعریف نشده"}
+                  </p>
+                </div>
+                {isOwner ? (
+                  <InviteMembersButton
+                    spaceId={space.id}
+                    spaceName={space.name}
+                    members={inviteMembers}
+                    currentUserRole={myRole}
+                    spaceType={space.type}
+                    maxMembers={template.maxMembers}
+                    inviteRolePicker
+                  />
+                ) : null}
+              </div>
+              {fundDashboard?.plan ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <HeroStat label="جمع‌شده این دوره">
+                    {formatCurrency(
+                      fundDashboard.collectedTotal,
+                      space.currency,
+                    )}
+                  </HeroStat>
+                  <HeroStat label="نوبت">
+                    {fundDashboard.winnerName ?? "—"}
+                  </HeroStat>
+                </div>
+              ) : isOwner ? (
+                <Link
+                  href={`/spaces/${space.id}/settings`}
+                  className="group flex items-center gap-3 rounded-2xl bg-on-hero px-3.5 py-3 text-primary shadow-sm transition-[transform,opacity] active:scale-[0.98] hover:opacity-95"
+                >
+                  <span className="min-w-0 flex-1 text-start">
+                    <span className="block text-body-sm font-bold text-primary">
+                      تعریف پلن صندوق
+                    </span>
+                    <span className="mt-0.5 block text-caption text-primary/70">
+                      مبلغ سهم و تعداد دوره در تنظیمات
+                    </span>
+                  </span>
+                  <span
+                    className="text-body font-bold text-primary/80 transition-transform group-hover:-translate-x-0.5"
+                    aria-hidden
+                  >
+                    ←
+                  </span>
+                </Link>
+              ) : null}
+            </div>
           ) : isPersonalShell ? (
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 text-start">
@@ -590,7 +677,10 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             </div>
           )}
 
-          {!isPersonalShell && !isBuildingShell && features.invites ? (
+          {!isPersonalShell &&
+          !isBuildingShell &&
+          !isFundShell &&
+          features.invites ? (
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2 space-x-reverse">
                 {space.members.slice(0, 4).map((m) => (
@@ -620,12 +710,14 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
                   members={inviteMembers}
                   currentUserRole={myRole}
                   inviteRolePicker={isFamilyShell}
+                  spaceType={space.type}
+                  maxMembers={template.maxMembers}
                 />
               ) : null}
             </div>
           ) : null}
 
-          {isBuildingShell ? null : isPersonalShell || isFamilyShell ? (
+          {isBuildingShell || isFundShell ? null : isPersonalShell || isFamilyShell ? (
             <PersonalMonthHero
               income={monthIncome}
               expenses={monthExpense}
@@ -721,6 +813,22 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
         </div>
       ) : null}
 
+      {isFundShell ? (
+        fundDashboard ? (
+          <FundDashboardPanel
+            spaceId={space.id}
+            dashboard={fundDashboard}
+            currency={space.currency}
+            canMutate={canWrite}
+            isOwner={isOwner}
+            settingsHref={`/spaces/${space.id}/settings`}
+          />
+        ) : (
+          <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
+            بارگذاری داشبورد صندوق ممکن نیست.
+          </p>
+        )
+      ) : (
       <SpaceTabs
         spaceId={space.id}
         spaceName={space.name}
@@ -803,8 +911,9 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             : undefined
         }
       />
+      )}
 
-      {canWrite ? (
+      {canWrite && !isFundShell ? (
         <AddExpenseButton
           spaceId={space.id}
           currentUserId={session.userId}

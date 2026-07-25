@@ -105,6 +105,24 @@ function IconPersonal({ className }: { className?: string }) {
   );
 }
 
+function IconFund({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v8M9.5 10.5c.5-1 1.5-1.5 2.5-1.5s2 .6 2 1.75-1 1.5-2.5 1.75-2.5.75-2.5 1.75 1 1.75 2.5 1.75 2-.5 2.5-1.5" />
+    </svg>
+  );
+}
+
 const TEMPLATES: {
   value: SpaceType;
   label: string;
@@ -130,6 +148,12 @@ const TEMPLATES: {
     icon: IconFamily,
   },
   {
+    value: "FUND",
+    label: "صندوق",
+    hint: "نوبتی / قرض‌الحسنه",
+    icon: IconFund,
+  },
+  {
     value: "BUILDING",
     label: "ساختمان",
     hint: "واحد و شارژ",
@@ -149,6 +173,8 @@ function placeholderFor(type: SpaceType): string {
       return "مثلاً هزینه شخصی ۱۴۰۵";
     case "FAMILY":
       return "مثلاً خانه ما";
+    case "FUND":
+      return "مثلاً صندوق فامیل";
     case "BUILDING":
       return "مثلاً برج آسمان";
     case "PARTNER":

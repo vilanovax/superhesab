@@ -364,6 +364,21 @@ html[data-theme="dark"] [data-template="building"] {
   --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #151b21 12%);
 }
 
+/* Fund — rotating savings / ROSCA */
+html[data-template="fund"],
+[data-template="fund"] {
+  --radius: 1rem;
+  --sheet: color-mix(in srgb, var(--sheet) 70%, #eef6f3 30%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 75%, #f3faf7 25%);
+}
+
+html[data-theme="dark"][data-template="fund"],
+html[data-theme="dark"] [data-template="fund"] {
+  --radius: 1rem;
+  --sheet: color-mix(in srgb, var(--sheet) 88%, #0f1714 12%);
+  --sheet-muted: color-mix(in srgb, var(--sheet-muted) 88%, #141c18 12%);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

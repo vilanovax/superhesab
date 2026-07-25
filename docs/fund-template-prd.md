@@ -1,54 +1,53 @@
-# PRD: قالب صندوق نوبتی (`FUND`) — فاز A (MVP)
+# PRD: قالب صندوق نوبتی (`FUND`)
 
 ## ۱. هویت
 
 صندوق قرض‌الحسنه / نوبتی (ROSCA): اعضا هر دوره سهم می‌پردازند؛ یک نفر در هر دوره کل جمع را می‌گیرد.
 
 - **جدا از** `Expense` / `Debt` / `Settlement` / `SavingsPot`
-- الگوی additive مثل ساختمان: `FundPlan` + `FundTurn` + `FundPayment`
+- الگوی additive: `FundPlan` + `FundTurn` + `FundPayment` + `FundPaymentProof`
 
-## ۲. فاز A (این سند)
+## ۲. فاز A ✅
+
+| قابلیت | وضعیت |
+|--------|--------|
+| پلن، نوبت دستی، تیک وصول | ✅ |
+| جلوگیری از نوبت تکراری + گزارش دوره | ✅ |
+| داشبورد مدیر | ✅ |
+
+## ۳. فاز B (این سند) — پرتال عضو + فیش
 
 | قابلیت | MVP |
 |--------|-----|
-| `SpaceType.FUND` | ✅ |
-| تعریف پلن (مبلغ سهم پایه + تعداد دوره) | ✅ |
-| سهم اعضا | `SpaceMember.defaultShare` half-units (Int؛ بدون Float) |
-| نوبت‌دهی | **دستی** توسط OWNER/EDITOR |
-| جلوگیری از نوبت تکراری | ✅ یک عضو حداکثر یک دوره در چرخه (اعتبارسنجی اکشن + غیرفعال‌سازی در UI) |
-| وصول | تیک پرداخت؛ مبلغ = دقیقاً سهم مورد انتظار |
-| گزارش دوره | ✅ وصول / کسری / باقی‌مانده‌ها + خلاصه چرخه |
-| داشبورد | برنده دوره + جمع‌شده / مورد انتظار |
-| قرعه خودکار / فیش / پیامک | ❌ فاز B/C |
+| پرتال عضو برای `VIEWER` در `/spaces/[id]/member` | ✅ هدف |
+| مشاهده دوره، سهم مورد انتظار، وضعیت پرداخت، برنده | ✅ |
+| آپلود فیش (S3/R2 presign؛ jpg/png/webp/pdf ≤ ۸MB) | ✅ |
+| صندوق رسید مدیر روی داشبورد (تایید → ثبت `FundPayment`) | ✅ |
+| قرعه خودکار / پیامک | ❌ فاز C |
 
-## ۳. مدل‌ها
+### مدل
 
-- `FundPlan`: `spaceId` (یکتا), `shareAmount`, `periodCount`
-- `FundTurn`: `spaceId`, `periodIndex` (۱…N), `winnerMemberId?`, `status`
-- `FundPayment`: `spaceId`, `periodIndex`, `memberId`, `amount`, یکتا per (space, period, member)
+`FundPaymentProof`: `spaceId`, `periodIndex`, `memberId`, `uploadedById`, `storageKey`, `mimeType`, `byteSize`, `note?`, `status` (`PENDING`\|`APPROVED`\|`REJECTED`), review fields.
 
-مبلغ مورد انتظار عضو = `(shareAmount * defaultShare) / 2` (integer).
+### RBAC
+
+- OWNER / EDITOR: داشبورد مدیر + بررسی فیش
+- VIEWER: فقط پرتال عضو (ریدایرکت از `/spaces/[id]`)
+- آپلود فیش: عضو برای **خودش** (membership خود)
+
+### جریان فیش
+
+1. عضو → intent + PUT به S3  
+2. confirm  
+3. مدیر → تایید ⇒ `FundPayment` با مبلغ مورد انتظار؛ یا رد با یادداشت  
 
 ## ۴. Registry
 
-```
-fundRotating: true
-invites: true
-settlements: false
-incomeExpense: false
-debts: false
-…
-```
+`fundRotating: true` · `invites: true` · بدون Expense/Settlement
 
-## ۵. RBAC
+## ۵. ترتیب اجرا
 
-- OWNER: پلن، نوبت، وصول، دعوت
-- EDITOR: نوبت + وصول
-- VIEWER: فقط مشاهده (فاز B پرتال)
-
-## ۶. ترتیب
-
-1. Schema + migration + registry ✅  
-2. Server Actions + داشبورد مدیر ✅  
-3. ایجاد فضا از UI ✅  
-4. فاز B: claim/فیش — بعدی  
+1. Schema + migration  
+2. Actions + پرتال + صندوق رسید  
+3. ریدایرکت VIEWER + لینک خانه  
+4. فاز C: قرعه / پیامک — بعدی  

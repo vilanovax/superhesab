@@ -98,6 +98,17 @@ export function chargeProofObjectKey(input: {
   return `spaces/${input.spaceId}/charge-proofs/${input.paymentId}/${id}.${ext}`;
 }
 
+export function fundProofObjectKey(input: {
+  spaceId: string;
+  periodIndex: number;
+  memberId: string;
+  mimeType: string;
+}): string {
+  const id = randomBytes(12).toString("hex");
+  const ext = extFromMime(input.mimeType);
+  return `spaces/${input.spaceId}/fund-proofs/${input.periodIndex}/${input.memberId}/${id}.${ext}`;
+}
+
 export async function presignPutObject(input: {
   key: string;
   mimeType: string;

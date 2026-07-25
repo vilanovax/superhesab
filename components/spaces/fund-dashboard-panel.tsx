@@ -7,7 +7,9 @@ import {
   assignFundTurn,
   setFundPayment,
   type FundDashboardDTO,
+  type FundPaymentProofDTO,
 } from "@/app/actions/fund";
+import { FundProofsInbox } from "@/components/spaces/fund-member-proof";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,6 +29,7 @@ type FundDashboardPanelProps = {
   canMutate: boolean;
   isOwner: boolean;
   settingsHref: string;
+  proofs?: FundPaymentProofDTO[];
 };
 
 export function FundDashboardPanel({
@@ -36,6 +39,7 @@ export function FundDashboardPanel({
   canMutate,
   isOwner,
   settingsHref,
+  proofs = [],
 }: FundDashboardPanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -126,6 +130,14 @@ export function FundDashboardPanel({
         >
           {error}
         </p>
+      ) : null}
+
+      {canMutate ? (
+        <FundProofsInbox
+          spaceId={spaceId}
+          proofs={proofs}
+          canReview={canMutate}
+        />
       ) : null}
 
       <section className="overflow-hidden rounded-2xl border border-border/55 bg-card shadow-sm">

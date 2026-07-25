@@ -26,6 +26,44 @@ export const setFundPaymentSchema = z.object({
   amount: z.number().int().min(1).optional(),
 });
 
+const proofMime = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
+export const createFundProofUploadIntentSchema = z.object({
+  spaceId: z.string().min(1),
+  periodIndex: z.number().int().min(1),
+  mimeType: proofMime,
+  byteSize: z
+    .number()
+    .int()
+    .positive()
+    .max(8 * 1024 * 1024, { message: "حجم فایل حداکثر ۸ مگابایت است." }),
+  note: z.string().trim().max(200).nullable().optional(),
+});
+
+export const confirmFundProofUploadSchema = z.object({
+  spaceId: z.string().min(1),
+  proofId: z.string().min(1),
+});
+
+export const reviewFundProofSchema = z.object({
+  spaceId: z.string().min(1),
+  proofId: z.string().min(1),
+  status: z.enum(["APPROVED", "REJECTED"]),
+  reviewNote: z.string().trim().max(300).nullable().optional(),
+});
+
 export type UpsertFundPlanInput = z.infer<typeof upsertFundPlanSchema>;
 export type AssignFundTurnInput = z.infer<typeof assignFundTurnSchema>;
 export type SetFundPaymentInput = z.infer<typeof setFundPaymentSchema>;
+export type CreateFundProofUploadIntentInput = z.infer<
+  typeof createFundProofUploadIntentSchema
+>;
+export type ConfirmFundProofUploadInput = z.infer<
+  typeof confirmFundProofUploadSchema
+>;
+export type ReviewFundProofInput = z.infer<typeof reviewFundProofSchema>;

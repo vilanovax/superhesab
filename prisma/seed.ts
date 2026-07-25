@@ -43,6 +43,7 @@ function avatarFor(seed: string): string {
 }
 
 async function clearAll() {
+  await prisma.fundPaymentProof.deleteMany();
   await prisma.fundPayment.deleteMany();
   await prisma.fundTurn.deleteMany();
   await prisma.fundPlan.deleteMany();

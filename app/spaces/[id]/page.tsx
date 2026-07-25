@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
 import { listSpaceDebts } from "@/app/actions/debt";
-import { getFundDashboard } from "@/app/actions/fund";
+import { getFundDashboard, listFundProofsForManager } from "@/app/actions/fund";
 import { listInternalLoans } from "@/app/actions/internalLoan";
 import { listSavingsPots } from "@/app/actions/savingsPot";
 import {
@@ -134,6 +134,14 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     redirect(`/spaces/${id}/resident`);
   }
 
+  // FUND members with VIEWER role use the member portal (+ payment proofs).
+  if (
+    getTemplate(membership.space.type).features.fundRotating &&
+    membership.role === "VIEWER"
+  ) {
+    redirect(`/spaces/${id}/member`);
+  }
+
   // Board moved out of the tab bar → dedicated route.
   if (tabParam === "suggestions") {
     redirect(`/spaces/${id}/board`);
@@ -226,7 +234,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     >["suggestions"],
   };
 
-  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, savingsPots, internalLoans, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs, fundDashboard] =
+  const [space, balanceData, checklist, monthRows, personalReportData, reportExpenseLines, debts, savingsPots, internalLoans, categoryBudgetRows, buildingDashboard, buildingCalendar, buildingUnits, openBoardSuggestions, chargeProofs, fundDashboard, fundProofs] =
     await Promise.all([
       prisma.space.findUnique({
         where: { id },
@@ -362,6 +370,10 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
       features.fundRotating
         ? getFundDashboard(id, fundPeriod)
         : Promise.resolve(null),
+      features.fundRotating &&
+      (membership.role === "OWNER" || membership.role === "EDITOR")
+        ? listFundProofsForManager(id)
+        : Promise.resolve([]),
     ]);
 
   if (!space) {
@@ -841,6 +853,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             canMutate={canWrite}
             isOwner={isOwner}
             settingsHref={`/spaces/${space.id}/settings`}
+            proofs={fundProofs}
           />
         ) : (
           <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">

@@ -95,6 +95,8 @@ model User {
   buildingAnnouncements BuildingAnnouncement[] @relation("BuildingAnnouncementAuthor")
   buildingNotifications BuildingNotification[] @relation("BuildingNotificationRecipient")
   fundPaymentsCreated   FundPayment[]          @relation("FundPaymentCreatedBy")
+  fundProofsUploaded    FundPaymentProof[]     @relation("FundProofUploadedBy")
+  fundProofsReviewed    FundPaymentProof[]     @relation("FundProofReviewedBy")
 
   @@index([phone])
   @@index([email])
@@ -136,6 +138,7 @@ model Space {
   fundPlan            FundPlan?
   fundTurns           FundTurn[]
   fundPayments        FundPayment[]
+  fundPaymentProofs   FundPaymentProof[]
 
   @@index([ownerId])
   @@index([type])
@@ -160,6 +163,7 @@ model SpaceMember {
   loansReceived       InternalLoan[] @relation("InternalLoanTo")
   fundTurnsWon        FundTurn[]     @relation("FundTurnWinner")
   fundPayments        FundPayment[]
+  fundPaymentProofs   FundPaymentProof[]
 
   @@unique([spaceId, userId])
   @@index([userId])
@@ -734,4 +738,40 @@ model FundPayment {
   @@index([spaceId, periodIndex])
   @@index([memberId])
   @@index([createdById])
+}
+
+enum FundProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// FUND Phase B: member payment receipt (S3/R2), reviewed by OWNER/EDITOR.
+model FundPaymentProof {
+  id           String          @id @default(cuid())
+  spaceId      String
+  periodIndex  Int
+  memberId     String
+  uploadedById String
+  storageKey   String
+  mimeType     String
+  byteSize     Int
+  note         String?
+  status       FundProofStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  space      Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  member     SpaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  uploadedBy User        @relation("FundProofUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  reviewedBy User?       @relation("FundProofReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([spaceId, periodIndex])
+  @@index([spaceId, status])
+  @@index([memberId])
+  @@index([uploadedById])
+  @@index([createdAt])
 }

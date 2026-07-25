@@ -140,14 +140,13 @@
 
 ---
 
-## تمپلیت: صندوق نوبتی (Fund) — فاز A
+## تمپلیت: صندوق نوبتی (Fund)
 
-صندوق قرض‌الحسنه / ROSCA. جزئیات: [`docs/fund-template-prd.md`](./fund-template-prd.md).
+جزئیات: [`docs/fund-template-prd.md`](./fund-template-prd.md).
 
-- `Space.type = FUND` — پلن سهم، نوبت دستی، تیک وصول (جداول additive: `FundPlan` / `FundTurn` / `FundPayment`)
-- `fundRotating: true` · `invites: true` · بدون Expense / Settlement / Debt
-- سهم اعضا: `SpaceMember.defaultShare` (half-units، Int)
-- فاز B: قرعه / فیش / پرتال عضو — بعدی
+- فاز A ✅ — پلن، نوبت دستی، وصول، گزارش دوره  
+- فاز B — پرتال عضو (`VIEWER`) + فیش پرداخت (`FundPaymentProof`)  
+- فاز C — قرعه / پیامک — بعدی  
 
 ---
 

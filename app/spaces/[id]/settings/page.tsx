@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { listCategoryBudgets } from "@/app/actions/categoryBudget";
 import {
   getChargePlanForYear,
@@ -42,6 +42,13 @@ export default async function SpaceSettingsPage({
 
   if (!membership) {
     notFound();
+  }
+
+  if (
+    getTemplate(membership.space.type).features.fundRotating &&
+    membership.role === "VIEWER"
+  ) {
+    redirect(`/spaces/${id}/member`);
   }
 
   const space = await prisma.space.findUnique({

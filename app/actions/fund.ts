@@ -21,12 +21,24 @@ import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
 import {
   assignFundTurnSchema,
+  confirmFundProofUploadSchema,
+  createFundProofUploadIntentSchema,
+  reviewFundProofSchema,
   setFundPaymentSchema,
   upsertFundPlanSchema,
   type AssignFundTurnInput,
+  type ConfirmFundProofUploadInput,
+  type CreateFundProofUploadIntentInput,
+  type ReviewFundProofInput,
   type SetFundPaymentInput,
   type UpsertFundPlanInput,
 } from "@/lib/validations/fund";
+import {
+  fundProofObjectKey,
+  isStorageConfigured,
+  presignGetObject,
+  presignPutObject,
+} from "@/lib/storage/s3";
 
 export type FundActionResult =
   | { ok: true }
@@ -474,5 +486,452 @@ export async function setFundPayment(
     return { ok: true };
   } catch {
     return { ok: false, error: "ثبت پرداخت ناموفق بود." };
+  }
+}
+
+// ─── Phase B: member portal + payment proofs ────────────────────────────────
+
+export type FundProofStatusValue = "PENDING" | "APPROVED" | "REJECTED";
+
+export type FundPaymentProofDTO = {
+  id: string;
+  periodIndex: number;
+  memberId: string;
+  memberName: string;
+  mimeType: string;
+  byteSize: number;
+  note: string | null;
+  status: FundProofStatusValue;
+  uploadedByName: string | null;
+  createdAt: string;
+  reviewNote: string | null;
+};
+
+export type FundMemberPortalDTO = {
+  spaceId: string;
+  spaceName: string;
+  currency: string;
+  memberId: string;
+  memberName: string;
+  shareLabel: string;
+  plan: { shareAmount: number; periodCount: number } | null;
+  periodIndex: number;
+  expectedAmount: number;
+  paid: boolean;
+  paidAmount: number;
+  winnerName: string | null;
+  turnStatus: "OPEN" | "ASSIGNED" | null;
+  periods: {
+    periodIndex: number;
+    winnerName: string | null;
+    status: string;
+    paid: boolean;
+  }[];
+  proofs: FundPaymentProofDTO[];
+  storageReady: boolean;
+};
+
+function proofToDto(p: {
+  id: string;
+  periodIndex: number;
+  memberId: string;
+  mimeType: string;
+  byteSize: number;
+  note: string | null;
+  status: string;
+  createdAt: Date;
+  reviewNote: string | null;
+  member: { user: { name: string | null; phone: string } };
+  uploadedBy: { name: string | null; phone: string };
+}): FundPaymentProofDTO {
+  return {
+    id: p.id,
+    periodIndex: p.periodIndex,
+    memberId: p.memberId,
+    memberName: memberName(p.member.user),
+    mimeType: p.mimeType,
+    byteSize: p.byteSize,
+    note: p.note,
+    status: p.status as FundProofStatusValue,
+    uploadedByName: memberName(p.uploadedBy),
+    createdAt: p.createdAt.toISOString(),
+    reviewNote: p.reviewNote,
+  };
+}
+
+export async function getFundMemberPortal(
+  spaceId: string,
+  periodIndex?: number,
+): Promise<FundMemberPortalDTO | null> {
+  const session = await requireUser();
+  const access = await assertFundEnabled(spaceId, session.userId);
+  if (!access.ok) return null;
+
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { id: true, name: true, currency: true },
+  });
+  if (!space) return null;
+
+  const myMembership = await prisma.spaceMember.findFirst({
+    where: { spaceId, userId: session.userId },
+    include: { user: { select: { name: true, phone: true } } },
+  });
+  if (!myMembership) return null;
+
+  const [plan, turns, payments, proofs] = await Promise.all([
+    prisma.fundPlan.findUnique({ where: { spaceId } }),
+    prisma.fundTurn.findMany({
+      where: { spaceId },
+      include: {
+        winner: { include: { user: { select: { name: true, phone: true } } } },
+      },
+      orderBy: { periodIndex: "asc" },
+    }),
+    prisma.fundPayment.findMany({
+      where: { spaceId, memberId: myMembership.id },
+    }),
+    prisma.fundPaymentProof.findMany({
+      where: { spaceId, memberId: myMembership.id },
+      include: {
+        member: { include: { user: { select: { name: true, phone: true } } } },
+        uploadedBy: { select: { name: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+    }),
+  ]);
+
+  const activePeriod =
+    periodIndex && periodIndex >= 1
+      ? periodIndex
+      : turns.find((t) => t.status === "OPEN")?.periodIndex ??
+        turns[0]?.periodIndex ??
+        1;
+
+  const turn = turns.find((t) => t.periodIndex === activePeriod) ?? null;
+  const payment = payments.find((p) => p.periodIndex === activePeriod);
+  const expected = plan
+    ? expectedPaymentForShare(plan.shareAmount, myMembership.defaultShare)
+    : 0;
+
+  const paidByPeriod = new Map(payments.map((p) => [p.periodIndex, true]));
+
+  return {
+    spaceId: space.id,
+    spaceName: space.name,
+    currency: space.currency,
+    memberId: myMembership.id,
+    memberName: memberName(myMembership.user),
+    shareLabel: formatShareLabel(myMembership.defaultShare),
+    plan: plan
+      ? { shareAmount: plan.shareAmount, periodCount: plan.periodCount }
+      : null,
+    periodIndex: activePeriod,
+    expectedAmount: expected,
+    paid: Boolean(payment),
+    paidAmount: payment?.amount ?? 0,
+    winnerName: turn?.winner ? memberName(turn.winner.user) : null,
+    turnStatus: turn ? (turn.status as "OPEN" | "ASSIGNED") : null,
+    periods: turns.map((t) => ({
+      periodIndex: t.periodIndex,
+      winnerName: t.winner ? memberName(t.winner.user) : null,
+      status: t.status,
+      paid: Boolean(paidByPeriod.get(t.periodIndex)),
+    })),
+    proofs: proofs.map(proofToDto),
+    storageReady: isStorageConfigured(),
+  };
+}
+
+export async function listFundProofsForManager(
+  spaceId: string,
+): Promise<FundPaymentProofDTO[]> {
+  const session = await requireUser();
+  const access = await assertFundEnabled(spaceId, session.userId);
+  if (!access.ok || !canMutateMoney(access.membership.role)) return [];
+
+  const proofs = await prisma.fundPaymentProof.findMany({
+    where: { spaceId },
+    include: {
+      member: { include: { user: { select: { name: true, phone: true } } } },
+      uploadedBy: { select: { name: true, phone: true } },
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: 100,
+  });
+  return proofs.map(proofToDto);
+}
+
+export type FundProofUploadIntentResult =
+  | {
+      ok: true;
+      proofId: string;
+      uploadUrl: string;
+      storageKey: string;
+    }
+  | { ok: false; error: string };
+
+export async function createFundProofUploadIntent(
+  input: CreateFundProofUploadIntentInput,
+): Promise<FundProofUploadIntentResult> {
+  if (!isStorageConfigured()) {
+    return {
+      ok: false,
+      error: "ذخیره‌سازی فایل پیکربندی نشده است (S3/R2).",
+    };
+  }
+
+  const session = await requireUser();
+  const parsed = createFundProofUploadIntentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+  const data = parsed.data;
+  const access = await assertFundEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+
+  const membership = await prisma.spaceMember.findFirst({
+    where: { spaceId: data.spaceId, userId: session.userId },
+  });
+  if (!membership) {
+    return { ok: false, error: "عضویت پیدا نشد." };
+  }
+
+  const plan = await prisma.fundPlan.findUnique({
+    where: { spaceId: data.spaceId },
+  });
+  if (!plan) {
+    return { ok: false, error: "پلن صندوق تعریف نشده است." };
+  }
+  const periodOk = assertPeriodInPlan(data.periodIndex, plan.periodCount);
+  if (!periodOk.ok) return periodOk;
+
+  const alreadyPaid = await prisma.fundPayment.findUnique({
+    where: {
+      spaceId_periodIndex_memberId: {
+        spaceId: data.spaceId,
+        periodIndex: data.periodIndex,
+        memberId: membership.id,
+      },
+    },
+  });
+  if (alreadyPaid) {
+    return { ok: false, error: "پرداخت این دوره قبلاً ثبت شده است." };
+  }
+
+  const pending = await prisma.fundPaymentProof.findFirst({
+    where: {
+      spaceId: data.spaceId,
+      periodIndex: data.periodIndex,
+      memberId: membership.id,
+      status: "PENDING",
+    },
+  });
+  if (pending) {
+    return {
+      ok: false,
+      error: "یک فیش در انتظار بررسی برای این دوره دارید.",
+    };
+  }
+
+  try {
+    const storageKey = fundProofObjectKey({
+      spaceId: data.spaceId,
+      periodIndex: data.periodIndex,
+      memberId: membership.id,
+      mimeType: data.mimeType,
+    });
+    const { uploadUrl } = await presignPutObject({
+      key: storageKey,
+      mimeType: data.mimeType,
+      byteSize: data.byteSize,
+    });
+
+    const proof = await prisma.fundPaymentProof.create({
+      data: {
+        spaceId: data.spaceId,
+        periodIndex: data.periodIndex,
+        memberId: membership.id,
+        uploadedById: session.userId,
+        storageKey,
+        mimeType: data.mimeType,
+        byteSize: data.byteSize,
+        note: data.note ?? null,
+        status: "PENDING",
+      },
+      select: { id: true },
+    });
+
+    return {
+      ok: true,
+      proofId: proof.id,
+      uploadUrl,
+      storageKey,
+    };
+  } catch {
+    return { ok: false, error: "ساخت لینک آپلود ناموفق بود." };
+  }
+}
+
+export async function confirmFundProofUpload(
+  input: ConfirmFundProofUploadInput,
+): Promise<FundActionResult> {
+  const session = await requireUser();
+  const parsed = confirmFundProofUploadSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+  const data = parsed.data;
+  const access = await assertFundEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+
+  const proof = await prisma.fundPaymentProof.findFirst({
+    where: {
+      id: data.proofId,
+      spaceId: data.spaceId,
+      uploadedById: session.userId,
+    },
+  });
+  if (!proof) {
+    return { ok: false, error: "فیش پیدا نشد." };
+  }
+
+  revalidatePath(`/spaces/${data.spaceId}`);
+  revalidatePath(`/spaces/${data.spaceId}/member`);
+  return { ok: true };
+}
+
+export async function reviewFundProof(
+  input: ReviewFundProofInput,
+): Promise<FundActionResult> {
+  const session = await requireUser();
+  const parsed = reviewFundProofSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+  const data = parsed.data;
+  const access = await assertFundEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه بررسی فیش ندارد." };
+  }
+
+  const proof = await prisma.fundPaymentProof.findFirst({
+    where: { id: data.proofId, spaceId: data.spaceId },
+    include: { member: true },
+  });
+  if (!proof) {
+    return { ok: false, error: "فیش پیدا نشد." };
+  }
+  if (proof.status !== "PENDING") {
+    return { ok: false, error: "این فیش قبلاً بررسی شده است." };
+  }
+
+  const plan = await prisma.fundPlan.findUnique({
+    where: { spaceId: data.spaceId },
+  });
+  if (!plan) {
+    return { ok: false, error: "پلن صندوق تعریف نشده است." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.fundPaymentProof.update({
+        where: { id: proof.id },
+        data: {
+          status: data.status,
+          reviewedById: session.userId,
+          reviewedAt: new Date(),
+          reviewNote: data.reviewNote ?? null,
+        },
+      });
+
+      if (data.status === "APPROVED") {
+        const expected = expectedPaymentForShare(
+          plan.shareAmount,
+          proof.member.defaultShare,
+        );
+        const amountCheck = assertFundPaymentAmount(expected, undefined);
+        if (!amountCheck.ok) {
+          throw new Error(amountCheck.error);
+        }
+        const amount = asMoney(amountCheck.amount);
+        await tx.fundPayment.upsert({
+          where: {
+            spaceId_periodIndex_memberId: {
+              spaceId: data.spaceId,
+              periodIndex: proof.periodIndex,
+              memberId: proof.memberId,
+            },
+          },
+          create: {
+            spaceId: data.spaceId,
+            periodIndex: proof.periodIndex,
+            memberId: proof.memberId,
+            amount,
+            createdById: session.userId,
+          },
+          update: {
+            amount,
+            createdById: session.userId,
+            date: new Date(),
+          },
+        });
+      }
+    });
+
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath(`/spaces/${data.spaceId}/member`);
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "بررسی فیش ناموفق بود.";
+    return { ok: false, error: msg };
+  }
+}
+
+export type FundProofDownloadResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+export async function getFundProofDownloadUrl(
+  spaceId: string,
+  proofId: string,
+): Promise<FundProofDownloadResult> {
+  if (!isStorageConfigured()) {
+    return { ok: false, error: "ذخیره‌سازی فایل پیکربندی نشده است." };
+  }
+
+  const session = await requireUser();
+  const access = await assertFundEnabled(spaceId, session.userId);
+  if (!access.ok) return access;
+
+  const proof = await prisma.fundPaymentProof.findFirst({
+    where: { id: proofId, spaceId },
+  });
+  if (!proof) {
+    return { ok: false, error: "فیش پیدا نشد." };
+  }
+
+  const isManager = canMutateMoney(access.membership.role);
+  const isUploader = proof.uploadedById === session.userId;
+  if (!isManager && !isUploader) {
+    return { ok: false, error: "اجازه دانلود ندارید." };
+  }
+
+  try {
+    const url = await presignGetObject(proof.storageKey);
+    return { ok: true, url };
+  } catch {
+    return { ok: false, error: "لینک دانلود ساخته نشد." };
   }
 }

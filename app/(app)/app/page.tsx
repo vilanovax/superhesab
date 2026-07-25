@@ -281,7 +281,9 @@ export default async function AppHomePage({
               const spaceHref =
                 space.type === "BUILDING" && role === "VIEWER"
                   ? `/spaces/${space.id}/resident`
-                  : `/spaces/${space.id}`;
+                  : space.type === "FUND" && role === "VIEWER"
+                    ? `/spaces/${space.id}/member`
+                    : `/spaces/${space.id}`;
               const mark =
                 space.type === "TRIP"
                   ? "سفر"

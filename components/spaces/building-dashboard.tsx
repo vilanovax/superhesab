@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
 import { formatJalaliYear } from "@/lib/building";
 import { currencyLabel, formatMoney, type SpaceCurrency } from "@/lib/format";
@@ -14,6 +15,8 @@ type BuildingMonthHeroProps = {
   currency: SpaceCurrency;
   settingsHref: string;
   isOwner: boolean;
+  /** OWNER: invite / manage co-managers */
+  managersAction?: ReactNode;
 };
 
 export function BuildingMonthHero({
@@ -26,6 +29,7 @@ export function BuildingMonthHero({
   currency,
   settingsHref,
   isOwner,
+  managersAction,
 }: BuildingMonthHeroProps) {
   const unit = currencyLabel(currency);
   const activeUnits = dashboard?.totals.activeUnits ?? 0;
@@ -54,27 +58,30 @@ export function BuildingMonthHero({
             {expenseCount > 0 ? ` · ${expenseCount} هزینه` : ""}
           </p>
         </div>
-        {year != null ? (
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-on-hero/10 p-0.5 ring-1 ring-on-hero/15">
-            <Link
-              href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
-              className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
-              aria-label="سال قبل"
-            >
-              ‹
-            </Link>
-            <span className="min-w-[2.75rem] text-center text-caption font-bold tabular-nums text-on-hero">
-              {formatJalaliYear(year)}
-            </span>
-            <Link
-              href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
-              className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
-              aria-label="سال بعد"
-            >
-              ›
-            </Link>
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {managersAction}
+          {year != null ? (
+            <div className="flex items-center gap-1 rounded-full bg-on-hero/10 p-0.5 ring-1 ring-on-hero/15">
+              <Link
+                href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
+                className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
+                aria-label="سال قبل"
+              >
+                ‹
+              </Link>
+              <span className="min-w-[2.75rem] text-center text-caption font-bold tabular-nums text-on-hero">
+                {formatJalaliYear(year)}
+              </span>
+              <Link
+                href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
+                className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
+                aria-label="سال بعد"
+              >
+                ›
+              </Link>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {!hasPlan ? (

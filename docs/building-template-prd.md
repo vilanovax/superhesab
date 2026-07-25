@@ -49,4 +49,5 @@
 8. برد اعلانات مدیر → ساکن (فاز ۲۶) ✅ — مدل `BuildingAnnouncement`، صفحه `/board` از آیکون هدر مدیر، تب اعلان پرتال ساکن  
 9. نوتیف داخل‌اپ اعلان + وصول (فاز ۲۷) ✅ — مدل `BuildingNotification`، زنگ پرتال ساکن، badge تب اعلان/پرداخت  
 10. خروجی Excel/PDF شارژ + رسید پرداخت ساکن (فاز ۲۸) ✅ — `ChargePaymentProof` + S3/R2 presign، مسیر `/api/spaces/[id]/export/building`، صندوق رسید مدیر، نوتیف `PAYMENT_PROOF`؛ سپس خروجی مشترک گزارش همه قالب‌ها در `/api/spaces/[id]/export/report`  
+11. دعوت/لیست مدیران در UI ✅ — هیرو + تنظیمات؛ `SpaceMember`های OWNER/EDITOR جدا از ساکن VIEWER؛ دعوت عمومی همیشه EDITOR
 

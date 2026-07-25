@@ -38,6 +38,18 @@ export async function changeMemberRole(
     return { ok: false, error: "نقش مالک قابل تغییر نیست." };
   }
 
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true },
+  });
+  if (space?.type === "BUILDING" && newRole === "VIEWER") {
+    return {
+      ok: false,
+      error:
+        "نقش ناظر برای مدیران ساختمان مجاز نیست. ساکن‌ها فقط از لینک واحد وصل می‌شوند.",
+    };
+  }
+
   await prisma.spaceMember.update({
     where: { id: target.id },
     data: { role: newRole },

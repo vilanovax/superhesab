@@ -54,6 +54,12 @@ type MembersListProps = {
   shareCaption?: string;
   /** Soft capacity hint, e.g. maxMembers for FUND */
   maxMembers?: number | null;
+  /** Hide defaultShare stepper (BUILDING managers). */
+  showShareControls?: boolean;
+  /**
+   * BUILDING: co-managers are EDITOR only; VIEWER is reserved for unit claim.
+   */
+  editorOnlyRoles?: boolean;
 };
 
 function CheckIcon({ className }: { className?: string }) {
@@ -117,6 +123,8 @@ export function MembersList({
   inviteRolePicker = false,
   shareCaption = "ضریب تسهیم",
   maxMembers = null,
+  showShareControls = true,
+  editorOnlyRoles = false,
 }: MembersListProps) {
   const router = useRouter();
   const isOwner = currentUserRole === "OWNER";
@@ -130,12 +138,13 @@ export function MembersList({
   const [pending, startTransition] = useTransition();
 
   const spaceInviteUrl = useMemo(() => {
-    const path = inviteRolePicker
-      ? `/invite/${spaceId}?role=${inviteRole}`
-      : `/invite/${spaceId}`;
+    const path =
+      inviteRolePicker && !editorOnlyRoles
+        ? `/invite/${spaceId}?role=${inviteRole}`
+        : `/invite/${spaceId}`;
     if (typeof window === "undefined") return path;
     return `${window.location.origin}${path}`;
-  }, [spaceId, inviteRole, inviteRolePicker]);
+  }, [spaceId, inviteRole, inviteRolePicker, editorOnlyRoles]);
 
   function claimUrl(virtualUserId: string) {
     if (typeof window === "undefined") {
@@ -173,7 +182,11 @@ export function MembersList({
     if (!isOwner) return;
     setManualError(null);
     startTransition(async () => {
-      const result = await addVirtualMember(spaceId, manualName, manualRole);
+      const result = await addVirtualMember(
+        spaceId,
+        manualName,
+        editorOnlyRoles ? "EDITOR" : manualRole,
+      );
       if (!result.ok) {
         setManualError(result.error);
         return;
@@ -223,23 +236,29 @@ export function MembersList({
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-body-sm font-semibold text-foreground">
-                دعوت
+                {editorOnlyRoles ? "دعوت مدیر" : "دعوت"}
               </p>
               <p className="text-caption text-muted-foreground">
                 {spaceLinkState === "done"
-                  ? "لینک فضا کپی شد"
-                  : `دعوت به «${spaceName}»`}
+                  ? "لینک کپی شد"
+                  : editorOnlyRoles
+                    ? `دعوت هم‌مدیر به «${spaceName}»`
+                    : `دعوت به «${spaceName}»`}
               </p>
             </div>
             {maxMembers != null ? (
               <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-caption font-semibold tabular-nums text-muted-foreground">
                 {members.length} / {maxMembers}
               </span>
+            ) : editorOnlyRoles ? (
+              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-caption font-semibold tabular-nums text-muted-foreground">
+                {members.length} مدیر
+              </span>
             ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {inviteRolePicker ? (
+            {inviteRolePicker && !editorOnlyRoles ? (
               <Select
                 value={inviteRole}
                 onValueChange={(v) =>
@@ -271,7 +290,11 @@ export function MembersList({
               ) : (
                 <CopyIcon className="size-4" />
               )}
-              {spaceLinkState === "done" ? "کپی شد" : "کپی لینک فضا"}
+              {spaceLinkState === "done"
+                ? "کپی شد"
+                : editorOnlyRoles
+                  ? "کپی لینک دعوت مدیر"
+                  : "کپی لینک فضا"}
             </Button>
           </div>
 
@@ -280,37 +303,41 @@ export function MembersList({
             className="rounded-2xl border border-border/55 bg-muted/25 p-3"
           >
             <p className="text-caption font-medium text-foreground">
-              افزودن دستی
+              {editorOnlyRoles ? "افزودن مدیر دستی" : "افزودن دستی"}
             </p>
             <p className="mt-0.5 text-caption text-muted-foreground">
-              بدون اپ — بعداً با لینک ادعا وصل می‌شود
+              {editorOnlyRoles
+                ? "بدون اپ — بعداً با لینک ادعا وصل می‌شود"
+                : "بدون اپ — بعداً با لینک ادعا وصل می‌شود"}
             </p>
             <div className="mt-2.5 flex gap-2">
               <Input
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="نام عضو"
+                placeholder={editorOnlyRoles ? "نام مدیر" : "نام عضو"}
                 className="h-10 rounded-xl border-border/70 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
                 disabled={atCapacity || pending}
               />
-              <Select
-                value={manualRole}
-                onValueChange={(v) =>
-                  setManualRole(v as "EDITOR" | "VIEWER")
-                }
-                disabled={atCapacity || pending}
-              >
-                <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EDITOR">ویرایشگر</SelectItem>
-                  <SelectItem value="VIEWER">ناظر</SelectItem>
-                </SelectContent>
-              </Select>
+              {!editorOnlyRoles ? (
+                <Select
+                  value={manualRole}
+                  onValueChange={(v) =>
+                    setManualRole(v as "EDITOR" | "VIEWER")
+                  }
+                  disabled={atCapacity || pending}
+                >
+                  <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EDITOR">ویرایشگر</SelectItem>
+                    <SelectItem value="VIEWER">ناظر</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
             </div>
             <Button
               type="submit"
@@ -318,7 +345,13 @@ export function MembersList({
               className="mt-2 h-10 w-full rounded-xl active:scale-[0.98]"
               disabled={atCapacity || pending}
             >
-              {pending ? "…" : atCapacity ? "ظرفیت تکمیل است" : "افزودن"}
+              {pending
+                ? "…"
+                : atCapacity
+                  ? "ظرفیت تکمیل است"
+                  : editorOnlyRoles
+                    ? "افزودن مدیر"
+                    : "افزودن"}
             </Button>
             {manualError ? (
               <p className="mt-2 text-xs text-destructive" role="alert">
@@ -332,12 +365,12 @@ export function MembersList({
       <section className="space-y-2.5">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-body-sm font-semibold text-foreground">
-            اعضا
+            {editorOnlyRoles ? "مدیران" : "اعضا"}
             <span className="ms-1.5 text-caption font-normal text-muted-foreground">
               ({members.length})
             </span>
           </p>
-          {isOwner ? (
+          {isOwner && showShareControls ? (
             <p className="text-caption text-muted-foreground">{shareCaption}</p>
           ) : null}
         </div>
@@ -405,7 +438,7 @@ export function MembersList({
                     </Button>
                   ) : null}
 
-                  {isOwner && m.role !== "OWNER" ? (
+                  {isOwner && m.role !== "OWNER" && !editorOnlyRoles ? (
                     <Select
                       value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
                       onValueChange={(v) =>
@@ -432,12 +465,14 @@ export function MembersList({
                             : "bg-secondary text-secondary-foreground",
                       )}
                     >
-                      {roleLabelFa(m.role)}
+                      {editorOnlyRoles && m.role === "EDITOR"
+                        ? "مدیر"
+                        : roleLabelFa(m.role)}
                     </span>
                   )}
                 </div>
 
-                {isOwner ? (
+                {isOwner && showShareControls ? (
                   <div className="mt-2 flex items-center justify-end gap-1 border-t border-border/35 pt-2">
                     <Button
                       type="button"
@@ -475,7 +510,7 @@ export function MembersList({
                       +
                     </Button>
                   </div>
-                ) : share > DEFAULT_SHARE ? (
+                ) : showShareControls && share > DEFAULT_SHARE ? (
                   <p className="mt-1.5 text-end text-caption text-muted-foreground">
                     ×{formatShareLabel(share)}
                   </p>

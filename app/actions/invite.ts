@@ -17,6 +17,10 @@ function resolveInviteRole(
   requested?: string | null,
 ): SpaceRole {
   const template = getTemplate(spaceType);
+  // Building public invite = co-manager. Residents join only via unit claim.
+  if (spaceType === "BUILDING") {
+    return "EDITOR";
+  }
   if (requested === "VIEWER" || requested === "EDITOR") {
     return requested;
   }

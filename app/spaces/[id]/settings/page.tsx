@@ -9,6 +9,7 @@ import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
 import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
 import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
+import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   getTemplate,
   getTemplateDataset,
 } from "@/lib/templates/registry";
+import type { SpaceRole } from "@/types";
 
 type SettingsPageProps = {
   params: Promise<{ id: string }>;
@@ -71,7 +73,7 @@ export default async function SpaceSettingsPage({
   const currentJalali = tehranCivilYear();
   const planYear = space.defaultPlanYear ?? currentJalali;
 
-  const [categoryBudgets, recurringRules, buildingPlan, fundPlan] =
+  const [categoryBudgets, recurringRules, buildingPlan, fundPlan, buildingManagers] =
     await Promise.all([
       showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
       showRecurring ? listRecurringRules(id) : Promise.resolve([]),
@@ -82,7 +84,37 @@ export default async function SpaceSettingsPage({
             select: { shareAmount: true, periodCount: true },
           })
         : Promise.resolve(null),
+      showBuilding
+        ? prisma.spaceMember.findMany({
+            where: {
+              spaceId: id,
+              role: { in: ["OWNER", "EDITOR"] },
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  avatarUrl: true,
+                  isVirtual: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          })
+        : Promise.resolve([]),
     ]);
+
+  const managerInviteRows = buildingManagers.map((m) => ({
+    userId: m.user.id,
+    name: m.user.name,
+    phone: m.user.phone,
+    avatarUrl: m.user.avatarUrl,
+    role: m.role as SpaceRole,
+    isVirtual: m.user.isVirtual,
+    defaultShare: m.defaultShare,
+  }));
 
   const roleLabel =
     membership.role === "OWNER"
@@ -116,7 +148,7 @@ export default async function SpaceSettingsPage({
         <h1 className="mt-1 text-2xl font-bold text-on-hero">{space.name}</h1>
         <p className="mt-2 text-sm text-on-hero/75">
           {showBuilding
-            ? "نام، سال مالی و پایه ماهانه شارژ."
+            ? "نام، سال مالی، پایه شارژ و مدیران ساختمان."
             : showFundPlan
               ? "نام، واحد پول و پلن سهم / دوره‌های صندوق."
               : showBudget
@@ -261,6 +293,39 @@ export default async function SpaceSettingsPage({
           </form>
         )}
       </section>
+
+      {showBuilding && isOwner ? (
+        <section className="animate-fade-up space-y-3 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <div>
+            <h2 className="text-body-sm font-semibold text-foreground">
+              مدیران ساختمان
+            </h2>
+            <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
+              هم‌مدیران با نقش ویرایشگر دعوت می‌شوند. ساکن‌ها فقط از لینک اختصاصی
+              واحد وصل می‌شوند و اینجا دیده نمی‌شوند.
+            </p>
+            <p className="mt-2 text-caption font-semibold tabular-nums text-muted-foreground">
+              {managerInviteRows.length} مدیر فعال
+            </p>
+          </div>
+          <InviteMembersButton
+            spaceId={space.id}
+            spaceName={space.name}
+            members={managerInviteRows}
+            currentUserRole={membership.role}
+            spaceType={space.type}
+            trigger={
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl active:scale-[0.98]"
+              >
+                دعوت و مدیریت مدیران
+              </Button>
+            }
+          />
+        </section>
+      ) : null}
 
       {showFundPlan ? (
         <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">

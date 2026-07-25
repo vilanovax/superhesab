@@ -49,6 +49,10 @@ export async function addVirtualMember(
     return canAdd;
   }
 
+  // BUILDING: virtual rows are co-managers only (residents use unit claim).
+  const resolvedRole =
+    space.type === "BUILDING" ? ("EDITOR" as const) : role;
+
   const trimmed = name.trim();
   if (trimmed.length < 2) {
     return { ok: false, error: "نام باید حداقل ۲ حرف باشد." };
@@ -67,7 +71,7 @@ export async function addVirtualMember(
       memberships: {
         create: {
           spaceId,
-          role,
+          role: resolvedRole,
         },
       },
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   MembersList,
   type MembersListRow,
@@ -37,6 +37,8 @@ type InviteMembersButtonProps = {
   inviteRolePicker?: boolean;
   spaceType?: SpaceType;
   maxMembers?: number | null;
+  /** Optional custom trigger (e.g. settings page CTA). */
+  trigger?: ReactNode;
 };
 
 function useIsDesktop() {
@@ -85,9 +87,11 @@ export function InviteMembersButton({
   inviteRolePicker = false,
   spaceType,
   maxMembers = null,
+  trigger: customTrigger,
 }: InviteMembersButtonProps) {
   const [open, setOpen] = useState(false);
   const isDesktop = useIsDesktop();
+  const isBuilding = spaceType === "BUILDING";
 
   // Invite / member management is OWNER-only (VIEWER and EDITOR cannot share)
   if (currentUserRole !== "OWNER") {
@@ -95,12 +99,17 @@ export function InviteMembersButton({
   }
 
   const trigger =
-    variant === "banner" ? (
+    customTrigger ??
+    (variant === "banner" ? (
       <Button
         type="button"
         className="mt-4 h-11 w-full rounded-xl text-sm font-semibold"
       >
-        {inviteRolePicker ? "دعوت عضو خانواده" : "دعوت طرف مقابل"}
+        {isBuilding
+          ? "مدیریت مدیران"
+          : inviteRolePicker
+            ? "دعوت عضو خانواده"
+            : "دعوت طرف مقابل"}
       </Button>
     ) : variant === "empty" ? (
       <Button
@@ -108,7 +117,11 @@ export function InviteMembersButton({
         variant="outline"
         className="h-11 w-full rounded-xl border-border/70 bg-card text-body-sm font-semibold"
       >
-        {inviteRolePicker ? "دعوت عضو خانواده" : "دعوت همسفر"}
+        {isBuilding
+          ? "دعوت هم‌مدیر"
+          : inviteRolePicker
+            ? "دعوت عضو خانواده"
+            : "دعوت همسفر"}
       </Button>
     ) : (
       <Button
@@ -116,20 +129,22 @@ export function InviteMembersButton({
         size="icon"
         variant="ghost"
         className="size-8 rounded-full border border-on-hero/30 bg-on-hero/15 text-on-hero hover:bg-on-hero/25 hover:text-on-hero"
-        aria-label="دعوت از اعضا"
+        aria-label={isBuilding ? "مدیریت مدیران" : "دعوت از اعضا"}
       >
         <UserPlusIcon className="size-4" />
       </Button>
-    );
+    ));
 
-  const title =
-    variant === "banner"
+  const title = isBuilding
+    ? "مدیران ساختمان"
+    : variant === "banner"
       ? inviteRolePicker
         ? "دعوت به خانواده"
         : "دعوت به حساب مشترک"
       : "مدیریت اعضا";
-  const description =
-    spaceType === "FUND"
+  const description = isBuilding
+    ? `دعوت هم‌مدیر برای «${spaceName}» — ساکن‌ها از لینک واحد وصل می‌شوند`
+    : spaceType === "FUND"
       ? `اعضا، ضریب سهم و لینک ادعا — «${spaceName}»`
       : variant === "banner"
         ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
@@ -141,9 +156,11 @@ export function InviteMembersButton({
       spaceName={spaceName}
       members={members}
       currentUserRole={currentUserRole}
-      inviteRolePicker={inviteRolePicker}
+      inviteRolePicker={inviteRolePicker && !isBuilding}
       shareCaption={shareCaptionFor(spaceType)}
       maxMembers={maxMembers}
+      showShareControls={!isBuilding}
+      editorOnlyRoles={isBuilding}
     />
   );
 

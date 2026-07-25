@@ -396,6 +396,14 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     defaultShare: m.defaultShare,
   }));
 
+  /** BUILDING: SpaceMember VIEWER = residents; managers are OWNER/EDITOR only. */
+  const managerMembers = isBuildingShell
+    ? inviteMembers.filter((m) => m.role === "OWNER" || m.role === "EDITOR")
+    : inviteMembers;
+  const managerCount = isBuildingShell
+    ? managerMembers.length
+    : space.members.length;
+
   const members = space.members.map((m) => ({
     userId: m.user.id,
     name: m.user.name,
@@ -558,13 +566,24 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             <BuildingMonthHero
               spaceId={space.id}
               spaceName={space.name}
-              memberCount={space.members.length}
+              memberCount={managerCount}
               expenseCount={space.expenses.length}
               monthExpense={monthExpense}
               dashboard={buildingDashboard}
               currency={space.currency}
               settingsHref={`/spaces/${space.id}/settings`}
               isOwner={isOwner}
+              managersAction={
+                isOwner ? (
+                  <InviteMembersButton
+                    spaceId={space.id}
+                    spaceName={space.name}
+                    members={managerMembers}
+                    currentUserRole={myRole}
+                    spaceType={space.type}
+                  />
+                ) : null
+              }
             />
           ) : isFundShell ? (
             <div className="space-y-3">

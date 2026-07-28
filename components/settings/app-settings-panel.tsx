@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
 import { AccountBackupPanel } from "@/components/settings/backup-panels";
+import { PwaInstallCard } from "@/components/pwa/pwa-runtime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -302,6 +303,7 @@ export function AppSettingsPanel({
 
         {tab === "data" ? (
           <div className="space-y-3">
+            <PwaInstallCard />
             <AccountBackupPanel />
 
             <section className="rounded-2xl border border-destructive/20 bg-card p-4 shadow-sm">

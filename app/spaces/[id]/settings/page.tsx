@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { listCategoryBudgets } from "@/app/actions/categoryBudget";
+import { listCategoryPolicies } from "@/app/actions/categoryPrivacy";
 import {
   getChargePlanForYear,
 } from "@/app/actions/building";
@@ -8,10 +9,12 @@ import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
 import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
+import { CategoryPrivacySettings } from "@/components/spaces/category-privacy-settings";
 import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceTheme } from "@/components/spaces/space-theme";
+import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
 import { SpaceBackupButton } from "@/components/settings/backup-panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +77,7 @@ export default async function SpaceSettingsPage({
   const isOwner = membership.role === "OWNER";
   const showBudget = template.features.budget && !template.features.buildingCharges;
   const showCategoryBudgets = template.features.categoryBudgets;
+  const showCategoryPrivacy = Boolean(template.features.categoryPrivacy);
   const showRecurring = template.features.recurring;
   const showBuilding = template.features.buildingCharges;
   const showFundPlan = Boolean(template.features.fundRotating);
@@ -81,9 +85,10 @@ export default async function SpaceSettingsPage({
   const currentJalali = tehranCivilYear();
   const planYear = space.defaultPlanYear ?? currentJalali;
 
-  const [categoryBudgets, recurringRules, buildingPlan, fundPlan, buildingManagers] =
+  const [categoryBudgets, categoryPolicies, recurringRules, buildingPlan, fundPlan, buildingManagers] =
     await Promise.all([
       showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
+      showCategoryPrivacy ? listCategoryPolicies(id) : Promise.resolve([]),
       showRecurring ? listRecurringRules(id) : Promise.resolve([]),
       showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
       showFundPlan
@@ -342,6 +347,17 @@ export default async function SpaceSettingsPage({
         </section>
       ) : null}
 
+      {showCategoryPrivacy ? (
+        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+          <CategoryPrivacySettings
+            spaceId={space.id}
+            initial={categoryPolicies}
+            currentUserId={session.userId}
+            disabled={membership.role === "VIEWER"}
+          />
+        </section>
+      ) : null}
+
       {showCategoryBudgets ? (
         <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
           <CategoryBudgetSettings
@@ -366,6 +382,16 @@ export default async function SpaceSettingsPage({
       {isOwner ? (
         <div className="animate-fade-up">
           <SpaceBackupButton spaceId={space.id} spaceName={space.name} />
+        </div>
+      ) : null}
+
+      {isOwner ? (
+        <div className="animate-fade-up">
+          <SpaceArchiveButton
+            spaceId={space.id}
+            spaceName={space.name}
+            variant="panel"
+          />
         </div>
       ) : null}
     </main>

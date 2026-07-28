@@ -63,7 +63,7 @@ function CreateTrigger({
     <Button
       type="button"
       size={isFab ? "icon" : "default"}
-      aria-label="فضای جدید"
+      aria-label="دفتر جدید"
       className={cn(
         isFab
           ? [
@@ -84,7 +84,7 @@ function CreateTrigger({
           <span className="flex size-5 items-center justify-center">
             <PlusIcon className="size-4" />
           </span>
-          فضای جدید
+          دفتر جدید
         </>
       )}
     </Button>
@@ -99,26 +99,29 @@ function SheetBody({
   initialType?: SpaceType;
 }) {
   return (
-    <div className="flex max-h-[min(82dvh,560px)] flex-col">
-      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-3.5 pt-1.5 md:pt-3">
+    <div className="flex max-h-[min(88dvh,640px)] flex-col">
+      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-4 pt-2 md:pt-4">
         <div
           aria-hidden
-          className="pointer-events-none absolute -end-8 -top-10 size-32 rounded-full bg-on-hero/10 blur-2xl"
+          className="pointer-events-none absolute -end-10 -top-12 size-36 rounded-full bg-on-hero/12 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -start-10 bottom-0 size-24 rounded-full bg-on-hero/5 blur-xl"
+          className="pointer-events-none absolute -start-8 bottom-[-1rem] size-28 rounded-full bg-highlight/20 blur-2xl"
         />
-        <div className="relative space-y-0.5 text-start">
-          <h2 className="text-lg font-bold tracking-tight text-on-hero">
-            فضای جدید
+        <div className="relative space-y-1 text-start">
+          <p className="text-micro font-medium tracking-[0.14em] text-on-hero/45">
+            SUPERHESAB
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-on-hero">
+            دفتر جدید
           </h2>
-          <p className="text-caption text-on-hero/70">
-            نام بگذار، قالب را بزن، بساز
+          <p className="max-w-[16rem] text-caption leading-relaxed text-on-hero/72">
+            نام بگذار، قالب را انتخاب کن، بساز.
           </p>
         </div>
       </div>
-      <div className="surface-sheet-canvas min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="surface-sheet-canvas flex min-h-0 flex-1 flex-col px-5 pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <CreateSpaceForm
           key={initialType ?? "default"}
           error={error}
@@ -172,9 +175,9 @@ export function CreateSpaceSheet({
         ) : null}
         <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-md">
           <DialogHeader className="sr-only">
-            <DialogTitle>فضای جدید</DialogTitle>
+            <DialogTitle>دفتر جدید</DialogTitle>
             <DialogDescription>
-              یک دفتر مشترک برای سفر، دورهمی یا دونفره
+              یک دفتر برای خانه، سفر، مشترک یا ساختمان
             </DialogDescription>
           </DialogHeader>
           <SheetBody error={error} initialType={initialType} />
@@ -190,11 +193,11 @@ export function CreateSpaceSheet({
           <CreateTrigger layout={layout} />
         </DrawerTrigger>
       ) : null}
-      <DrawerContent className="mt-0! max-h-[min(82dvh,560px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <DrawerContent className="mt-0! max-h-[min(88dvh,640px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <DrawerHeader className="sr-only">
-          <DrawerTitle>فضای جدید</DrawerTitle>
+          <DrawerTitle>دفتر جدید</DrawerTitle>
           <DrawerDescription>
-            انتخاب قالب و ساخت فضای حساب‌وکتاب
+            انتخاب قالب و ساخت دفتر حساب‌وکتاب
           </DrawerDescription>
         </DrawerHeader>
         <SheetBody error={error} initialType={initialType} />

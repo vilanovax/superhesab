@@ -26,7 +26,7 @@ export type ArchivedSpaceRow = {
 function markFor(type: SpaceType): string {
   if (type === "TRIP") return "سفر";
   if (type === "PARTNER") return "۲نفر";
-  if (type === "FAMILY") return "خانه";
+  if (type === "FAMILY" || type === "PERSONAL") return "خانه";
   if (type === "FUND") return "صندوق";
   if (type === "BUILDING") return "برج";
   return "من";
@@ -35,10 +35,10 @@ function markFor(type: SpaceType): string {
 function chipFor(type: SpaceType): string {
   if (type === "TRIP") return "bg-secondary text-primary";
   if (type === "PARTNER") return "bg-accent text-ink";
-  if (type === "FAMILY") return "bg-secondary text-primary";
+  if (type === "FAMILY" || type === "PERSONAL") return "bg-secondary text-primary";
   if (type === "FUND") return "bg-primary/15 text-primary";
   if (type === "BUILDING") return "bg-muted text-foreground";
-  return "bg-success-soft text-success";
+  return "bg-secondary text-primary";
 }
 
 export function ArchivedSpacesList({ spaces }: { spaces: ArchivedSpaceRow[] }) {

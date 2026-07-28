@@ -1,13 +1,13 @@
 /**
- * SuperHesab — minimal offline shell.
+ * SuperHesab — minimal offline shell + update handshake.
  * Network-first navigations; fall back to /offline when offline.
- * Precaches the offline page + icons for installability shell.
  */
-const CACHE = "superhesab-shell-v1";
+const CACHE = "superhesab-shell-v2";
 const PRECACHE = [
   "/offline",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-maskable-512.png",
   "/favicon.png",
 ];
 
@@ -35,6 +35,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -42,14 +48,15 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // App navigations: network first, offline page as fallback
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          // Cache successful HTML shells lightly (login/app only)
-          if (response.ok && (url.pathname === "/login" || url.pathname === "/app")) {
+          if (
+            response.ok &&
+            (url.pathname === "/login" || url.pathname === "/app")
+          ) {
             caches.open(CACHE).then((cache) => cache.put(request, copy));
           }
           return response;
@@ -64,7 +71,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Same-origin static assets: cache-first
   if (
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/favicon.png" ||

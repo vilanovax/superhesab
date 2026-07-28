@@ -12,7 +12,7 @@ type ToastState = {
 type UiState = {
   activeSpaceId: string | null;
   expenseFormOpen: boolean;
-  /** Prefill for PERSONAL create form when opened from empty-state chips. */
+  /** Prefill for expense form when opened from empty-state chips (خانه / …). */
   draftTransactionType: TransactionTypeForm;
   toast: ToastState;
   setActiveSpaceId: (id: string | null) => void;

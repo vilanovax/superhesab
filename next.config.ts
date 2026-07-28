@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  /** Smaller Docker image; server.js + traced deps under .next/standalone */
+  output: "standalone",
   /** Keep pdfkit/exceljs out of the bundler so AFM font data resolves on disk. */
   serverExternalPackages: ["pdfkit", "exceljs", "fontkit"],
   turbopack: {

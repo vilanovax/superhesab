@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { listDueSoonDebtsForUser } from "@/app/actions/debt";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
-import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireUser } from "@/lib/auth/guards";
@@ -54,13 +53,28 @@ function Chevron({ className }: { className?: string }) {
   );
 }
 
-const HERO_CHIPS = [
-  "سفر",
-  "مشترک",
-  "خانواده",
-  "ساختمان",
-  "شخصی",
-] as const;
+function typeMark(type: string) {
+  if (type === "TRIP") return "سفر";
+  if (type === "PARTNER") return "۲نفر";
+  if (type === "FAMILY" || type === "PERSONAL") return "خانه";
+  if (type === "FUND") return "صندوق";
+  if (type === "BUILDING") return "برج";
+  return "من";
+}
+
+function typeAccent(type: string) {
+  if (type === "PARTNER") return "bg-highlight";
+  if (type === "FAMILY" || type === "PERSONAL") return "bg-ink";
+  return "bg-primary";
+}
+
+function typeChip(type: string) {
+  if (type === "PARTNER") return "bg-accent text-ink";
+  if (type === "FAMILY" || type === "PERSONAL") return "bg-secondary text-primary";
+  if (type === "FUND") return "bg-primary/15 text-primary";
+  if (type === "BUILDING") return "bg-muted text-foreground";
+  return "bg-secondary text-primary";
+}
 
 export default async function AppHomePage({
   searchParams,
@@ -91,7 +105,7 @@ export default async function AppHomePage({
           name: true,
           type: true,
           currency: true,
-          _count: { select: { expenses: true, members: true } },
+          _count: { select: { members: true } },
         },
       },
     },
@@ -109,6 +123,7 @@ export default async function AppHomePage({
 
   const displayName = user.name?.trim() || user.phone;
   const spaceCount = memberships.length;
+  const isEmpty = spaceCount === 0;
 
   const currencyBySpace = Object.fromEntries(
     memberships.map((m) => [m.space.id, m.space.currency]),
@@ -117,7 +132,7 @@ export default async function AppHomePage({
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
       {/* Identity */}
-      <div className="mb-4 flex items-center gap-3">
+      <div className={cn("flex items-center gap-3", isEmpty ? "mb-4" : "mb-5")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={
@@ -134,7 +149,7 @@ export default async function AppHomePage({
             سلام، {displayName}
           </p>
           <p className="text-caption text-muted-foreground">
-            {spaceCount === 0 ? "اولین دفترت را بساز" : `${spaceCount} دفتر فعال`}
+            {isEmpty ? "اولین دفترت را بساز" : `${spaceCount} دفتر فعال`}
           </p>
         </div>
         <Button
@@ -184,199 +199,111 @@ export default async function AppHomePage({
         </div>
       ) : null}
 
-      {/* Brand hero — سوپرحساب */}
-      <header className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-[1.5rem] px-5 pb-4 pt-5 shadow-md">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.22]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, var(--on-hero-soft) 1px, transparent 0)",
-            backgroundSize: "18px 18px",
-            maskImage:
-              "radial-gradient(ellipse at 80% 0%, black 15%, transparent 65%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -end-8 -top-14 size-40 rounded-full bg-on-hero/15 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -start-12 bottom-[-2rem] size-36 rounded-full bg-highlight/25 blur-3xl"
-        />
-
-        <div className="relative">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-on-hero/12 px-2.5 py-1 text-micro font-semibold tracking-wide text-on-hero/80 ring-1 ring-on-hero/15">
-              <span
-                className="size-1.5 rounded-full bg-highlight"
-                aria-hidden
-              />
-              حساب‌وکتاب مشترک
-            </span>
-            <span className="text-micro font-medium tracking-[0.12em] text-on-hero/45">
+      {/* Compact brand hero — only when user has no spaces */}
+      {isEmpty ? (
+        <header className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-[1.25rem] px-5 py-4 shadow-md">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -end-6 -top-10 size-28 rounded-full bg-on-hero/15 blur-3xl"
+          />
+          <div className="relative">
+            <p className="text-micro font-medium tracking-[0.14em] text-on-hero/50">
               SuperHesab
-            </span>
+            </p>
+            <h1 className="mt-1 text-2xl font-bold leading-none tracking-tight text-on-hero">
+              سوپرحساب
+            </h1>
+            <p className="mt-2 max-w-[17rem] text-body-sm leading-relaxed text-on-hero/75">
+              خرج‌ها را ثبت کن؛ تراز و تسویه خودش جور می‌شود.
+            </p>
           </div>
-
-          <h1 className="text-[2.15rem] font-bold leading-none tracking-tight text-on-hero sm:text-display">
-            سوپرحساب
-          </h1>
-          <p className="mt-2.5 max-w-[18rem] text-body-sm leading-relaxed text-on-hero/75">
-            خرج‌ها را ثبت کن؛ تراز و تسویه خودش جور می‌شود.
-          </p>
-
-          <div className="mt-4 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {HERO_CHIPS.map((chip) => (
-              <span
-                key={chip}
-                className="shrink-0 rounded-lg bg-on-hero/10 px-2.5 py-1 text-caption font-medium text-on-hero/85 ring-1 ring-on-hero/10"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
 
       <section className="flex min-h-0 flex-1 flex-col">
-        <div className="mb-3 flex items-end justify-between gap-2">
-          <div>
+        {!isEmpty ? (
+          <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-base font-bold tracking-tight text-foreground">
               فضاهای من
             </h2>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              دفاتر فعال حساب‌وکتاب
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
             <Link
               href="/app/archive"
-              className="rounded-lg bg-muted/80 px-2.5 py-1 text-micro font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
+              className="rounded-lg px-2 py-1 text-caption font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               آرشیو
-              {archivedCount > 0 ? ` (${archivedCount})` : ""}
+              {archivedCount > 0 ? (
+                <span className="ms-1 tabular-nums text-muted-foreground/80">
+                  ({archivedCount})
+                </span>
+              ) : null}
             </Link>
-            {spaceCount > 0 ? (
-              <span className="rounded-lg bg-secondary px-2 py-1 text-micro font-semibold tabular-nums text-secondary-foreground">
-                {spaceCount}
-              </span>
-            ) : null}
           </div>
-        </div>
+        ) : null}
 
-        {memberships.length === 0 ? (
+        {isEmpty ? (
           <EmptyState
             icon="space"
             title="هیچ حساب و کتابی ندارید"
-            description="سفر گروهی، حساب مشترک دونفره، یا حسابداری شخصی بسازید."
+            description="سفر گروهی، حساب مشترک دونفره، یا دفتر خانه بسازید."
             className="flex-1 justify-center"
             actionNode={<HomeEmptyActions error={error} />}
           />
         ) : (
           <ul className="space-y-2">
             {memberships.map(({ space, role }, index) => {
-              const template = getTemplate(space.type);
               const spaceHref =
                 space.type === "BUILDING" && role === "VIEWER"
                   ? `/spaces/${space.id}/resident`
                   : space.type === "FUND" && role === "VIEWER"
                     ? `/spaces/${space.id}/member`
                     : `/spaces/${space.id}`;
-              const mark =
-                space.type === "TRIP"
-                  ? "سفر"
-                  : space.type === "PARTNER"
-                    ? "۲نفر"
-                    : space.type === "FAMILY"
-                      ? "خانه"
-                      : space.type === "FUND"
-                        ? "صندوق"
-                        : space.type === "BUILDING"
-                          ? "برج"
-                          : "من";
-              const accent =
-                space.type === "TRIP"
-                  ? "bg-primary"
-                  : space.type === "PARTNER"
-                    ? "bg-highlight"
-                    : space.type === "FAMILY"
-                      ? "bg-ink"
-                      : space.type === "FUND"
-                        ? "bg-primary"
-                        : space.type === "BUILDING"
-                          ? "bg-primary"
-                          : "bg-success";
-              const chip =
-                space.type === "TRIP"
-                  ? "bg-secondary text-primary"
-                  : space.type === "PARTNER"
-                    ? "bg-accent text-ink"
-                    : space.type === "FAMILY"
-                      ? "bg-secondary text-primary"
-                      : space.type === "FUND"
-                        ? "bg-primary/15 text-primary"
-                        : space.type === "BUILDING"
-                          ? "bg-muted text-foreground"
-                          : "bg-success-soft text-success";
+              const meta = [
+                getTemplate(space.type).label,
+                role !== "OWNER" ? roleLabel(role) : null,
+                `${space._count.members} عضو`,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+
               return (
                 <li
                   key={space.id}
                   className="animate-fade-up"
                   style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
                 >
-                  <div
+                  <Link
+                    href={spaceHref}
                     className={cn(
-                      "group relative flex items-center gap-2 overflow-hidden rounded-2xl border border-border/50 bg-card pe-2 ps-3.5 py-3",
-                      "transition-[box-shadow,border-color] duration-150 ease-out",
-                      "hover:border-primary/25 hover:shadow-md",
+                      "group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card ps-3.5 pe-3 py-3",
+                      "transition-[box-shadow,border-color,transform] duration-150 ease-out",
+                      "hover:border-primary/25 hover:shadow-md active:scale-[0.99]",
                     )}
                   >
-                    <Link
-                      href={spaceHref}
-                      className="flex min-w-0 flex-1 items-center gap-3 active:opacity-90"
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute inset-y-3 start-0 w-[3px] rounded-full",
+                        typeAccent(space.type),
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-xl text-caption font-bold leading-tight",
+                        typeChip(space.type),
+                      )}
                     >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "absolute inset-y-3 start-0 w-[3px] rounded-full",
-                          accent,
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          "flex size-11 shrink-0 flex-col items-center justify-center rounded-2xl text-caption font-bold leading-tight",
-                          chip,
-                        )}
-                      >
-                        {mark}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-body font-semibold text-foreground">
-                          {space.name}
-                        </p>
-                        <p className="mt-0.5 text-caption text-muted-foreground">
-                          {template.label}
-                          <span className="mx-1.5 text-border">·</span>
-                          {roleLabel(role)}
-                          <span className="mx-1.5 text-border">·</span>
-                          {space._count.members} عضو
-                          <span className="mx-1.5 text-border">·</span>
-                          {space._count.expenses} هزینه
-                        </p>
-                      </div>
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                        <Chevron className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
-                      </span>
-                    </Link>
-                    {role === "OWNER" ? (
-                      <SpaceArchiveButton
-                        spaceId={space.id}
-                        spaceName={space.name}
-                      />
-                    ) : null}
-                  </div>
+                      {typeMark(space.type)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body font-semibold text-foreground">
+                        {space.name}
+                      </p>
+                      <p className="mt-0.5 truncate text-caption text-muted-foreground">
+                        {meta}
+                      </p>
+                    </div>
+                    <Chevron className="size-4 shrink-0 text-muted-foreground/50 transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-primary" />
+                  </Link>
                 </li>
               );
             })}

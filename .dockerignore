@@ -1,0 +1,28 @@
+# deps & build
+node_modules
+.next
+out
+dist
+coverage
+*.tsbuildinfo
+
+# git / IDE / local
+.git
+.github
+.cursor
+.vscode
+.idea
+*.md
+!README.md
+agent-transcripts
+terminals
+
+# env secrets (compose injects runtime env)
+.env
+.env.*
+!.env.example
+
+# misc
+npm-debug.log*
+.DS_Store
+docker-compose.override.yml

@@ -34,6 +34,9 @@ import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
 import { tehranMonthRange } from "@/lib/personal";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import {
+  privateCategoriesHiddenFromViewer,
+} from "@/lib/category-privacy";
+import {
   getExpensesByCategory,
   getExpensesByCategoryInRange,
   getExpenseLinesForMonth,
@@ -227,6 +230,30 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     await ensureRecurringExpenses(id);
   }
 
+  const categoryPolicies = features.categoryPrivacy
+    ? await prisma.spaceCategoryPolicy.findMany({
+        where: { spaceId: id, visibility: "PRIVATE" },
+        select: {
+          category: true,
+          visibility: true,
+          ownerUserId: true,
+        },
+      })
+    : [];
+  const privacyOpts = {
+    spaceOwnerId: membership.space.ownerId,
+    viewerIsSpaceOwner: membership.role === "OWNER",
+  };
+  const hiddenCategories = privateCategoriesHiddenFromViewer(
+    categoryPolicies,
+    session.userId,
+    privacyOpts,
+  );
+  const categoryPrivacyFilter =
+    hiddenCategories.length > 0
+      ? { category: { notIn: hiddenCategories } }
+      : {};
+
   const emptyBalances = {
     balances: {} as Record<string, number>,
     suggestions: [] as Awaited<
@@ -254,6 +281,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             orderBy: { createdAt: "asc" },
           },
           expenses: {
+            where: categoryPrivacyFilter,
             select: {
               id: true,
               title: true,
@@ -313,6 +341,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
             where: {
               spaceId: id,
               date: { gte: monthRange.start, lte: monthRange.end },
+              ...categoryPrivacyFilter,
             },
             select: {
               totalAmount: true,
@@ -329,13 +358,21 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
               id,
               reportRange.start,
               reportRange.end,
+              null,
+              hiddenCategories,
             )
-          : getExpensesByCategory(id, new Date())
+          : getExpensesByCategory(id, new Date(), null, hiddenCategories)
         : Promise.resolve([]),
       features.incomeExpense
         ? reportRange
-          ? getExpenseLinesInRange(id, reportRange.start, reportRange.end)
-          : getExpenseLinesForMonth(id, new Date())
+          ? getExpenseLinesInRange(
+              id,
+              reportRange.start,
+              reportRange.end,
+              null,
+              hiddenCategories,
+            )
+          : getExpenseLinesForMonth(id, new Date(), null, hiddenCategories)
         : Promise.resolve([]),
       features.debts ? listSpaceDebts(id) : Promise.resolve([]),
       features.savingsPot ? listSavingsPots(id) : Promise.resolve([]),
@@ -952,6 +989,7 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
           members={members}
           currency={space.currency}
           spaceType={space.type}
+          hiddenCategories={hiddenCategories}
         />
       ) : null}
     </main>

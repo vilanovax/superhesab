@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { canonicalizeSpaceType } from "@/lib/templates/registry";
 import type {
   BackupSpacePayload,
   RestoreSpaceResult,
@@ -87,7 +88,7 @@ export async function restoreSpaceFromBackup(input: {
   const unitMap = new Map<string, string>();
 
   const restoredName = `${input.payload.name} (بازیابی)`.slice(0, 120);
-  const spaceType = input.payload.type as SpaceType;
+  const spaceType = canonicalizeSpaceType(input.payload.type as SpaceType);
   const currency = input.payload.currency as SpaceCurrency;
 
   const mapUser = (originalUserId: string): string =>

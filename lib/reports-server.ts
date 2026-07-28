@@ -78,6 +78,7 @@ export async function getExpensesByCategoryInRange(
   start: Date,
   end: Date,
   paidById?: string | null,
+  categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<CategoryExpenseRow[]> {
   const rows = await prisma.expense.findMany({
     where: {
@@ -85,6 +86,9 @@ export async function getExpensesByCategoryInRange(
       transactionType: "EXPENSE",
       date: { gte: start, lte: end },
       ...(paidById ? { paidById } : {}),
+      ...(categoryNotIn && categoryNotIn.length > 0
+        ? { category: { notIn: categoryNotIn } }
+        : {}),
     },
     select: {
       category: true,
@@ -104,6 +108,7 @@ export async function getExpenseLinesInRange(
   start: Date,
   end: Date,
   paidById?: string | null,
+  categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<ReportExpenseLine[]> {
   const rows = await prisma.expense.findMany({
     where: {
@@ -111,6 +116,9 @@ export async function getExpenseLinesInRange(
       transactionType: "EXPENSE",
       date: { gte: start, lte: end },
       ...(paidById ? { paidById } : {}),
+      ...(categoryNotIn && categoryNotIn.length > 0
+        ? { category: { notIn: categoryNotIn } }
+        : {}),
     },
     select: {
       id: true,
@@ -142,16 +150,30 @@ export async function getExpensesByCategory(
   spaceId: string,
   month: Date = new Date(),
   paidById?: string | null,
+  categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<CategoryExpenseRow[]> {
   const { start, end } = tehranMonthRange(month);
-  return getExpensesByCategoryInRange(spaceId, start, end, paidById);
+  return getExpensesByCategoryInRange(
+    spaceId,
+    start,
+    end,
+    paidById,
+    categoryNotIn,
+  );
 }
 
 export async function getExpenseLinesForMonth(
   spaceId: string,
   month: Date = new Date(),
   paidById?: string | null,
+  categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<ReportExpenseLine[]> {
   const { start, end } = tehranMonthRange(month);
-  return getExpenseLinesInRange(spaceId, start, end, paidById);
+  return getExpenseLinesInRange(
+    spaceId,
+    start,
+    end,
+    paidById,
+    categoryNotIn,
+  );
 }

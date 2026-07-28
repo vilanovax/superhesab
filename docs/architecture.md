@@ -45,10 +45,10 @@ Future template-specific data goes in **additive** tables or JSON metadata keyed
 ## 4. Data model (core)
 
 - `User` — identity
-- `Space` — ledger container (`TRIP` | `PARTNER` | `PERSONAL` | `FAMILY` | `BUILDING` | `FUND`)
+- `Space` — ledger container (`TRIP` | `PARTNER` | `FAMILY`/خانه | `BUILDING` | `FUND`; `PERSONAL` = legacy enum)
 - `Expense` / `ExpenseSplit` / `Settlement` — shared money core
-- `Debt` / `DebtPayment` — optional lend/borrow for PERSONAL + FAMILY (additive; not Expense)
-- `CategoryBudget` / `RecurringRule` / `RecurringOccurrence` — PERSONAL + FAMILY depth (additive)
+- `Debt` / `DebtPayment` — optional lend/borrow for خانه/`FAMILY` (additive; not Expense)
+- `CategoryBudget` / `RecurringRule` / `RecurringOccurrence` — خانه depth (additive)
 - `Unit` / `ChargePlan` / `ChargePayment` — BUILDING charges (additive; not Expense)
 - `FundPlan` / `FundTurn` / `FundPayment` — FUND rotating savings (additive; not Expense)
 - `SpaceMember` — RBAC (`OWNER` | `EDITOR`)

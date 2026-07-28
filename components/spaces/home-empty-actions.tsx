@@ -8,10 +8,9 @@ import type { SpaceType } from "@/types";
 const QUICK: { type: SpaceType; label: string; primary?: boolean }[] = [
   { type: "TRIP", label: "سفر", primary: true },
   { type: "PARTNER", label: "مشترک" },
-  { type: "FAMILY", label: "خانواده" },
+  { type: "FAMILY", label: "خانه" },
   { type: "FUND", label: "صندوق" },
   { type: "BUILDING", label: "ساختمان" },
-  { type: "PERSONAL", label: "شخصی" },
 ];
 
 /**
@@ -44,7 +43,7 @@ export function HomeEmptyActions({ error }: { error?: string }) {
               onClick={() => openWith(q.type)}
               className={cn(
                 "h-11 rounded-2xl border border-border/60 bg-card text-body-sm font-semibold text-foreground transition-[transform,background-color,border-color] active:scale-[0.98] hover:border-primary/30",
-                q.type === "PERSONAL" && "col-span-2",
+                q.type === "FAMILY" && "col-span-2",
               )}
             >
               {q.label}

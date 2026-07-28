@@ -7,7 +7,9 @@ import {
   categoriesForType,
   guessCategoryFromTitle,
 } from "@/lib/categorizer";
+import { privateCategoriesHiddenFromViewer } from "@/lib/category-privacy";
 import { parseExpenseDateInput } from "@/lib/format";
+import type { ExpenseCategory } from "@/lib/generated/prisma/enums";
 import {
   asMoney,
   calculateWeightedSplits,
@@ -20,12 +22,42 @@ import {
   expenseSchema,
   type ExpenseFormValues,
 } from "@/lib/validations/expense";
+import type { SpaceType } from "@/types";
 
 export type ExpenseActionResult =
   | { ok: true; expenseId: string }
   | { ok: false; error: string };
 
 type OwedRow = { userId: string; owedAmount: number; share: number };
+
+async function assertCategoryNotHidden(
+  spaceId: string,
+  spaceType: SpaceType,
+  userId: string,
+  category: ExpenseCategory | undefined,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (category === undefined) return { ok: true };
+  if (!getTemplate(spaceType).features.categoryPrivacy) return { ok: true };
+
+  const [policies, spaceMeta] = await Promise.all([
+    prisma.spaceCategoryPolicy.findMany({
+      where: { spaceId, visibility: "PRIVATE" },
+      select: { category: true, visibility: true, ownerUserId: true },
+    }),
+    prisma.space.findUnique({
+      where: { id: spaceId },
+      select: { ownerId: true },
+    }),
+  ]);
+  const hidden = privateCategoriesHiddenFromViewer(policies, userId, {
+    spaceOwnerId: spaceMeta?.ownerId,
+    viewerIsSpaceOwner: spaceMeta?.ownerId === userId,
+  });
+  if (hidden.includes(category)) {
+    return { ok: false, error: "این دسته خصوصیِ عضو دیگری است." };
+  }
+  return { ok: true };
+}
 
 async function assertCanMutateExpense(spaceId: string, userId: string) {
   const membership = await requireSpaceMember(spaceId, userId);
@@ -213,16 +245,34 @@ export async function addExpense(
     };
   }
 
+  const privacy = await assertCategoryNotHidden(
+    input.spaceId,
+    spaceType,
+    session.userId,
+    input.category,
+  );
+  if (!privacy.ok) return privacy;
+
   const customLabel = input.categoryLabel?.trim() || null;
   const fallbackBucket =
     transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";
   const hasManualCategory = input.category !== undefined;
   const categoryLocked = hasManualCategory || Boolean(customLabel);
-  const category = customLabel
+  let category = customLabel
     ? fallbackBucket
     : hasManualCategory
       ? input.category!
       : guessCategoryFromTitle(input.title, transactionType);
+
+  const guessedPrivacy = await assertCategoryNotHidden(
+    input.spaceId,
+    spaceType,
+    session.userId,
+    category,
+  );
+  if (!guessedPrivacy.ok) {
+    category = fallbackBucket;
+  }
 
   try {
     const expense = await prisma.$transaction(async (tx) => {
@@ -339,6 +389,14 @@ export async function updateExpense(
       error: "دسته با نوع تراکنش هم‌خوان نیست.",
     };
   }
+
+  const privacy = await assertCategoryNotHidden(
+    input.spaceId,
+    spaceType,
+    session.userId,
+    input.category,
+  );
+  if (!privacy.ok) return privacy;
 
   const fallbackBucket =
     transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";

@@ -87,24 +87,6 @@ function IconBuilding({ className }: { className?: string }) {
   );
 }
 
-function IconPersonal({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="8" r="3.25" />
-      <path d="M5.5 19.5c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5" />
-    </svg>
-  );
-}
-
 function IconFund({ className }: { className?: string }) {
   return (
     <svg
@@ -123,12 +105,46 @@ function IconFund({ className }: { className?: string }) {
   );
 }
 
-const TEMPLATES: {
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+type TemplateOption = {
   value: SpaceType;
   label: string;
   hint: string;
   icon: (props: { className?: string }) => ReactNode;
-}[] = [
+};
+
+const EVERYDAY: TemplateOption[] = [
+  {
+    value: "FAMILY",
+    label: "خانه",
+    hint: "شخصی یا خانواده",
+    icon: IconFamily,
+  },
+  {
+    value: "PARTNER",
+    label: "مشترک",
+    hint: "دونفره · تسویه",
+    icon: IconPartner,
+  },
+];
+
+const GROUP: TemplateOption[] = [
   {
     value: "TRIP",
     label: "سفر",
@@ -136,21 +152,9 @@ const TEMPLATES: {
     icon: IconTrip,
   },
   {
-    value: "PARTNER",
-    label: "مشترک",
-    hint: "دونفره",
-    icon: IconPartner,
-  },
-  {
-    value: "FAMILY",
-    label: "خانواده",
-    hint: "لجر خانوار",
-    icon: IconFamily,
-  },
-  {
     value: "FUND",
     label: "صندوق",
-    hint: "نوبتی / قرض‌الحسنه",
+    hint: "نوبتی",
     icon: IconFund,
   },
   {
@@ -159,18 +163,13 @@ const TEMPLATES: {
     hint: "واحد و شارژ",
     icon: IconBuilding,
   },
-  {
-    value: "PERSONAL",
-    label: "شخصی",
-    hint: "بودجه و بدهی",
-    icon: IconPersonal,
-  },
 ];
+
+const ALL_TEMPLATES = [...EVERYDAY, ...GROUP];
 
 function placeholderFor(type: SpaceType): string {
   switch (type) {
     case "PERSONAL":
-      return "مثلاً هزینه شخصی ۱۴۰۵";
     case "FAMILY":
       return "مثلاً خانه ما";
     case "FUND":
@@ -178,10 +177,72 @@ function placeholderFor(type: SpaceType): string {
     case "BUILDING":
       return "مثلاً برج آسمان";
     case "PARTNER":
-      return "مثلاً حساب مشترک";
+      return "مثلاً حساب من و …";
     default:
       return "مثلاً سفر شمال";
   }
+}
+
+function TemplateCard({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: TemplateOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = option.icon;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        "relative flex w-full flex-col items-start gap-2.5 rounded-2xl border px-3 py-3 text-start",
+        "transition-[transform,background-color,border-color,box-shadow,color] duration-150 ease-out",
+        "active:scale-[0.98]",
+        selected
+          ? "border-primary bg-primary text-primary-foreground shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.65)]"
+          : "border-border/55 bg-card text-foreground hover:border-primary/35 hover:bg-card",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-9 items-center justify-center rounded-xl transition-colors",
+          selected
+            ? "bg-on-hero/15 text-on-hero"
+            : "bg-muted/80 text-primary",
+        )}
+      >
+        <Icon className="size-[1.125rem]" />
+      </span>
+      <span className="min-w-0 w-full pe-5">
+        <span className="block text-body-sm font-semibold leading-tight tracking-tight">
+          {option.label}
+        </span>
+        <span
+          className={cn(
+            "mt-1 block text-micro leading-snug",
+            selected ? "text-on-hero/70" : "text-muted-foreground",
+          )}
+        >
+          {option.hint}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "absolute end-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-all duration-150",
+          selected
+            ? "scale-100 bg-on-hero/20 text-on-hero opacity-100"
+            : "scale-90 opacity-0",
+        )}
+        aria-hidden
+      >
+        <CheckIcon className="size-3" />
+      </span>
+    </button>
+  );
 }
 
 export function CreateSpaceForm({
@@ -195,98 +256,99 @@ export function CreateSpaceForm({
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
   const [type, setType] = useState<SpaceType>(initialType);
-  const selected = TEMPLATES.find((t) => t.value === type) ?? TEMPLATES[0];
+  const selected = ALL_TEMPLATES.find((t) => t.value === type) ?? ALL_TEMPLATES[0];
 
   return (
-    <form action={createSpaceAndRedirect} className="flex flex-col gap-3.5">
-      <div className="space-y-1.5">
-        <label
-          htmlFor="name"
-          className="text-caption font-medium text-muted-foreground"
-        >
-          نام فضا
-        </label>
-        <Input
-          id="name"
-          name="name"
-          required
-          minLength={2}
-          placeholder={placeholderFor(type)}
-          className="h-11 rounded-2xl border-border/60 bg-card text-base shadow-none"
-          autoFocus={!compact}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-caption font-medium text-muted-foreground">قالب</p>
-        <input type="hidden" name="type" value={type} />
-        <div className="grid grid-cols-2 gap-2">
-          {TEMPLATES.map((t) => {
-            const on = type === t.value;
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setType(t.value)}
-                aria-pressed={on}
-                className={cn(
-                  "group flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-start transition-[transform,background-color,border-color,box-shadow,color] duration-150 ease-out active:scale-[0.97]",
-                  t.value === "PERSONAL" && "col-span-2",
-                  on
-                    ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.55)]"
-                    : "border-border/50 bg-card/90 text-foreground hover:border-primary/30 hover:bg-card",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
-                    on
-                      ? "bg-on-hero/15 text-on-hero"
-                      : "bg-muted/80 text-primary group-hover:bg-primary/10",
-                  )}
-                >
-                  <Icon className="size-[1.125rem]" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-body-sm font-semibold leading-tight tracking-tight">
-                    {t.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block truncate text-micro leading-none",
-                      on ? "text-on-hero/65" : "text-muted-foreground",
-                    )}
-                  >
-                    {t.hint}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
+    <form
+      action={createSpaceAndRedirect}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-2">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="name"
+            className="text-caption font-medium text-muted-foreground"
+          >
+            نام دفتر
+          </label>
+          <Input
+            id="name"
+            name="name"
+            required
+            minLength={2}
+            placeholder={placeholderFor(type)}
+            className="h-12 rounded-2xl border-border/60 bg-card text-base shadow-none focus-visible:border-primary/40"
+            autoFocus={!compact}
+          />
         </div>
+
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-caption font-medium text-muted-foreground">
+              قالب
+            </p>
+            <p className="text-micro text-muted-foreground/80">
+              بعداً عوض نمی‌شود
+            </p>
+          </div>
+
+          <input type="hidden" name="type" value={type} />
+
+          <div className="space-y-2">
+            <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
+              روزمره
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {EVERYDAY.map((t) => (
+                <TemplateCard
+                  key={t.value}
+                  option={t}
+                  selected={type === t.value}
+                  onSelect={() => setType(t.value)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
+              گروهی
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {GROUP.map((t) => (
+                <TemplateCard
+                  key={t.value}
+                  option={t}
+                  selected={type === t.value}
+                  onSelect={() => setType(t.value)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
 
-      <input type="hidden" name="currency" value={preferredCurrency} />
-      <p className="-mt-0.5 text-micro leading-relaxed text-muted-foreground">
-        واحد پول:{" "}
-        <span className="font-medium text-foreground">
-          {CURRENCY_LABELS[preferredCurrency as SpaceCurrency]}
-        </span>
-      </p>
-
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
+      <div className="shrink-0 border-t border-border/40 bg-background/95 pt-3 backdrop-blur-sm">
+        <input type="hidden" name="currency" value={preferredCurrency} />
+        <p className="mb-2 text-center text-micro text-muted-foreground">
+          واحد پول:{" "}
+          <span className="font-medium text-foreground">
+            {CURRENCY_LABELS[preferredCurrency as SpaceCurrency]}
+          </span>
         </p>
-      ) : null}
-
-      <Button
-        type="submit"
-        className="h-11 w-full rounded-2xl text-base font-semibold"
-      >
-        ساخت «{selected.label}»
-      </Button>
+        <Button
+          type="submit"
+          className="h-12 w-full rounded-2xl text-base font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
+        >
+          ساخت «{selected.label}»
+        </Button>
+      </div>
     </form>
   );
 }

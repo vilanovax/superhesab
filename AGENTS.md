@@ -10,3 +10,4 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Coding rules: `.cursorrules`
 - Mutations: Server Actions only; currency: integers only
 - Templates extend UI/policy via `Space.type` — do not fork core money tables
+- After each product code change-set: bump `lib/app-version.ts` `APP_VERSION` by `0.01`

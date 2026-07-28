@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
 import { isSpaceCurrency, type SpaceCurrency } from "@/lib/format";
-import { getTemplate } from "@/lib/templates/registry";
+import { canonicalizeSpaceType, getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
 const spaceCurrencySchema = z.enum([
@@ -194,12 +194,13 @@ export async function createSpace(input: {
   }
 
   const template = getTemplate(parsed.data.type);
+  const spaceType = canonicalizeSpaceType(parsed.data.type);
 
   const space = await prisma.$transaction(async (tx) => {
     const created = await tx.space.create({
       data: {
         name: parsed.data.name,
-        type: parsed.data.type,
+        type: spaceType,
         currency: parsed.data.currency ?? "TOMAN",
         ownerId: session.userId,
       },

@@ -55,7 +55,7 @@
 | تسهیم (Split) | فقط **مساوی** و **مبلغ دقیق دستی** |
 | تسویه | الگوریتم **Debt Simplification** + تایید دستی |
 | ابزار جانبی | چک‌لیست اشتراکی (نزدیک به بلادرنگ) |
-| قالب‌های فعال | **سفر و دورهمی** · **حساب دونفره / پارتنر** · **حسابداری شخصی** · **خانواده** |
+| قالب‌های فعال | **سفر و دورهمی** · **حساب دونفره / پارتنر** · **خانه** (ادغام شخصی+خانواده) · ساختمان · صندوق |
 
 **خارج از اسکوپ MVP:** شارژ ماهانه ساختمان، تسهیم درصدی، آپلود فاکتور، داشبورد گرافیکی / Excel / PDF.
 
@@ -107,26 +107,27 @@
 
 ## تمپلیت: حسابداری شخصی (Personal)
 
-همان هسته Expense؛ تفاوت در UX تک‌نفره و جریان درآمد/هزینه:
+> **ادغام شد (فاز ۱):** شخصی و خانواده تحت قالب **خانه** (`FAMILY`) یکی شدند.  
+> جزئیات: [`docs/home-ledger-merge-prd.md`](./home-ledger-merge-prd.md).  
+> enum `PERSONAL` فقط برای سازگاری بک‌آپ نگه داشته می‌شود.
 
-- `Space.type = PERSONAL` — فقط یک عضو (مالک)، بدون دعوت
-- `Expense.transactionType` = `EXPENSE` | `INCOME`
-- `Space.monthlyBudget` — سقف هزینه ماهانه (اختیاری)
-- UI: داشبورد ماه + گزارش دسته؛ بدون تسویه / چک‌لیست / اعضا
-- ماژول **بدهی و طلب** (`debts: true`) — جدا از Expense؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
-- عمق Personal: بودجه per-category، run-rate، تراکنش تکرارپذیر — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
+~~همان هسته Expense؛ تفاوت در UX تک‌نفره و جریان درآمد/هزینه:~~
+
+- ساخت جدید → `FAMILY` با لیبل «خانه»
+- دعوت عضو همان لجر را اشتراکی می‌کند (بدون تسویه)
+- عمق حسابداری (بودجه دسته، تکرار، بدهی) روی خانه فعال است
 
 ---
 
-## تمپلیت: خانواده (Family)
+## تمپلیت: خانواده → خانه (Family / Home)
 
-لجر مشترک خانوار **بدون تسویه بین اعضا**. جزئیات کامل: [`docs/family-template-prd.md`](./family-template-prd.md).
+لجر شخصی یا خانوار **بدون تسویه بین اعضا**. جزئیات تاریخی: [`docs/family-template-prd.md`](./family-template-prd.md) · ادغام: [`docs/home-ledger-merge-prd.md`](./home-ledger-merge-prd.md).
 
-- `Space.type = FAMILY` — ۲ تا ۸ عضو؛ دعوت با نقش EDITOR/VIEWER
+- `Space.type = FAMILY` — ۱ تا ۸ عضو؛ تک‌نفره = شخصی سابق
 - `incomeExpense` + `budget` + `householdLedger`؛ `settlements: false`
-- `categoryBudgets` + `recurring` — هم‌تراز PERSONAL — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
-- `debts: true` — وام/اقساط بیرونی (جدا از Expense)؛ جزئیات: [`docs/debt-module-prd.md`](./debt-module-prd.md)
-- Paid By بین اعضا؛ بدون Split UI؛ EDITOR فقط تراکنش Expense خودش را ویرایش می‌کند
+- `categoryBudgets` + `recurring` — [`docs/personal-depth-prd.md`](./personal-depth-prd.md)
+- `debts: true` — وام/اقساط بیرونی؛ [`docs/debt-module-prd.md`](./debt-module-prd.md)
+- فاز ۲ (آینده): حریم خصوصی per-category — خارج از اسکوپ فعلی
 
 ---
 
@@ -171,7 +172,7 @@
 6b. Member invite links + join as EDITOR ✅
 7. Trip template UI shell ✅ (default shell)
 8. Partner template UI shell (reuse core) ✅
-9. PWA polish (manifest, offline shell حداقلی) ✅
+9. PWA polish (manifest, offline shell، نصب اپ، آپدیت SW، آیکون maskable) ✅
 
 ---
 

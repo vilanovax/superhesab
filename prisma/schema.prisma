@@ -97,6 +97,7 @@ model User {
   fundPaymentsCreated   FundPayment[]          @relation("FundPaymentCreatedBy")
   fundProofsUploaded    FundPaymentProof[]     @relation("FundProofUploadedBy")
   fundProofsReviewed    FundPaymentProof[]     @relation("FundProofReviewedBy")
+  categoryPoliciesOwned SpaceCategoryPolicy[]  @relation("CategoryPolicyOwner")
 
   @@index([phone])
   @@index([email])
@@ -139,6 +140,7 @@ model Space {
   fundTurns           FundTurn[]
   fundPayments        FundPayment[]
   fundPaymentProofs   FundPaymentProof[]
+  categoryPolicies    SpaceCategoryPolicy[]
 
   @@index([ownerId])
   @@index([type])
@@ -377,6 +379,30 @@ enum ChargeStatus {
   PARTIAL
   PAID
   WAIVED
+}
+
+/// خانه: دستهٔ خصوصی vs مشترک (نبود ردیف = SHARED). See home-category-privacy-prd.
+enum CategoryVisibility {
+  SHARED
+  PRIVATE
+}
+
+/// خانه: سیاست دیده‌شدن دسته. فقط ردیف PRIVATE لازم است؛ SHARED = پیش‌فرض.
+model SpaceCategoryPolicy {
+  id          String             @id @default(cuid())
+  spaceId     String
+  category    ExpenseCategory
+  visibility  CategoryVisibility @default(PRIVATE)
+  ownerUserId String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  owner User  @relation("CategoryPolicyOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, category])
+  @@index([spaceId])
+  @@index([ownerUserId])
 }
 
 /// BUILDING: apartment / unit under a space (additive; not a User).

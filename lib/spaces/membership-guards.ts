@@ -4,7 +4,7 @@ import type { SpaceType } from "@/types";
 
 /**
  * Server-side guard before any SpaceMember create (invite, virtual, claim).
- * Enforces solo (PERSONAL) and maxMembers (FAMILY / PARTNER).
+ * Enforces solo templates and maxMembers (خانه / PARTNER / …).
  */
 export async function assertCanAddSpaceMember(
   spaceId: string,
@@ -50,7 +50,7 @@ export function assertMembershipLimit(
       ok: false,
       error:
         type === "FAMILY"
-          ? "فضای خانواده حداکثر ۸ عضو دارد."
+          ? "دفتر خانه حداکثر ۸ عضو دارد."
           : type === "PARTNER"
             ? "حساب مشترک حداکثر ۲ عضو دارد."
             : `ظرفیت اعضا تکمیل است (حداکثر ${max}).`,

@@ -117,6 +117,8 @@ type ExpenseFormProps = {
   onSuccess?: () => void;
   spaceType?: SpaceType;
   defaultTransactionType?: TransactionTypeForm;
+  /** خانه: hide others' private categories from the picker. */
+  hiddenCategories?: ExpenseCategory[];
 };
 
 function personLabel(member: ExpenseMember, currentUserId: string): string {
@@ -235,6 +237,7 @@ export function ExpenseForm({
   onSuccess,
   spaceType = "TRIP",
   defaultTransactionType = "EXPENSE",
+  hiddenCategories = [],
 }: ExpenseFormProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
@@ -563,9 +566,11 @@ export function ExpenseForm({
     });
   }
 
-  const categoryOptions = isBuilding
-    ? categoriesForBuilding()
-    : categoriesForType(showIncomeExpense ? transactionType : "EXPENSE");
+  const categoryOptions = (
+    isBuilding
+      ? categoriesForBuilding()
+      : categoriesForType(showIncomeExpense ? transactionType : "EXPENSE")
+  ).filter((c) => !hiddenCategories.includes(c));
   const submitLabel = isBuilding
     ? isEdit
       ? "ذخیره هزینه مشاع"

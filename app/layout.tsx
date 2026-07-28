@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Vazirmatn } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
-import { RegisterServiceWorker } from "@/components/pwa/register-sw";
+import { PwaRuntime } from "@/components/pwa/pwa-runtime";
 import "./globals.css";
 
 const vazirmatn = Vazirmatn({
@@ -66,7 +66,7 @@ export default function RootLayout({
         <div className="app-shell flex min-h-full flex-1 flex-col">
           <ThemeProvider>{children}</ThemeProvider>
         </div>
-        <RegisterServiceWorker />
+        <PwaRuntime />
       </body>
     </html>
   );

@@ -1,0 +1,14 @@
+---
+description: Bump APP_VERSION by 0.01 on every product code change
+alwaysApply: true
+---
+
+# App version bump
+
+Whenever you create or change product code in this repo (features, fixes, Docker/PWA, schema, UI, etc.):
+
+1. Before finishing the task, bump `APP_VERSION` in `lib/app-version.ts` by **exactly `0.01`**.
+2. Treat the value as a fixed two-decimal string (e.g. `2.01` → `2.02`, `2.09` → `2.10`). Prefer integer math on hundredths to avoid float drift.
+3. Do **not** bump for docs-only, rule-only, or pure chat/Q&A with no code changes.
+4. One bump per completed change-set / task (not per file).
+5. Settings UI reads this constant (`ver {APP_VERSION}`); keep it as the product release label users see.

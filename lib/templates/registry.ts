@@ -18,7 +18,7 @@ export type TemplateFeatures = {
   checklist: boolean;
   settlements: boolean;
   invites: boolean;
-  /** Income vs expense ledger (PERSONAL / FAMILY / BUILDING common costs). */
+  /** Income vs expense ledger (خانه / BUILDING common costs). */
   incomeExpense: boolean;
   /** Space-level monthlyBudget settings UI. */
   budget: boolean;
@@ -28,17 +28,17 @@ export type TemplateFeatures = {
   manualSplits: boolean;
   /**
    * Shared household ledger without debt: 100% split to paidBy only;
-   * never show balances/settlements (see FAMILY PRD).
+   * never show balances/settlements (see FAMILY / خانه PRD).
    */
   householdLedger: boolean;
   /**
    * Lend/borrow module (Debt + DebtPayment) — isolated from Expense/Settlement.
-   * Enabled on PERSONAL and FAMILY (see debt-module-prd).
+   * Enabled on خانه (FAMILY); see debt-module-prd + home-ledger-merge-prd.
    */
   debts: boolean;
-  /** Per-category monthly caps (PERSONAL depth). */
+  /** Per-category monthly caps. */
   categoryBudgets: boolean;
-  /** Monthly recurring rules → Expense on space open (PERSONAL depth). */
+  /** Monthly recurring rules → Expense on space open. */
   recurring: boolean;
   /**
    * Building charge module (Unit / ChargePlan / ChargePayment).
@@ -46,12 +46,12 @@ export type TemplateFeatures = {
    */
   buildingCharges: boolean;
   /**
-   * FAMILY: shared savings goals (SavingsPot) — isolated from Expense.
+   * FAMILY/خانه: shared savings goals (SavingsPot) — isolated from Expense.
    * See family-savings-loan-prd.
    */
   savingsPot?: boolean;
   /**
-   * FAMILY: lend between SpaceMembers (InternalLoan) — isolated from Debt/Settlement.
+   * FAMILY/خانه: lend between SpaceMembers (InternalLoan) — isolated from Debt/Settlement.
    * See family-savings-loan-prd.
    */
   internalLoans?: boolean;
@@ -60,6 +60,11 @@ export type TemplateFeatures = {
    * See fund-template-prd.
    */
   fundRotating?: boolean;
+  /**
+   * خانه: per-category SHARED/PRIVATE (SpaceCategoryPolicy).
+   * See home-category-privacy-prd.
+   */
+  categoryPrivacy?: boolean;
 };
 
 export type TemplateDefinition = {
@@ -68,10 +73,19 @@ export type TemplateDefinition = {
   /** CSS data-template value — thin brand pack, not a parallel UI. */
   theme: TemplateThemeId;
   defaultInviteRole: "EDITOR" | "VIEWER";
-  /** Soft product cap for invites (FAMILY = 8). Null = no hard cap. */
+  /** Soft product cap for invites (خانه = 8). Null = no hard cap. */
   maxMembers: number | null;
   features: TemplateFeatures;
 };
+
+/**
+ * Product merge: PERSONAL is absorbed into FAMILY («خانه»).
+ * Enum value kept for backups; runtime prefers FAMILY.
+ * See docs/home-ledger-merge-prd.md.
+ */
+export function canonicalizeSpaceType(type: SpaceType): SpaceType {
+  return type === "PERSONAL" ? "FAMILY" : type;
+}
 
 const baseExtras = {
   householdLedger: false as const,
@@ -82,6 +96,27 @@ const baseExtras = {
   savingsPot: false as const,
   internalLoans: false as const,
   fundRotating: false as const,
+  categoryPrivacy: false as const,
+};
+
+/** Shared feature pack for خانه (FAMILY) and legacy PERSONAL. */
+const homeFeatures: TemplateFeatures = {
+  checklist: false,
+  settlements: false,
+  invites: true,
+  incomeExpense: true,
+  budget: true,
+  solo: false,
+  manualSplits: false,
+  householdLedger: true,
+  debts: true,
+  categoryBudgets: true,
+  recurring: true,
+  buildingCharges: false,
+  savingsPot: true,
+  internalLoans: true,
+  fundRotating: false,
+  categoryPrivacy: true,
 };
 
 export const templates: Record<SpaceType, TemplateDefinition> = {
@@ -119,53 +154,25 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       ...baseExtras,
     },
   },
+  /**
+   * @deprecated Merged into FAMILY (خانه). Remains for Record completeness /
+   * old payloads; getTemplate remaps via canonicalizeSpaceType.
+   */
   PERSONAL: {
     type: "PERSONAL",
-    label: "حسابداری شخصی",
-    theme: "personal",
-    defaultInviteRole: "EDITOR",
-    maxMembers: 1,
-    features: {
-      checklist: false,
-      settlements: false,
-      invites: false,
-      incomeExpense: true,
-      budget: true,
-      solo: true,
-      manualSplits: false,
-      householdLedger: false,
-      debts: true,
-      categoryBudgets: true,
-      recurring: true,
-      buildingCharges: false,
-      savingsPot: false,
-      internalLoans: false,
-      fundRotating: false,
-    },
-  },
-  FAMILY: {
-    type: "FAMILY",
-    label: "خانواده",
+    label: "خانه",
     theme: "family",
     defaultInviteRole: "EDITOR",
     maxMembers: 8,
-    features: {
-      checklist: false,
-      settlements: false,
-      invites: true,
-      incomeExpense: true,
-      budget: true,
-      solo: false,
-      manualSplits: false,
-      householdLedger: true,
-      debts: true,
-      categoryBudgets: true,
-      recurring: true,
-      buildingCharges: false,
-      savingsPot: true,
-      internalLoans: true,
-      fundRotating: false,
-    },
+    features: homeFeatures,
+  },
+  FAMILY: {
+    type: "FAMILY",
+    label: "خانه",
+    theme: "family",
+    defaultInviteRole: "EDITOR",
+    maxMembers: 8,
+    features: homeFeatures,
   },
   BUILDING: {
     type: "BUILDING",
@@ -218,7 +225,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
 };
 
 export function getTemplate(type: SpaceType): TemplateDefinition {
-  return templates[type];
+  return templates[canonicalizeSpaceType(type)];
 }
 
 /** Attribute value for data-template / html dataset. */

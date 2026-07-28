@@ -24,6 +24,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 import type { SpaceCurrency } from "@/lib/format";
+import type { ExpenseCategory } from "@/lib/categorizer";
 import type { SpaceType } from "@/types";
 
 type AddExpenseButtonProps = {
@@ -32,6 +33,8 @@ type AddExpenseButtonProps = {
   members: ExpenseMember[];
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
+  /** خانه: categories hidden from this viewer (others' private). */
+  hiddenCategories?: ExpenseCategory[];
 };
 
 function useIsDesktop() {
@@ -152,6 +155,7 @@ export function AddExpenseButton({
   members,
   currency = "TOMAN",
   spaceType = "TRIP",
+  hiddenCategories,
 }: AddExpenseButtonProps) {
   const expenseFormOpen = useUiStore((s) => s.expenseFormOpen);
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
@@ -201,6 +205,7 @@ export function AddExpenseButton({
             ? draftTransactionType
             : "EXPENSE"
       }
+      hiddenCategories={hiddenCategories}
       onSuccess={() => setOpen(false)}
     />
   );

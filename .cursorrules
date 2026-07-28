@@ -54,6 +54,10 @@ You are working on **SuperHesab**: a multi-tenant, template-driven shared financ
 - Do not build large UI in scaffold phases unless asked; follow the current task scope.
 - Prefer focused diffs; no drive-by refactors.
 
+## App version
+
+- On every product code change-set, bump `APP_VERSION` in `lib/app-version.ts` by **0.01** (e.g. `2.01` → `2.02`). See `.cursor/rules/app-version-bump.mdc`.
+
 ## Out of scope until asked
 
 - Building template, percentage splits, file uploads, Excel/PDF, Viewer role (see PRODUCT_VISION phase 2).

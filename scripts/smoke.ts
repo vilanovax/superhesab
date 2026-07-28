@@ -678,28 +678,28 @@ async function main() {
         else fail("HTTP GET partner space", `status=${page.status}`);
       }
 
-      const personal = await prisma.space.findFirst({
-        where: { type: "PERSONAL", members: { some: { userId: ali.id } } },
+      const homeLedger = await prisma.space.findFirst({
+        where: { type: "FAMILY", members: { some: { userId: ali.id } } },
         select: { id: true },
       });
-      if (personal) {
-        const personalXlsx = await httpGetBinary(
-          `/api/spaces/${personal.id}/export/report?format=xlsx`,
+      if (homeLedger) {
+        const homeXlsx = await httpGetBinary(
+          `/api/spaces/${homeLedger.id}/export/report?format=xlsx`,
           cookie,
         );
         if (
-          personalXlsx.status === 200 &&
-          personalXlsx.contentType.includes("spreadsheetml")
+          homeXlsx.status === 200 &&
+          homeXlsx.contentType.includes("spreadsheetml")
         ) {
-          pass("HTTP export personal report xlsx 200");
+          pass("HTTP export home (FAMILY) report xlsx 200");
         } else {
           fail(
-            "HTTP export personal report xlsx",
-            `status=${personalXlsx.status} type=${personalXlsx.contentType}`,
+            "HTTP export home report xlsx",
+            `status=${homeXlsx.status} type=${homeXlsx.contentType}`,
           );
         }
       } else {
-        pass("HTTP export personal report", "no PERSONAL space for Ali — skip");
+        pass("HTTP export home report", "no FAMILY space for Ali — skip");
       }
 
       const buildingSpace = await prisma.space.findFirst({

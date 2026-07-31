@@ -334,9 +334,18 @@ export function SpaceTabs({
 
   const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
+  const defaultTab =
+    (initialTab === "balances" && showSettlements) ||
+    (initialTab === "checklist" && showChecklist)
+      ? initialTab
+      : "expenses";
 
   return (
-    <Tabs defaultValue="expenses" className="flex min-h-0 flex-1 flex-col">
+    <Tabs
+      key={defaultTab}
+      defaultValue={defaultTab}
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <TabsList
         className={cn(
           "grid h-10 w-full",

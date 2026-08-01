@@ -114,6 +114,11 @@ function shortMonthLabel(month: number): string {
   return full.slice(0, 3) || faDigits(month);
 }
 
+/**
+ * Keep Drawer + DrawerContent mounted even when `unit` is null.
+ * Mounting Vaul with open=true on first paint leaves the sheet off-screen
+ * while the blurred overlay stays visible.
+ */
 export function BuildingUnitDetailDrawer({
   open,
   onOpenChange,
@@ -122,8 +127,45 @@ export function BuildingUnitDetailDrawer({
   canMutate,
   onRecordPayment,
 }: BuildingUnitDetailDrawerProps) {
-  if (!unit) return null;
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      {/*
+        Do not put `relative` on DrawerContent — it overrides vaul's `fixed`
+        (via tailwind-merge) so only the overlay shows and the sheet never
+        docks to the viewport bottom.
+      */}
+      <DrawerContent className="mt-0 flex max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
+        {unit ? (
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <UnitDetailBody
+              unit={unit}
+              currency={currency}
+              canMutate={canMutate}
+              onRecordPayment={onRecordPayment}
+            />
+          </div>
+        ) : (
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>جزئیات واحد</DrawerTitle>
+            <DrawerDescription>در حال آماده‌سازی</DrawerDescription>
+          </DrawerHeader>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+}
 
+function UnitDetailBody({
+  unit,
+  currency,
+  canMutate,
+  onRecordPayment,
+}: {
+  unit: UnitDetailModel;
+  currency: SpaceCurrency;
+  canMutate: boolean;
+  onRecordPayment?: (unitId: string, month: number) => void;
+}) {
   const expectedYtd =
     unit.throughMonth > 0 ? unit.monthlyCharge * unit.throughMonth : 0;
   const unitLabel = currencyLabel(currency);
@@ -143,8 +185,7 @@ export function BuildingUnitDetailDrawer({
     canMutate && unit.throughMonth > 0 ? nextDueMonth : null;
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="relative mt-0! flex max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/50 bg-sheet p-0">
+    <>
         {/* Hero — status-first */}
         <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-5 pt-2">
           <div
@@ -460,7 +501,6 @@ export function BuildingUnitDetailDrawer({
             </Button>
           </div>
         ) : null}
-      </DrawerContent>
-    </Drawer>
+    </>
   );
 }

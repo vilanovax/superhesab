@@ -8,6 +8,7 @@ import {
   upsertChargePayment,
   type AnnualChargeCalendarDTO,
   type BuildingDashboardDTO,
+  type BuildingUnitRow,
   type ChargePaymentDTO,
   type ChargePaymentProofDTO,
   type UnitDTO,
@@ -15,6 +16,10 @@ import {
 import { BuildingAnnualCalendar } from "@/components/spaces/building-annual-calendar";
 import { BuildingExportButtons } from "@/components/spaces/building-export-buttons";
 import { BuildingProofsInbox } from "@/components/spaces/building-proofs-inbox";
+import {
+  BuildingUnitDetailDrawer,
+  type UnitDetailModel,
+} from "@/components/spaces/building-unit-detail-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -64,6 +69,7 @@ type BuildingChargesPanelProps = {
   canMutate: boolean;
   isOwner: boolean;
   chargeProofs?: ChargePaymentProofDTO[];
+  buildingUnits?: BuildingUnitRow[];
 };
 
 export function BuildingChargesPanel({
@@ -76,6 +82,7 @@ export function BuildingChargesPanel({
   canMutate,
   isOwner,
   chargeProofs = [],
+  buildingUnits = [],
 }: BuildingChargesPanelProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
@@ -92,6 +99,7 @@ export function BuildingChargesPanel({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
+  const [detailUnit, setDetailUnit] = useState<UnitDetailModel | null>(null);
 
   const unitLabel = currencyLabel(currency);
 
@@ -127,16 +135,18 @@ export function BuildingChargesPanel({
     monthlyCharge: number;
     payment: ChargePaymentDTO | null;
   }) {
+    setDetailUnit(null);
     setMonth(args.month);
+    const dash = dashboard.units.find((u) => u.id === args.unitId);
     setPayUnit({
       id: args.unitId,
       name: args.unitName,
-      area: null,
-      multiplier: 1000,
-      isActive: true,
+      area: dash?.area ?? null,
+      multiplier: dash?.multiplier ?? 1000,
+      isActive: dash?.isActive ?? true,
       monthlyCharge: args.monthlyCharge,
-      arrears: 0,
-      collected: 0,
+      arrears: dash?.arrears ?? 0,
+      collected: dash?.collected ?? 0,
     });
     setAmount(args.payment?.amount ?? args.monthlyCharge ?? 0);
     setStatus(args.payment?.status ?? "PAID");
@@ -144,6 +154,53 @@ export function BuildingChargesPanel({
     setNoteOpen(Boolean(args.payment?.note));
     setDate(args.payment?.date ?? todayIsoDateTehran());
     setError(null);
+  }
+
+  function openUnitDetail(unitId: string) {
+    const dash = dashboard.units.find((u) => u.id === unitId);
+    const meta = buildingUnits.find((u) => u.id === unitId);
+    const calUnit = calendar?.units.find((u) => u.id === unitId);
+    if (!dash && !calUnit) return;
+
+    const months: UnitDetailModel["months"] = {
+      ...(calendar?.byUnitMonth[unitId] ?? {}),
+    };
+
+    setDetailUnit({
+      id: unitId,
+      name: dash?.name ?? calUnit?.name ?? "—",
+      area: dash?.area ?? meta?.area ?? null,
+      multiplier: dash?.multiplier ?? meta?.multiplier ?? 1000,
+      isActive: dash?.isActive ?? meta?.isActive ?? true,
+      monthlyCharge:
+        dash?.monthlyCharge ?? calUnit?.monthlyCharge ?? 0,
+      arrears: dash?.arrears ?? 0,
+      collected: dash?.collected ?? 0,
+      linkedUserName: meta?.linkedUserName ?? null,
+      year: calendar?.year ?? dashboard.year,
+      throughMonth: calendar?.throughMonth ?? dashboard.throughMonth,
+      months,
+    });
+  }
+
+  function recordPaymentFromDetail(unitId: string, monthNum: number) {
+    const dash = dashboard.units.find((u) => u.id === unitId);
+    const calUnit = calendar?.units.find((u) => u.id === unitId);
+    if (!dash && !calUnit) return;
+    const payment =
+      calendar?.byUnitMonth[unitId]?.[monthNum] ??
+      dashboard.payments.find(
+        (p) => p.unitId === unitId && p.month === monthNum,
+      ) ??
+      null;
+    openPayFromCalendar({
+      unitId,
+      unitName: dash?.name ?? calUnit?.name ?? "—",
+      month: monthNum,
+      monthlyCharge:
+        dash?.monthlyCharge ?? calUnit?.monthlyCharge ?? 0,
+      payment,
+    });
   }
 
   function onSavePayment(e: React.FormEvent) {
@@ -285,6 +342,7 @@ export function BuildingChargesPanel({
               calendar={calendar}
               canMutate={canMutate}
               onCellClick={canMutate ? openPayFromCalendar : undefined}
+              onUnitClick={openUnitDetail}
             />
           ) : (
             <p className="py-6 text-center text-body-sm text-muted-foreground">
@@ -388,21 +446,28 @@ export function BuildingChargesPanel({
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => openUnitDetail(unit.id)}
+                    aria-label={`جزئیات واحد ${unit.name}`}
                     className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl text-caption font-bold",
+                      "flex size-10 shrink-0 items-center justify-center rounded-xl text-caption font-bold transition-transform active:scale-95",
                       settled
                         ? "bg-success-soft text-success"
                         : "bg-secondary text-secondary-foreground",
                     )}
                   >
                     {unit.name}
-                  </span>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-body-sm font-semibold text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => openUnitDetail(unit.id)}
+                        className="truncate text-body-sm font-semibold text-foreground"
+                      >
                         واحد {unit.name}
-                      </p>
+                      </button>
                       {payStatus ? (
                         <StatusPill status={payStatus} />
                       ) : (
@@ -604,6 +669,17 @@ export function BuildingChargesPanel({
           </form>
         </DrawerContent>
       </Drawer>
+
+      <BuildingUnitDetailDrawer
+        open={Boolean(detailUnit)}
+        onOpenChange={(open) => {
+          if (!open) setDetailUnit(null);
+        }}
+        unit={detailUnit}
+        currency={currency}
+        canMutate={canMutate}
+        onRecordPayment={canMutate ? recordPaymentFromDetail : undefined}
+      />
     </div>
   );
 }

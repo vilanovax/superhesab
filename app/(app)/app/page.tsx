@@ -12,6 +12,7 @@ import {
 } from "@/components/spaces/space-type-icon";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
@@ -215,16 +216,12 @@ export default async function AppHomePage({
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
       {/* Identity */}
       <div className="mb-4 flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={
-            user.avatarUrl ??
-            `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(user.phone)}`
-          }
-          alt=""
-          width={40}
-          height={40}
-          className="size-10 rounded-full ring-2 ring-white/90 shadow-sm"
+        <UserAvatar
+          phone={user.phone}
+          name={user.name}
+          avatarUrl={user.avatarUrl}
+          size={40}
+          className="size-10 ring-2 ring-white/90 shadow-sm"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body font-semibold tracking-tight text-foreground">

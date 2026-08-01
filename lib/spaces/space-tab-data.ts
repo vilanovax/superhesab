@@ -1,0 +1,63 @@
+import type { ExpenseCategory } from "@/lib/categorizer";
+import type { TemplateFeatures } from "@/lib/templates/registry";
+
+export type SpaceTabId =
+  | "expenses"
+  | "charges"
+  | "units"
+  | "report"
+  | "debts"
+  | "funds"
+  | "balances"
+  | "checklist";
+
+/** Default tab for a template when `?tab=` is absent / invalid. */
+export function resolveDefaultTab(
+  features: TemplateFeatures,
+  tabParam?: string,
+): SpaceTabId {
+  const allowed = new Set<string>();
+  if (features.incomeExpense && !features.settlements) {
+    allowed.add("expenses");
+    allowed.add("report");
+    if (features.buildingCharges) {
+      allowed.add("charges");
+      allowed.add("units");
+    }
+    if (features.debts) allowed.add("debts");
+    if (features.savingsPot || features.internalLoans) allowed.add("funds");
+  } else {
+    allowed.add("expenses");
+    if (features.settlements) allowed.add("balances");
+    if (features.checklist) allowed.add("checklist");
+  }
+
+  if (tabParam && allowed.has(tabParam)) {
+    return tabParam as SpaceTabId;
+  }
+
+  if (features.buildingCharges && !features.settlements) return "charges";
+  return "expenses";
+}
+
+export type DeferredTabPayload = {
+  personalReportData: import("@/lib/reports").CategoryExpenseRow[];
+  reportExpenseLines: import("@/lib/reports").ReportExpenseLine[];
+  debts: import("@/app/actions/debt").DebtDTO[];
+  savingsPots: import("@/app/actions/savingsPot").SavingsPotDTO[];
+  internalLoans: import("@/app/actions/internalLoan").InternalLoanDTO[];
+  checklist: import("@/app/actions/checklist").ChecklistItemDTO[];
+  chargeProofs: import("@/app/actions/building").ChargePaymentProofDTO[];
+  categoryBudgets: Partial<Record<ExpenseCategory, number>>;
+};
+
+export const EMPTY_DEFERRED_TAB: DeferredTabPayload = {
+  personalReportData: [],
+  reportExpenseLines: [],
+  debts: [],
+  savingsPots: [],
+  internalLoans: [],
+  checklist: [],
+  chargeProofs: [],
+  categoryBudgets: {},
+};

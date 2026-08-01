@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { addExpense, updateExpense } from "@/app/actions/expense";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Form,
   FormControl,
@@ -1054,14 +1055,12 @@ export function ExpenseForm({
                               className="size-5 rounded-md data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                             />
                           </FormControl>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(member.name || member.phone)}`}
-                            alt=""
-                            width={28}
-                            height={28}
+                          <UserAvatar
+                            phone={member.phone}
+                            name={member.name}
+                            size={28}
                             className={cn(
-                              "size-7 shrink-0 rounded-full bg-secondary",
+                              "size-7 bg-secondary",
                               !selected && "opacity-50",
                             )}
                           />

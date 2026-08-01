@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { settleDebt } from "@/app/actions/settlement";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Dialog,
   DialogContent,
@@ -388,13 +389,11 @@ function MemberRow({
   return (
     <li className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-center gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(member.name || member.phone)}`}
-          alt=""
-          width={28}
-          height={28}
-          className="size-7 shrink-0 rounded-full bg-secondary"
+        <UserAvatar
+          phone={member.phone}
+          name={member.name}
+          size={28}
+          className="size-7 bg-secondary"
         />
         <span className="truncate text-body-sm font-medium text-foreground">
           {personName(member, currentUserId)}

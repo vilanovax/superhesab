@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
   AnnualChargeCalendarDTO,
   ChargePaymentDTO,
@@ -10,9 +10,23 @@ import {
   CHARGE_STATUS_LABELS,
   MONTH_LABELS_FA,
   formatJalaliYear,
+  jalaliMonth,
   type ChargeStatusValue,
 } from "@/lib/building";
 import { cn } from "@/lib/utils";
+
+/** 1 = Farvardin–Shahrivar, 2 = Mehr–Esfand */
+type HalfYear = 1 | 2;
+
+function halfYearForMonth(month: number): HalfYear {
+  return month <= 6 ? 1 : 2;
+}
+
+function monthsForHalf(half: HalfYear): number[] {
+  return half === 1
+    ? [1, 2, 3, 4, 5, 6]
+    : [7, 8, 9, 10, 11, 12];
+}
 
 export type CalendarCellKind =
   | ChargeStatusValue
@@ -30,6 +44,8 @@ type BuildingAnnualCalendarProps = {
     monthlyCharge: number;
     payment: ChargePaymentDTO | null;
   }) => void;
+  /** Tap unit label → open unit detail sheet. */
+  onUnitClick?: (unitId: string) => void;
 };
 
 const MONTH_SHORT = [
@@ -120,9 +136,13 @@ export function BuildingAnnualCalendar({
   calendar,
   canMutate,
   onCellClick,
+  onUnitClick,
 }: BuildingAnnualCalendarProps) {
   const { year, throughMonth, units, byUnitMonth } = calendar;
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const [half, setHalf] = useState<HalfYear>(() =>
+    halfYearForMonth(jalaliMonth()),
+  );
+  const months = monthsForHalf(half);
 
   const stats = useMemo(() => {
     let paid = 0;
@@ -195,19 +215,47 @@ export function BuildingAnnualCalendar({
         </div>
       </div>
 
+      {/* Half-year switcher */}
+      <div
+        className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1 ring-1 ring-border/40"
+        role="tablist"
+        aria-label="نیم‌سال تقویم"
+      >
+        {(
+          [
+            { value: 1 as const, label: "فروردین–شهریور" },
+            { value: 2 as const, label: "مهر–اسفند" },
+          ] as const
+        ).map((opt) => {
+          const active = half === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setHalf(opt.value)}
+              className={cn(
+                "rounded-xl px-2 py-2 text-caption font-semibold transition-[background-color,color,box-shadow] duration-150",
+                active
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border/50"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
       {units.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
           واحد فعالی برای نمایش نیست.
         </div>
       ) : (
         <div className="relative">
-          {/* Scroll edge fade */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 end-0 z-20 w-6 bg-gradient-to-l from-card to-transparent"
-          />
-          <div className="-mx-0.5 overflow-x-auto overscroll-x-contain pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <table className="w-max border-separate border-spacing-y-1.5 border-spacing-x-1">
+          <div className="-mx-0.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <table className="w-full min-w-0 border-separate border-spacing-y-1.5 border-spacing-x-1">
               <thead>
                 <tr>
                   <th className="sticky start-0 z-10 bg-card pe-2 ps-0.5 text-start">
@@ -225,7 +273,7 @@ export function BuildingAnnualCalendar({
                       >
                         <span
                           className={cn(
-                            "inline-flex min-w-10 flex-col items-center rounded-lg px-0.5 py-0.5",
+                            "inline-flex min-w-9 flex-col items-center rounded-lg px-0.5 py-0.5 sm:min-w-10",
                             isCurrent && "bg-primary/10",
                           )}
                         >
@@ -259,9 +307,20 @@ export function BuildingAnnualCalendar({
                 {units.map((unit) => (
                   <tr key={unit.id}>
                     <th className="sticky start-0 z-10 bg-card pe-2 ps-0.5 text-start align-middle">
-                      <span className="inline-flex max-w-[3.25rem] items-center truncate rounded-lg bg-muted/70 px-2 py-1.5 text-caption font-bold text-foreground ring-1 ring-border/40">
-                        {unit.name}
-                      </span>
+                      {onUnitClick ? (
+                        <button
+                          type="button"
+                          onClick={() => onUnitClick(unit.id)}
+                          aria-label={`جزئیات واحد ${unit.name}`}
+                          className="inline-flex max-w-[3.25rem] items-center truncate rounded-lg bg-primary/10 px-2 py-1.5 text-caption font-bold text-primary ring-1 ring-primary/25 transition-[transform,background-color] hover:bg-primary/15 active:scale-95"
+                        >
+                          {unit.name}
+                        </button>
+                      ) : (
+                        <span className="inline-flex max-w-[3.25rem] items-center truncate rounded-lg bg-muted/70 px-2 py-1.5 text-caption font-bold text-foreground ring-1 ring-border/40">
+                          {unit.name}
+                        </span>
+                      )}
                     </th>
                     {months.map((month) => {
                       const payment = byUnitMonth[unit.id]?.[month];
@@ -332,15 +391,12 @@ export function BuildingAnnualCalendar({
               </tbody>
             </table>
           </div>
-          {canMutate ? (
-            <p className="mt-1 text-center text-micro text-muted-foreground">
-              برای ثبت یا ویرایش وصول، روی خانه بزنید · به چپ بکشید
-            </p>
-          ) : (
-            <p className="mt-1 text-center text-micro text-muted-foreground">
-              برای دیدن ماه‌های بیشتر افقی بکشید
-            </p>
-          )}
+          <p className="mt-1 text-center text-micro text-muted-foreground">
+            {onUnitClick ? "روی شماره واحد بزنید برای جزئیات · " : null}
+            {canMutate
+              ? "روی خانه ماه برای ثبت وصول"
+              : "فقط مشاهده"}
+          </p>
         </div>
       )}
 

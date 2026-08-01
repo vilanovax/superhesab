@@ -17,8 +17,6 @@ import {
   type Money,
 } from "../lib/money";
 
-const AVATAR = "https://api.dicebear.com/9.x/thumbs/svg";
-
 function createPrisma() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -36,10 +34,6 @@ function daysAgo(n: number): Date {
   d.setHours(12, 0, 0, 0);
   d.setDate(d.getDate() - n);
   return d;
-}
-
-function avatarFor(seed: string): string {
-  return `${AVATAR}?seed=${encodeURIComponent(seed)}`;
 }
 
 async function clearAll() {
@@ -150,7 +144,7 @@ async function main() {
     data: {
       name: "علی",
       phone: "09120000001",
-      avatarUrl: avatarFor("ali"),
+      avatarUrl: null,
       isVirtual: false,
     },
   });
@@ -158,7 +152,7 @@ async function main() {
     data: {
       name: "سارا",
       phone: "09120000002",
-      avatarUrl: avatarFor("sara"),
+      avatarUrl: null,
       isVirtual: false,
     },
   });
@@ -166,7 +160,7 @@ async function main() {
     data: {
       name: "رضا",
       phone: "09120000003",
-      avatarUrl: avatarFor("reza"),
+      avatarUrl: null,
       isVirtual: false,
     },
   });
@@ -174,7 +168,7 @@ async function main() {
     data: {
       name: "رضا (دستی)",
       phone: "virtual-reza-north-trip",
-      avatarUrl: avatarFor("reza-virtual"),
+      avatarUrl: null,
       isVirtual: true,
     },
   });

@@ -9,7 +9,6 @@ import {
 } from "@/lib/session";
 
 const MOCK_OTP = "123456";
-const DEFAULT_AVATAR_BASE = "https://api.dicebear.com/9.x/thumbs/svg";
 
 export type AuthActionResult =
   | { ok: true }
@@ -51,7 +50,7 @@ export async function verifyOtp(
     create: {
       phone: normalized,
       name: null,
-      avatarUrl: `${DEFAULT_AVATAR_BASE}?seed=${encodeURIComponent(normalized)}`,
+      avatarUrl: null,
     },
     update: {},
   });

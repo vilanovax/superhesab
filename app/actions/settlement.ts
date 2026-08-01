@@ -19,6 +19,10 @@ export type SettlementActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
+/**
+ * Net balances via DB aggregates — O(members) rows, not O(expenses × splits).
+ * Same semantics as the previous full-ledger scan.
+ */
 export async function getSpaceBalances(
   spaceId: string,
 ): Promise<SpaceBalancesResult> {
@@ -28,60 +32,61 @@ export async function getSpaceBalances(
     return { balances: {}, suggestions: [] };
   }
 
-  const members = await prisma.spaceMember.findMany({
-    where: { spaceId },
-    select: { userId: true },
-  });
+  const [members, paid, owed, settledFrom, settledTo] = await Promise.all([
+    prisma.spaceMember.findMany({
+      where: { spaceId },
+      select: { userId: true },
+    }),
+    prisma.expense.groupBy({
+      by: ["paidById"],
+      where: {
+        spaceId,
+        transactionType: "EXPENSE",
+      },
+      _sum: { totalAmount: true },
+    }),
+    prisma.expenseSplit.groupBy({
+      by: ["userId"],
+      where: {
+        expense: {
+          spaceId,
+          transactionType: "EXPENSE",
+        },
+      },
+      _sum: { owedAmount: true },
+    }),
+    prisma.settlement.groupBy({
+      by: ["fromUserId"],
+      where: { spaceId, status: "COMPLETED" },
+      _sum: { amount: true },
+    }),
+    prisma.settlement.groupBy({
+      by: ["toUserId"],
+      where: { spaceId, status: "COMPLETED" },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const balances: Record<string, number> = {};
   for (const m of members) {
     balances[m.userId] = 0;
   }
 
-  const expenses = await prisma.expense.findMany({
-    where: {
-      spaceId,
-      /** Income must not skew multiplayer net balances / settlements. */
-      transactionType: "EXPENSE",
-    },
-    select: {
-      paidById: true,
-      totalAmount: true,
-      splits: {
-        select: { userId: true, owedAmount: true },
-      },
-    },
-  });
-
-  for (const expense of expenses) {
-    if (balances[expense.paidById] === undefined) {
-      balances[expense.paidById] = 0;
-    }
-    balances[expense.paidById] += expense.totalAmount;
-
-    for (const split of expense.splits) {
-      if (balances[split.userId] === undefined) {
-        balances[split.userId] = 0;
-      }
-      balances[split.userId] -= split.owedAmount;
-    }
+  for (const row of paid) {
+    balances[row.paidById] =
+      (balances[row.paidById] ?? 0) + (row._sum.totalAmount ?? 0);
   }
-
-  const settlements = await prisma.settlement.findMany({
-    where: { spaceId, status: "COMPLETED" },
-    select: { fromUserId: true, toUserId: true, amount: true },
-  });
-
-  for (const settlement of settlements) {
-    if (balances[settlement.fromUserId] === undefined) {
-      balances[settlement.fromUserId] = 0;
-    }
-    if (balances[settlement.toUserId] === undefined) {
-      balances[settlement.toUserId] = 0;
-    }
-    // from paid a debt → their net improves; to received → their credit decreases
-    balances[settlement.fromUserId] += settlement.amount;
-    balances[settlement.toUserId] -= settlement.amount;
+  for (const row of owed) {
+    balances[row.userId] =
+      (balances[row.userId] ?? 0) - (row._sum.owedAmount ?? 0);
+  }
+  for (const row of settledFrom) {
+    balances[row.fromUserId] =
+      (balances[row.fromUserId] ?? 0) + (row._sum.amount ?? 0);
+  }
+  for (const row of settledTo) {
+    balances[row.toUserId] =
+      (balances[row.toUserId] ?? 0) - (row._sum.amount ?? 0);
   }
 
   const suggestions = simplifyDebts(balances);
@@ -103,14 +108,7 @@ export async function settleDebt(
     return { ok: false, error: "نقش ناظر اجازه ثبت تسویه ندارد." };
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true },
-  });
-  if (!space) {
-    return { ok: false, error: "فضا پیدا نشد." };
-  }
-  if (!getTemplate(space.type).features.settlements) {
+  if (!getTemplate(membership.space.type).features.settlements) {
     return { ok: false, error: "این فضا تسویه ندارد." };
   }
 

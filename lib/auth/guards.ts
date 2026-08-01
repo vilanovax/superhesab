@@ -1,8 +1,32 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getSession } from "@/lib/session";
 
-export async function requireUser() {
+/** Lean space row reused across a single RSC/action request. */
+export const getSpaceMeta = cache(async (id: string) => {
+  return prisma.space.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      ownerId: true,
+      currency: true,
+      defaultPlanYear: true,
+      archivedAt: true,
+      roundUpToThousand: true,
+      monthlyBudget: true,
+    },
+  });
+});
+
+/**
+ * Request-scoped session + stale-JWT check.
+ * Wrapped in React cache() so parallel Server Actions / loaders in one render
+ * share a single user.findUnique.
+ */
+export const requireUser = cache(async function requireUser() {
   const session = await getSession();
   if (!session) {
     redirect("/login");
@@ -18,37 +42,41 @@ export async function requireUser() {
   }
 
   return session;
-}
+});
 
-export async function requireSpaceMember(
+/**
+ * Membership + space meta for one (spaceId, userId) per request.
+ * `allowArchived` is a primitive so cache() keys correctly (objects would miss).
+ */
+export const requireSpaceMember = cache(async function requireSpaceMember(
   spaceId: string,
   userId: string,
-  opts?: { allowArchived?: boolean },
+  allowArchived = false,
 ) {
-  const membership = await prisma.spaceMember.findUnique({
-    where: {
-      spaceId_userId: { spaceId, userId },
-    },
-    include: {
-      space: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          ownerId: true,
-          archivedAt: true,
-        },
+  const [membership, space] = await Promise.all([
+    prisma.spaceMember.findUnique({
+      where: {
+        spaceId_userId: { spaceId, userId },
       },
-    },
-  });
+      select: {
+        id: true,
+        spaceId: true,
+        userId: true,
+        role: true,
+        defaultShare: true,
+        createdAt: true,
+      },
+    }),
+    getSpaceMeta(spaceId),
+  ]);
 
-  if (!membership) {
+  if (!membership || !space) {
     return null;
   }
 
-  if (membership.space.archivedAt && !opts?.allowArchived) {
+  if (space.archivedAt && !allowArchived) {
     return null;
   }
 
-  return membership;
-}
+  return { ...membership, space };
+});

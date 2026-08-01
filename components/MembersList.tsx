@@ -9,6 +9,7 @@ import {
 import { addVirtualMember } from "@/app/actions/virtualMember";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Select,
   SelectContent,
@@ -283,16 +284,12 @@ export function MembersList({
                     i > 0 && "border-t border-border/40",
                   )}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      m.avatarUrl ??
-                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
-                    }
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="size-9 shrink-0 rounded-full bg-secondary"
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={36}
+                    className="size-9 bg-secondary"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-sm font-semibold text-foreground">
@@ -457,16 +454,12 @@ export function MembersList({
                   )}
                 >
                   <div className="flex items-center gap-2.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={
-                        m.avatarUrl ??
-                        `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
-                      }
-                      alt=""
-                      width={36}
-                      height={36}
-                      className="size-9 shrink-0 rounded-full bg-secondary"
+                    <UserAvatar
+                      phone={m.phone}
+                      name={m.name}
+                      avatarUrl={m.avatarUrl}
+                      size={36}
+                      className="size-9 bg-secondary"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body-sm font-semibold text-foreground">
@@ -783,16 +776,12 @@ export function MembersList({
                 className="rounded-2xl border border-border/50 bg-card px-3 py-2.5 shadow-sm"
               >
                 <div className="flex items-center gap-2.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      m.avatarUrl ??
-                      `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(m.name || m.phone)}`
-                    }
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="size-9 shrink-0 rounded-full bg-secondary ring-1 ring-border/40"
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={36}
+                    className="size-9 bg-secondary ring-1 ring-border/40"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-sm font-medium text-foreground">

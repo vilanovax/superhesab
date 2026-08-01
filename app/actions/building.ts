@@ -2,8 +2,19 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
-import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import {
+  getSpaceMeta,
+  requireSpaceMember,
+  requireUser,
+} from "@/lib/auth/guards";
+import {
+  getCachedBuildingUnits,
+  getCachedChargePlan,
+  invalidateSpaceChargePlan,
+  invalidateSpaceUnits,
+} from "@/lib/spaces/building-cache";
 import {
   CHARGE_STATUS_LABELS,
   monthLabelFa,
@@ -110,11 +121,7 @@ async function assertBuilding(
   if (!membership) {
     return { ok: false as const, error: "به این فضا دسترسی ندارید." };
   }
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true },
-  });
-  if (!space || !getTemplate(space.type).features.buildingCharges) {
+  if (!getTemplate(membership.space.type).features.buildingCharges) {
     return {
       ok: false as const,
       error: "ماژول شارژ ساختمان در این قالب فعال نیست.",
@@ -135,75 +142,91 @@ async function assertBuilding(
   return { ok: true as const, membership };
 }
 
-function toPaymentDTO(p: {
-  id: string;
-  unitId: string;
-  year: number;
-  month: number;
-  amount: number;
-  status: string;
-  date: Date;
-  note: string | null;
-}): ChargePaymentDTO {
-  return {
-    id: p.id,
-    unitId: p.unitId,
-    year: p.year,
-    month: p.month,
-    amount: p.amount,
-    status: p.status as ChargeStatusValue,
-    date: p.date.toISOString().slice(0, 10),
-    note: p.note,
-  };
-}
-
-export async function getBuildingDashboard(
+async function resolvePlanYear(
   spaceId: string,
   year?: number,
-): Promise<BuildingDashboardDTO | null> {
-  const session = await requireUser();
-  const access = await assertBuilding(spaceId, session.userId);
-  if (!access.ok) return null;
+): Promise<number> {
+  const currentJalali = tehranCivilYear();
+  if (year && year >= 1390 && year <= 1500) return year;
+  const meta = await getSpaceMeta(spaceId);
+  if (
+    meta?.defaultPlanYear &&
+    meta.defaultPlanYear >= 1390 &&
+    meta.defaultPlanYear <= 1500
+  ) {
+    return meta.defaultPlanYear;
+  }
+  return currentJalali;
+}
 
-  const spaceMeta = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { defaultPlanYear: true },
-  });
+type BuildingChargeBundle = {
+  spaceId: string;
+  year: number;
+  throughMonth: number;
+  plan: { id: string; year: number; baseCharge: number } | null;
+  units: {
+    id: string;
+    name: string;
+    area: number | null;
+    multiplier: number;
+    isActive: boolean;
+    inviteToken: string;
+    linkedUserId: string | null;
+    linkedAt: Date | null;
+    linkedUser: { name: string | null; phone: string } | null;
+  }[];
+  payments: {
+    id: string;
+    unitId: string;
+    year: number;
+    month: number;
+    amount: number;
+    status: string;
+    date: Date;
+    note: string | null;
+  }[];
+};
 
-  const now = new Date();
-  const currentJalali = tehranCivilYear(now);
-  const y =
-    year && year >= 1390 && year <= 1500
-      ? year
-      : spaceMeta?.defaultPlanYear &&
-          spaceMeta.defaultPlanYear >= 1390 &&
-          spaceMeta.defaultPlanYear <= 1500
-        ? spaceMeta.defaultPlanYear
-        : currentJalali;
-  const throughMonth =
-    y === currentJalali
-      ? tehranCivilMonth(now)
-      : y < currentJalali
-        ? 12
-        : 0;
+/** One plan+units+payments fetch per (spaceId, year) in a request. */
+const loadBuildingChargeData = cache(
+  async (spaceId: string, year: number): Promise<BuildingChargeBundle> => {
+    const now = new Date();
+    const currentJalali = tehranCivilYear(now);
+    const throughMonth =
+      year === currentJalali
+        ? tehranCivilMonth(now)
+        : year < currentJalali
+          ? 12
+          : 0;
 
-  const [plan, units, payments] = await Promise.all([
-    prisma.chargePlan.findUnique({
-      where: { spaceId_year: { spaceId, year: y } },
-    }),
-    prisma.unit.findMany({
-      where: { spaceId },
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
-    }),
-    prisma.chargePayment.findMany({
-      where: {
-        year: y,
-        unit: { spaceId },
-      },
-      orderBy: [{ month: "asc" }, { unitId: "asc" }],
-    }),
-  ]);
+    const [plan, units, payments] = await Promise.all([
+      getCachedChargePlan(spaceId, year),
+      getCachedBuildingUnits(spaceId),
+      prisma.chargePayment.findMany({
+        where: {
+          year,
+          unit: { spaceId },
+        },
+        orderBy: [{ month: "asc" }, { unitId: "asc" }],
+        select: {
+          id: true,
+          unitId: true,
+          year: true,
+          month: true,
+          amount: true,
+          status: true,
+          date: true,
+          note: true,
+        },
+      }),
+    ]);
 
+    return { spaceId, year, throughMonth, plan, units, payments };
+  },
+);
+
+function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
+  const { year, throughMonth, plan, units, payments } = bundle;
   const baseCharge = plan?.baseCharge ?? 0;
   const paymentsByUnit = new Map<string, PaymentSlice[]>();
   for (const p of payments) {
@@ -258,7 +281,7 @@ export async function getBuildingDashboard(
     .sort((a, b) => b.arrears - a.arrears);
 
   return {
-    year: y,
+    year,
     throughMonth,
     plan: plan
       ? { id: plan.id, year: plan.year, baseCharge: plan.baseCharge }
@@ -273,6 +296,84 @@ export async function getBuildingDashboard(
       activeUnits: active.length,
     },
   };
+}
+
+function mapCalendar(bundle: BuildingChargeBundle): AnnualChargeCalendarDTO {
+  const { spaceId, year, throughMonth, plan, units, payments } = bundle;
+  const baseCharge = plan?.baseCharge ?? 0;
+  const activeUnits = units.filter((u) => u.isActive);
+  const activeIds = new Set(activeUnits.map((u) => u.id));
+  const byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"] = {};
+  for (const u of activeUnits) {
+    byUnitMonth[u.id] = {};
+  }
+  for (const p of payments) {
+    if (!activeIds.has(p.unitId)) continue;
+    const bucket = byUnitMonth[p.unitId] ?? (byUnitMonth[p.unitId] = {});
+    bucket[p.month] = toPaymentDTO(p);
+  }
+
+  return {
+    spaceId,
+    year,
+    throughMonth,
+    units: activeUnits.map((u) => ({
+      id: u.id,
+      name: u.name,
+      monthlyCharge: unitMonthlyCharge(baseCharge, u.multiplier),
+    })),
+    byUnitMonth,
+  };
+}
+
+function mapUnitRows(bundle: BuildingChargeBundle): BuildingUnitRow[] {
+  return bundle.units.map((u) => ({
+    id: u.id,
+    name: u.name,
+    area: u.area,
+    multiplier: u.multiplier,
+    isActive: u.isActive,
+    inviteToken: u.inviteToken,
+    linkedUserId: u.linkedUserId,
+    linkedUserName:
+      u.linkedUser?.name?.trim() || u.linkedUser?.phone || null,
+    linkedAt: u.linkedAt ? u.linkedAt.toISOString() : null,
+  }));
+}
+
+function toPaymentDTO(p: {
+  id: string;
+  unitId: string;
+  year: number;
+  month: number;
+  amount: number;
+  status: string;
+  date: Date;
+  note: string | null;
+}): ChargePaymentDTO {
+  return {
+    id: p.id,
+    unitId: p.unitId,
+    year: p.year,
+    month: p.month,
+    amount: p.amount,
+    status: p.status as ChargeStatusValue,
+    date: p.date.toISOString().slice(0, 10),
+    note: p.note,
+  };
+}
+
+export async function getBuildingDashboard(
+  spaceId: string,
+  year?: number,
+): Promise<BuildingDashboardDTO | null> {
+  const session = await requireUser();
+  const access = await assertBuilding(spaceId, session.userId);
+  if (!access.ok) return null;
+
+  const y = await resolvePlanYear(spaceId, year);
+  const bundle = await loadBuildingChargeData(spaceId, y);
+  return mapDashboard(bundle);
 }
 
 export type AnnualCalendarUnit = {
@@ -300,76 +401,33 @@ export async function getAnnualChargeCalendar(
   const access = await assertBuilding(spaceId, session.userId);
   if (!access.ok) return null;
 
-  const spaceMeta = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { defaultPlanYear: true },
-  });
+  const y = await resolvePlanYear(spaceId, year);
+  const bundle = await loadBuildingChargeData(spaceId, y);
+  return mapCalendar(bundle);
+}
 
-  const now = new Date();
-  const currentJalali = tehranCivilYear(now);
-  const y =
-    year && year >= 1390 && year <= 1500
-      ? year
-      : spaceMeta?.defaultPlanYear &&
-          spaceMeta.defaultPlanYear >= 1390 &&
-          spaceMeta.defaultPlanYear <= 1500
-        ? spaceMeta.defaultPlanYear
-        : currentJalali;
-  const throughMonth =
-    y === currentJalali
-      ? tehranCivilMonth(now)
-      : y < currentJalali
-        ? 12
-        : 0;
+/**
+ * Single gated load for the BUILDING manager space page —
+ * dashboard + calendar + unit rows share one plan/units/payments query.
+ */
+export async function getBuildingManagerView(
+  spaceId: string,
+  year?: number,
+): Promise<{
+  dashboard: BuildingDashboardDTO;
+  calendar: AnnualChargeCalendarDTO;
+  units: BuildingUnitRow[];
+} | null> {
+  const session = await requireUser();
+  const access = await assertBuilding(spaceId, session.userId);
+  if (!access.ok) return null;
 
-  const [plan, units, payments] = await Promise.all([
-    prisma.chargePlan.findUnique({
-      where: { spaceId_year: { spaceId, year: y } },
-      select: { baseCharge: true },
-    }),
-    prisma.unit.findMany({
-      where: { spaceId, isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, multiplier: true },
-    }),
-    prisma.chargePayment.findMany({
-      where: {
-        year: y,
-        unit: { spaceId, isActive: true },
-      },
-      select: {
-        id: true,
-        unitId: true,
-        year: true,
-        month: true,
-        amount: true,
-        status: true,
-        date: true,
-        note: true,
-      },
-    }),
-  ]);
-
-  const baseCharge = plan?.baseCharge ?? 0;
-  const byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"] = {};
-  for (const u of units) {
-    byUnitMonth[u.id] = {};
-  }
-  for (const p of payments) {
-    const bucket = byUnitMonth[p.unitId] ?? (byUnitMonth[p.unitId] = {});
-    bucket[p.month] = toPaymentDTO(p);
-  }
-
+  const y = await resolvePlanYear(spaceId, year);
+  const bundle = await loadBuildingChargeData(spaceId, y);
   return {
-    spaceId,
-    year: y,
-    throughMonth,
-    units: units.map((u) => ({
-      id: u.id,
-      name: u.name,
-      monthlyCharge: unitMonthlyCharge(baseCharge, u.multiplier),
-    })),
-    byUnitMonth,
+    dashboard: mapDashboard(bundle),
+    calendar: mapCalendar(bundle),
+    units: mapUnitRows(bundle),
   };
 }
 
@@ -399,6 +457,7 @@ export async function createUnit(
         isActive: true,
       },
     });
+    invalidateSpaceUnits(parsed.data.spaceId);
     revalidatePath(`/spaces/${parsed.data.spaceId}`);
     revalidatePath(`/spaces/${parsed.data.spaceId}/settings`);
     return { ok: true, id: unit.id, inviteToken: unit.inviteToken };
@@ -435,6 +494,7 @@ export async function updateUnit(
   if (updated.count === 0) {
     return { ok: false, error: "واحد پیدا نشد." };
   }
+  invalidateSpaceUnits(parsed.data.spaceId);
   revalidatePath(`/spaces/${parsed.data.spaceId}`);
   revalidatePath(`/spaces/${parsed.data.spaceId}/settings`);
   return { ok: true, id: parsed.data.unitId };
@@ -473,6 +533,7 @@ export async function upsertChargePlan(
         baseCharge: asMoney(parsed.data.baseCharge),
       },
     });
+    invalidateSpaceChargePlan(parsed.data.spaceId, parsed.data.year);
     revalidatePath(`/spaces/${parsed.data.spaceId}`);
     revalidatePath(`/spaces/${parsed.data.spaceId}/settings`);
     return { ok: true, id: plan.id };
@@ -599,36 +660,9 @@ export async function listUnitsForSettings(
   const access = await assertBuilding(spaceId, session.userId);
   if (!access.ok) return [];
 
-  const rows = await prisma.unit.findMany({
-    where: { spaceId },
-    select: {
-      id: true,
-      name: true,
-      area: true,
-      multiplier: true,
-      isActive: true,
-      inviteToken: true,
-      linkedUserId: true,
-      linkedAt: true,
-      linkedUser: { select: { name: true, phone: true } },
-    },
-    orderBy: [{ isActive: "desc" }, { name: "asc" }],
-  });
-
-  return rows.map((u) => ({
-    id: u.id,
-    name: u.name,
-    area: u.area,
-    multiplier: u.multiplier,
-    isActive: u.isActive,
-    inviteToken: u.inviteToken,
-    linkedUserId: u.linkedUserId,
-    linkedUserName:
-      u.linkedUser?.name?.trim() ||
-      u.linkedUser?.phone ||
-      null,
-    linkedAt: u.linkedAt ? u.linkedAt.toISOString() : null,
-  }));
+  const y = await resolvePlanYear(spaceId);
+  const bundle = await loadBuildingChargeData(spaceId, y);
+  return mapUnitRows(bundle);
 }
 
 export async function getChargePlanForYear(
@@ -745,6 +779,7 @@ export async function claimUnit(token: string): Promise<ClaimUnitResult> {
   // Safe outside transaction: invite page may call claim during render;
   // revalidatePath must not turn a successful claim into a false error.
   try {
+    invalidateSpaceUnits(unit.spaceId);
     revalidatePath(`/spaces/${unit.spaceId}`);
     revalidatePath(`/spaces/${unit.spaceId}/settings`);
     revalidatePath(`/spaces/${unit.spaceId}/resident`);
@@ -775,6 +810,7 @@ export async function unlinkUnitResident(
     where: { id: unit.id },
     data: { linkedUserId: null, linkedAt: null },
   });
+  invalidateSpaceUnits(spaceId);
   revalidatePath(`/spaces/${spaceId}`);
   revalidatePath(`/spaces/${spaceId}/settings`);
   return { ok: true, id: unit.id };
@@ -801,6 +837,7 @@ export async function regenerateUnitInviteToken(
     where: { id: unit.id },
     data: { inviteToken },
   });
+  invalidateSpaceUnits(spaceId);
   revalidatePath(`/spaces/${spaceId}/settings`);
   return { ok: true, id: unit.id, inviteToken };
 }

@@ -249,6 +249,7 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
     select: { ruleId: true },
   });
   const done = new Set(existing.map((e) => e.ruleId));
+  let created = 0;
 
   for (const rule of rules) {
     if (done.has(rule.id)) continue;
@@ -298,10 +299,14 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
           },
         });
       });
+      created += 1;
     } catch {
       // Unique race or concurrent open — safe to ignore
     }
   }
 
-  revalidatePath(`/spaces/${spaceId}`);
+  // Only invalidate when something new appeared (avoids noop full-page refresh).
+  if (created > 0) {
+    revalidatePath(`/spaces/${spaceId}`);
+  }
 }

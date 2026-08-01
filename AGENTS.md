@@ -11,3 +11,4 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Mutations: Server Actions only; currency: integers only
 - Templates extend UI/policy via `Space.type` — do not fork core money tables
 - After each product code change-set: bump `lib/app-version.ts` `APP_VERSION` by `0.01`
+- **push git** = push to both `origin` (GitHub) and `hamgit` (`git@hamgit.ir:ramtinica/superhesab.git`)

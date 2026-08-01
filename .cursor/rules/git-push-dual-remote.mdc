@@ -1,0 +1,16 @@
+---
+description: push git means GitHub origin AND hamgit together
+alwaysApply: true
+---
+
+# Dual remote push
+
+When the user says **push git** / **پوش گیت** (or equivalent):
+
+1. Commit only if they asked to commit, or if uncommitted work must ship with an explicit push of current work — never commit secrets (`.env`).
+2. Push **both** remotes on the current branch:
+   - `origin` → GitHub (`https://github.com/vilanovax/superhesab.git` or current `origin` URL)
+   - `hamgit` → `git@hamgit.ir:ramtinica/superhesab.git`
+3. If `hamgit` remote is missing: `git remote add hamgit git@hamgit.ir:ramtinica/superhesab.git`
+4. Prefer: `git push -u origin HEAD` then `git push -u hamgit HEAD` (or equivalent). Report both results.
+5. Do **not** treat a single-remote push as done when the user said push git.

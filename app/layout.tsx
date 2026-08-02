@@ -1,13 +1,53 @@
 import type { Metadata, Viewport } from "next";
-import { Vazirmatn } from "next/font/google";
+import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PwaRuntime } from "@/components/pwa/pwa-runtime";
 import "./globals.css";
 
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic", "latin"],
+/** Vazir FD-WOL (Farsi digits) — self-hosted from public/fonts */
+const vazir = localFont({
+  src: [
+    {
+      path: "../public/fonts/Vazir-Thin-FD-WOL.woff2",
+      weight: "100",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Vazir-Light-FD-WOL.woff2",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Vazir-FD-WOL.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Vazir-Medium-FD-WOL.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    // Map Tailwind semibold (600) → Medium
+    {
+      path: "../public/fonts/Vazir-Medium-FD-WOL.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    // Map Tailwind extrabold (800) → Bold
+    {
+      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
   variable: "--font-vazirmatn",
   display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -59,7 +99,7 @@ export default function RootLayout({
       lang="fa"
       dir="rtl"
       data-accent="ocean"
-      className={`${vazirmatn.variable} ${vazirmatn.className} h-full antialiased`}
+      className={`${vazir.variable} ${vazir.className} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">

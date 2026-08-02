@@ -14,8 +14,9 @@ RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Prisma generate needs a dummy URL at build time (client only)
-ENV DATABASE_URL="postgresql://superhesab:superhesab@postgres:5432/superhesab?schema=public"
+# Prisma generate only needs a placeholder URL at build time (runtime comes from compose/.env)
+ARG DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build?schema=public
+ENV DATABASE_URL=$DATABASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 

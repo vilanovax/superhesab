@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>سوپرحساب — حساب‌وکتاب مشترک</title>
+  <meta name="description" content="دفتر مشترک برای سفر، خانه، پارتنر و ساختمان. هزینه‌ها را ثبت کن، سهم‌ها را ببین، تسویه را ساده کن." />
+  <meta name="theme-color" content="#082436" />
+  <meta property="og:title" content="سوپرحساب" />
+  <meta property="og:description" content="حساب‌وکتاب مشترک، بدون دردسر" />
+  <meta property="og:url" content="https://superhesab.ir" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <style>
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Thin-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Thin-FD-WOL.woff") format("woff");
+      font-weight: 100;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Light-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Light-FD-WOL.woff") format("woff");
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-FD-WOL.woff") format("woff");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Medium-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Medium-FD-WOL.woff") format("woff");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Medium-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Medium-FD-WOL.woff") format("woff");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Bold-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Bold-FD-WOL.woff") format("woff");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Vazir";
+      src: url("/fonts/Vazir-Bold-FD-WOL.woff2") format("woff2"),
+           url("/fonts/Vazir-Bold-FD-WOL.woff") format("woff");
+      font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --ink: #0c3a58;
+      --ink-deep: #082436;
+      --primary: #1a5f8a;
+      --highlight: #3d8fbf;
+      --teal: #0f5c57;
+      --teal-bright: #2a9d8f;
+      --mist: #d0e2ef;
+      --paper: #e8eef1;
+      --sheet: #eef5f4;
+      --on-hero: #f7fbfe;
+      --on-muted: rgba(247, 251, 254, 0.7);
+      --fg: #12202a;
+      --fg-muted: #5b6b75;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: "Vazir", ui-sans-serif, system-ui, sans-serif;
+      background: var(--paper);
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    a { color: inherit; }
+
+    /* ——— Hero ——— */
+    .hero {
+      position: relative;
+      min-height: 100dvh;
+      overflow: hidden;
+      color: var(--on-hero);
+      background:
+        radial-gradient(900px 560px at 12% 18%, rgba(42, 157, 143, 0.28), transparent 60%),
+        radial-gradient(1100px 700px at 88% 8%, rgba(61, 143, 191, 0.42), transparent 55%),
+        radial-gradient(800px 500px at 70% 95%, rgba(15, 92, 87, 0.35), transparent 50%),
+        linear-gradient(160deg, #061821 0%, #082436 38%, #0c3a58 72%, #134a6e 100%);
+      display: grid;
+      align-items: center;
+      padding:
+        max(1.25rem, env(safe-area-inset-top))
+        clamp(1.25rem, 4vw, 3rem)
+        max(1.25rem, env(safe-area-inset-bottom));
+    }
+
+    .hero-glow {
+      position: absolute;
+      inset: auto;
+      width: 42vw;
+      max-width: 520px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(61, 143, 191, 0.35), transparent 68%);
+      filter: blur(8px);
+      animation: drift 14s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .hero-glow-a { top: -10%; left: -8%; }
+    .hero-glow-b {
+      bottom: -18%;
+      right: -10%;
+      width: 55vw;
+      max-width: 640px;
+      background: radial-gradient(circle, rgba(42, 157, 143, 0.28), transparent 70%);
+      animation-duration: 18s;
+      animation-delay: -4s;
+    }
+
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black, transparent);
+      animation: grid-shift 36s linear infinite;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      width: min(1120px, 100%);
+      margin-inline: auto;
+      display: grid;
+      gap: clamp(2rem, 5vw, 3.5rem);
+      align-items: center;
+    }
+
+    @media (min-width: 900px) {
+      .hero-inner {
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 3.5rem;
+      }
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.1rem;
+      animation: rise 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-mark {
+      width: 3.4rem;
+      height: 3.4rem;
+      border-radius: 0.95rem;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.18),
+        0 12px 28px -12px rgba(0, 0, 0, 0.55);
+      animation: soft-glow 5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .brand {
+      font-size: clamp(2.75rem, 7.5vw, 4.6rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1;
+      background: linear-gradient(180deg, #ffffff 8%, #c5e0ef 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .headline {
+      font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+      font-weight: 600;
+      max-width: 16ch;
+      line-height: 1.55;
+      color: var(--on-hero);
+    }
+
+    .support {
+      font-size: 1.02rem;
+      font-weight: 400;
+      color: var(--on-muted);
+      max-width: 36ch;
+      line-height: 1.85;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.55rem;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 3.2rem;
+      padding: 0.85rem 1.55rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .cta-primary {
+      background: #f3f9fc;
+      color: var(--ink-deep);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.28),
+        0 18px 40px -16px rgba(0, 0, 0, 0.65);
+    }
+    .cta-primary:hover {
+      transform: translateY(-2px);
+      background: #fff;
+    }
+
+    .cta-ghost {
+      background: transparent;
+      color: var(--on-hero);
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .cta-ghost:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.45);
+    }
+
+    .cta svg {
+      width: 1.05rem;
+      height: 1.05rem;
+    }
+
+    /* Visual plane — ledger mock */
+    .hero-visual {
+      position: relative;
+      animation: rise 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+      justify-self: center;
+      width: min(100%, 440px);
+    }
+
+    .ledger {
+      position: relative;
+      border-radius: 1.6rem;
+      background: linear-gradient(165deg, #f7fbfa 0%, #e8f1f0 55%, #dce8e6 100%);
+      color: var(--fg);
+      padding: 1.35rem 1.35rem 1.2rem;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.35),
+        0 30px 70px -24px rgba(0, 0, 0, 0.65),
+        0 8px 24px -10px rgba(15, 92, 87, 0.35);
+      transform: rotate(-1.5deg);
+      overflow: hidden;
+    }
+
+    .ledger::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0.55rem;
+      background: linear-gradient(180deg, var(--teal-bright), var(--teal));
+    }
+
+    .ledger-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.15rem;
+      padding-inline-start: 0.55rem;
+    }
+
+    .ledger-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .ledger-tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--teal);
+      background: rgba(42, 157, 143, 0.14);
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    .ledger-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding-inline-start: 0.55rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.7rem 0.85rem;
+      border-radius: 0.85rem;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(18, 32, 42, 0.06);
+      animation: row-in 0.7s ease both;
+    }
+    .row:nth-child(1) { animation-delay: 0.35s; }
+    .row:nth-child(2) { animation-delay: 0.5s; }
+    .row:nth-child(3) { animation-delay: 0.65s; }
+
+    .row-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      min-width: 0;
+    }
+    .row-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-who {
+      font-size: 0.72rem;
+      color: var(--fg-muted);
+    }
+    .row-amt {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      direction: ltr;
+    }
+
+    .ledger-foot {
+      margin-top: 1rem;
+      padding: 0.85rem 0.95rem;
+      margin-inline-start: 0.55rem;
+      border-radius: 0.95rem;
+      background: linear-gradient(135deg, rgba(15, 92, 87, 0.1), rgba(26, 95, 138, 0.1));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      animation: row-in 0.75s ease 0.8s both;
+    }
+    .ledger-foot span:first-child {
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+    .ledger-foot strong {
+      font-size: 0.95rem;
+      color: var(--teal);
+      font-weight: 800;
+    }
+
+    .float-chip {
+      position: absolute;
+      left: -0.6rem;
+      bottom: 18%;
+      background: var(--ink-deep);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.55rem 0.85rem;
+      border-radius: 0.85rem;
+      box-shadow: 0 14px 28px -12px rgba(0,0,0,0.45);
+      animation: bob 5.5s ease-in-out infinite;
+      white-space: nowrap;
+    }
+
+    /* ——— Uses ——— */
+    .uses {
+      position: relative;
+      padding: clamp(3.5rem, 8vw, 6rem) clamp(1.25rem, 4vw, 3rem);
+      background:
+        radial-gradient(700px 320px at 100% 0%, rgba(61, 143, 191, 0.12), transparent 60%),
+        linear-gradient(180deg, var(--sheet) 0%, var(--paper) 100%);
+    }
+
+    .uses-inner {
+      width: min(920px, 100%);
+      margin-inline: auto;
+    }
+
+    .section-kicker {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 0.55rem;
+      letter-spacing: 0.02em;
+    }
+
+    .section-title {
+      font-size: clamp(1.55rem, 3.5vw, 2.1rem);
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      margin-bottom: 0.65rem;
+      max-width: 18ch;
+    }
+
+    .section-lead {
+      color: var(--fg-muted);
+      max-width: 42ch;
+      margin-bottom: 2.25rem;
+      font-size: 1.02rem;
+      line-height: 1.8;
+    }
+
+    .use-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid rgba(18, 32, 42, 0.08);
+    }
+
+    .use-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem 1.25rem;
+      align-items: baseline;
+      padding: 1.2rem 0.15rem;
+      border-bottom: 1px solid rgba(18, 32, 42, 0.08);
+      transition: background 0.2s ease;
+    }
+
+    @media (min-width: 640px) {
+      .use-item {
+        grid-template-columns: 7.5rem 1fr;
+        gap: 1.5rem;
+        padding: 1.35rem 0.25rem;
+      }
+    }
+
+    .use-label {
+      font-weight: 800;
+      color: var(--ink);
+      font-size: 1.02rem;
+    }
+
+    .use-desc {
+      color: var(--fg-muted);
+      font-size: 0.98rem;
+      line-height: 1.75;
+    }
+
+    /* ——— Close ——— */
+    .close {
+      padding: clamp(3rem, 7vw, 5rem) clamp(1.25rem, 4vw, 3rem) 2rem;
+      background: linear-gradient(180deg, var(--paper), #dce7ec);
+      text-align: center;
+    }
+
+    .close-inner {
+      width: min(560px, 100%);
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .close h2 {
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+
+    .close p {
+      color: var(--fg-muted);
+      max-width: 32ch;
+      line-height: 1.8;
+    }
+
+    .cta-dark {
+      margin-top: 0.5rem;
+      background: var(--ink);
+      color: #f3f9fc;
+      box-shadow: 0 16px 36px -16px rgba(12, 58, 88, 0.65);
+    }
+    .cta-dark:hover {
+      transform: translateY(-2px);
+      background: #0a314a;
+    }
+
+    footer {
+      padding: 1.5rem 1.25rem 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      background: #dce7ec;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(22px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes row-in {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(24px, -20px, 0); }
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes soft-glow {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 12px 28px -12px rgba(0,0,0,0.55); }
+      50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.28), 0 12px 28px -12px rgba(0,0,0,0.55), 0 0 28px rgba(42, 157, 143, 0.35); }
+    }
+    @keyframes grid-shift {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(56px, 56px, 0); }
+    }
+
+    @media (max-width: 899px) {
+      .hero-copy { align-items: center; text-align: center; }
+      .headline, .support { margin-inline: auto; }
+      .cta-row { justify-content: center; }
+      .float-chip { display: none; }
+      .ledger { transform: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-glow hero-glow-a" aria-hidden="true"></div>
+    <div class="hero-glow hero-glow-b" aria-hidden="true"></div>
+    <div class="hero-grid" aria-hidden="true"></div>
+
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="brand-row">
+          <div class="brand-mark">
+            <img src="/icon.svg" width="54" height="54" alt="" />
+          </div>
+          <h1 class="brand">سوپرحساب</h1>
+        </div>
+        <p class="headline">حساب‌وکتاب مشترک، بدون دردسر</p>
+        <p class="support">
+          هزینه‌ها را با هم ثبت کنید، سهم‌ها را شفاف ببینید و تسویه را ساده تمام کنید.
+        </p>
+        <div class="cta-row">
+          <a class="cta cta-primary" href="https://app.superhesab.ir">
+            شروع در اپ
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a class="cta cta-ghost" href="#uses">ببین برای چی ساخته شده</a>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="ledger">
+          <div class="ledger-top">
+            <div class="ledger-title">سفر شمال — گروه دوستانه</div>
+            <div class="ledger-tag">تسویه ساده</div>
+          </div>
+          <div class="ledger-rows">
+            <div class="row">
+              <div class="row-meta">
+                <div class="row-name">ویلای دو شب</div>
+                <div class="row-who">پرداخت: سارا · ۴ نفر</div>
+              </div>
+              <div class="row-amt">۴٬۸۰۰٬۰۰۰</div>
+            </div>
+            <div class="row">
+              <div class="row-meta">
+                <div class="row-name">سوپرمارکت جاده</div>
+                <div class="row-who">پرداخت: علی · مساوی</div>
+              </div>
+              <div class="row-amt">۹۲۰٬۰۰۰</div>
+            </div>
+            <div class="row">
+              <div class="row-meta">
+                <div class="row-name">بنزین رفت‌وبرگشت</div>
+                <div class="row-who">پرداخت: مریم · دقیق</div>
+              </div>
+              <div class="row-amt">۱٬۵۰۰٬۰۰۰</div>
+            </div>
+          </div>
+          <div class="ledger-foot">
+            <span>وضعیت گروه</span>
+            <strong>تقریباً صاف شد</strong>
+          </div>
+        </div>
+        <div class="float-chip">علی ← سارا · ۳۶۰ هزار</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="uses" id="uses">
+    <div class="uses-inner">
+      <p class="section-kicker">یک هسته، چند قالب</p>
+      <h2 class="section-title">برای زندگی واقعی ساخته شده</h2>
+      <p class="section-lead">
+        سوپرحساب یک دفتر مشترک است؛ فقط ظاهر و قواعدش با نوع حساب‌وکتاب عوض می‌شود.
+      </p>
+      <ul class="use-list">
+        <li class="use-item">
+          <span class="use-label">سفر و دورهمی</span>
+          <span class="use-desc">دنگ‌ها را ثبت کنید، سهم‌ها را ببینید و با کمترین انتقال صاف شوید.</span>
+        </li>
+        <li class="use-item">
+          <span class="use-label">حساب دونفره</span>
+          <span class="use-desc">خرج‌های مشترک زوج یا هم‌خانه؛ شفاف، دونفره، بدون اکسل شلوغ.</span>
+        </li>
+        <li class="use-item">
+          <span class="use-label">خانه و خانواده</span>
+          <span class="use-desc">درآمد و هزینهٔ خانه در یک کیف پول مشترک، با بودجه و عادت‌های ماهانه.</span>
+        </li>
+        <li class="use-item">
+          <span class="use-label">ساختمان و صندوق</span>
+          <span class="use-desc">شارژ واحدها یا پس‌انداز گروهی؛ همان هسته، قواعد متناسب.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="close-inner">
+      <h2>همین الان دفترت را باز کن</h2>
+      <p>ورود سریع است؛ دعوت دوستان با لینک انجام می‌شود.</p>
+      <a class="cta cta-dark" href="https://app.superhesab.ir">
+        رفتن به app.superhesab.ir
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <p>© سوپرحساب · <a href="https://app.superhesab.ir">ورود به اپ</a></p>
+  </footer>
+</body>
+</html>

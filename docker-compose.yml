@@ -1,23 +1,4 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: superhesab-postgres
-    restart: unless-stopped
-    ports:
-      # Host 15432 avoids clashing with local/other Postgres on 5432/5433
-      - "15432:5432"
-    environment:
-      POSTGRES_USER: superhesab
-      POSTGRES_PASSWORD: superhesab
-      POSTGRES_DB: superhesab
-    volumes:
-      - superhesab_pg_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U superhesab -d superhesab"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   app:
     build:
       context: .
@@ -26,13 +7,17 @@ services:
     restart: unless-stopped
     ports:
       - "3003:3003"
+    env_file:
+      - .env
     environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
       PORT: "3003"
       HOSTNAME: "0.0.0.0"
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      DATABASE_URL: postgresql://superhesab:superhesab@postgres:5432/superhesab?schema=public
-      SESSION_SECRET: ${SESSION_SECRET:-dev-superhesab-session-secret-change-me-32chars}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgresql}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-SuperHesab}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3003}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
@@ -41,9 +26,10 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
+    networks:
+      - default
+      - feedbancur_default
 
-volumes:
-  superhesab_pg_data:
+networks:
+  feedbancur_default:
+    external: true

@@ -23,6 +23,7 @@ export function TripSpaceTabs({
   currentUserId,
   currentUserRole,
   expenses,
+  expensesHasMore = false,
   members,
   inviteMembers,
   balances,
@@ -92,6 +93,7 @@ export function TripSpaceTabs({
           members={members}
           inviteMembers={inviteMembers}
           expenses={expenses}
+          expensesHasMore={expensesHasMore}
           currency={currency}
           spaceType={spaceType}
           canMutate={canMutate}

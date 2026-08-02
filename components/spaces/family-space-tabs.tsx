@@ -45,6 +45,7 @@ export function FamilySpaceTabs({
   currentUserId,
   currentUserRole,
   expenses,
+  expensesHasMore = false,
   members,
   inviteMembers,
   currency = "TOMAN",
@@ -142,6 +143,7 @@ export function FamilySpaceTabs({
           members={members}
           inviteMembers={inviteMembers}
           expenses={expenses}
+          expensesHasMore={expensesHasMore}
           currency={currency}
           spaceType={spaceType}
           canMutate={canMutate}

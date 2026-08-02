@@ -221,30 +221,34 @@ export function PwaInstallCard({ className }: { className?: string }) {
         className,
       )}
     >
-      <h2 className="text-body-sm font-semibold text-foreground">نصب اپ</h2>
-      <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
-        {installed
-          ? "سوپرحساب روی این دستگاه نصب شده است."
-          : "برای دسترسی سریع‌تر، اپ را به صفحهٔ اصلی اضافه کن."}
-      </p>
-      {installed ? null : canInstall ? (
-        <Button
-          type="button"
-          className="mt-3 h-11 w-full rounded-xl"
-          disabled={installing}
-          onClick={install}
-        >
-          {installing ? "…" : "نصب سوپرحساب"}
-        </Button>
-      ) : iosHint ? (
-        <p className="mt-3 rounded-xl bg-muted/60 px-3 py-2.5 text-caption leading-relaxed text-muted-foreground">
-          در Safari: دکمهٔ Share ← «Add to Home Screen»
-        </p>
-      ) : (
-        <p className="mt-3 text-caption text-muted-foreground">
-          اگر مرورگر پیشنهاد نصب ندهد، از منوی مرورگر «Install app» را بزن.
-        </p>
-      )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-body-sm font-semibold text-foreground">نصب اپ</h2>
+          <p className="mt-0.5 text-caption leading-snug text-muted-foreground">
+            {installed
+              ? "روی این دستگاه نصب است."
+              : canInstall
+                ? "میانبر صفحه اصلی — دسترسی سریع‌تر."
+                : iosHint
+                  ? "Safari ← Share ← Add to Home Screen"
+                  : "از منوی مرورگر «Install app» را بزن."}
+          </p>
+        </div>
+        {installed ? (
+          <span className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success">
+            نصب‌شده
+          </span>
+        ) : canInstall ? (
+          <Button
+            type="button"
+            className="h-9 shrink-0 rounded-xl px-3 text-caption"
+            disabled={installing}
+            onClick={install}
+          >
+            {installing ? "…" : "نصب"}
+          </Button>
+        ) : null}
+      </div>
     </section>
   );
 }

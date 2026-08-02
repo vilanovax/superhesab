@@ -17,6 +17,7 @@ import {
   DEFAULT_SHARE,
 } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
+import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
 import { getTemplate } from "@/lib/templates/registry";
 import {
   expenseSchema,
@@ -503,4 +504,59 @@ export async function deleteExpense(
   } catch {
     return { ok: false, error: "حذف هزینه ناموفق بود." };
   }
+}
+
+export type LoadMoreExpensesResult =
+  | {
+      ok: true;
+      expenses: Awaited<
+        ReturnType<typeof queryExpenseLedgerPage>
+      >["expenses"];
+      hasMore: boolean;
+    }
+  | { ok: false; error: string };
+
+/** Keyset page after the last visible expense (newest → older). */
+export async function loadMoreSpaceExpenses(
+  spaceId: string,
+  cursor: { date: string; id: string },
+): Promise<LoadMoreExpensesResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "دسترسی به این فضا ندارید." };
+  }
+
+  const cursorDate = new Date(cursor.date);
+  if (!cursor.id || Number.isNaN(cursorDate.getTime())) {
+    return { ok: false, error: "نشانگر صفحه نامعتبر است." };
+  }
+
+  const features = getTemplate(membership.space.type).features;
+  const categoryPolicies = features.categoryPrivacy
+    ? await prisma.spaceCategoryPolicy.findMany({
+        where: { spaceId, visibility: "PRIVATE" },
+        select: {
+          category: true,
+          visibility: true,
+          ownerUserId: true,
+        },
+      })
+    : [];
+  const hiddenCategories = privateCategoriesHiddenFromViewer(
+    categoryPolicies,
+    session.userId,
+    {
+      spaceOwnerId: membership.space.ownerId,
+      viewerIsSpaceOwner: membership.role === "OWNER",
+    },
+  );
+
+  const page = await queryExpenseLedgerPage({
+    spaceId,
+    hiddenCategories,
+    cursor: { date: cursorDate, id: cursor.id },
+  });
+
+  return { ok: true, expenses: page.expenses, hasMore: page.hasMore };
 }

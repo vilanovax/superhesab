@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
@@ -28,10 +28,10 @@ type AppSettingsPanelProps = {
 
 type SettingsTab = "look" | "account" | "data";
 
-const TABS: { id: SettingsTab; label: string }[] = [
-  { id: "look", label: "ظاهر" },
-  { id: "account", label: "حساب" },
-  { id: "data", label: "داده" },
+const TABS: { id: SettingsTab; label: string; hint: string }[] = [
+  { id: "look", label: "ظاهر", hint: "تم و رنگ" },
+  { id: "account", label: "حساب", hint: "نام و ارز" },
+  { id: "data", label: "داده", hint: "بک‌آپ و خروج" },
 ];
 
 const THEME_OPTIONS: {
@@ -75,13 +75,22 @@ export function AppSettingsPanel({
   const [name, setName] = useState(initialName);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currencySaved, setCurrencySaved] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setName(initialName);
+  }, [initialName]);
 
   const activeAccent =
     ACCENT_OPTIONS.find((o) => o.value === accent) ?? ACCENT_OPTIONS[0]!;
+  const themeLabel =
+    THEME_OPTIONS.find((t) => t.value === theme)?.label ?? "روشن";
+  const profileDirty = name.trim() !== (initialName ?? "").trim();
 
   function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
+    if (!profileDirty) return;
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -90,13 +99,19 @@ export function AppSettingsPanel({
         setError(result.error);
         return;
       }
-      setMessage("پروفایل ذخیره شد.");
+      setMessage("نام نمایشی ذخیره شد.");
       router.refresh();
     });
   }
 
+  function onPickCurrency(code: SpaceCurrency) {
+    setPreferredCurrency(code);
+    setCurrencySaved(true);
+    window.setTimeout(() => setCurrencySaved(false), 1600);
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+    <div className="flex flex-col gap-3">
       <nav
         className="grid grid-cols-3 gap-1 rounded-2xl bg-muted/70 p-1"
         aria-label="بخش‌های تنظیمات"
@@ -116,81 +131,91 @@ export function AppSettingsPanel({
                 setError(null);
               }}
               className={cn(
-                "h-10 rounded-xl text-body-sm font-semibold transition-colors",
+                "flex h-11 flex-col items-center justify-center rounded-xl px-1 transition-colors",
                 active
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {item.label}
+              <span className="text-body-sm font-semibold leading-none">
+                {item.label}
+              </span>
+              <span
+                className={cn(
+                  "mt-0.5 text-[10px] leading-none",
+                  active ? "text-muted-foreground" : "text-muted-foreground/70",
+                )}
+              >
+                {item.hint}
+              </span>
             </button>
           );
         })}
       </nav>
 
-      <div
-        key={tab}
-        className="animate-fade-up min-h-0 flex-1 space-y-3 pb-2"
-        role="tabpanel"
-      >
+      <div key={tab} className="animate-fade-up space-y-2.5" role="tabpanel">
         {tab === "look" ? (
-          <section className="space-y-4 rounded-2xl border border-border/50 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-primary px-3.5 py-3 text-primary-foreground">
-              <div className="min-w-0">
-                <p className="text-micro text-primary-foreground/70">
-                  پیش‌نمایش
-                </p>
-                <p className="truncate text-body-sm font-semibold">
-                  {activeAccent.label} ·{" "}
-                  {THEME_OPTIONS.find((t) => t.value === theme)?.label}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-lg bg-on-hero/15 px-2.5 py-1 text-caption font-semibold">
-                نمونه
+          <section className="space-y-3 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
+            <div className="flex items-center gap-2.5 rounded-xl bg-primary px-3 py-2.5 text-primary-foreground">
+              <span
+                className="size-3.5 shrink-0 rounded-full ring-2 ring-on-hero/35"
+                style={{ backgroundColor: activeAccent.swatch }}
+                aria-hidden
+              />
+              <p className="min-w-0 flex-1 truncate text-caption font-semibold">
+                {activeAccent.label}
+                <span className="mx-1 opacity-50">·</span>
+                {themeLabel}
+              </p>
+              <span className="shrink-0 text-micro text-primary-foreground/70">
+                زنده
               </span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className="text-caption font-semibold text-foreground">
                 حالت نمایش
               </p>
-              <div className="grid grid-cols-3 gap-2">
+              <div
+                className="grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1"
+                role="group"
+                aria-label="حالت نمایش"
+              >
                 {THEME_OPTIONS.map((opt) => {
                   const selected = theme === opt.value;
                   return (
                     <button
                       key={opt.value}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() => {
                         setTheme(opt.value);
                         applyDocumentTheme(opt.value);
                       }}
                       className={cn(
-                        "overflow-hidden rounded-2xl border text-start transition-all",
+                        "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-caption font-semibold transition-colors",
                         selected
-                          ? "border-primary ring-2 ring-primary/25"
-                          : "border-border/55 hover:border-border",
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       <span
-                        className="block h-9 w-full"
+                        className="size-3.5 shrink-0 rounded-full border border-border/50"
                         style={{ background: opt.swatch }}
                         aria-hidden
                       />
-                      <span className="block px-2 py-1.5 text-center text-caption font-semibold text-foreground">
-                        {opt.label}
-                      </span>
+                      {opt.label}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className="text-caption font-semibold text-foreground">
                 رنگ برند
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
                 {ACCENT_OPTIONS.map((opt) => {
                   const selected = accent === opt.value;
                   return (
@@ -204,41 +229,52 @@ export function AppSettingsPanel({
                         applyDocumentAccent(opt.value);
                       }}
                       className={cn(
-                        "flex flex-col items-center gap-1.5 rounded-2xl border px-1.5 py-2.5 transition-all",
+                        "flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all",
                         selected
-                          ? "border-primary bg-primary/8 ring-2 ring-primary/30"
-                          : "border-border/50 hover:bg-muted/40",
+                          ? "border-primary bg-primary/8 ring-2 ring-primary/25"
+                          : "border-border/45 hover:bg-muted/40",
                       )}
                     >
                       <span
-                        className={cn(
-                          "size-8 rounded-full border border-black/10 shadow-sm",
-                          selected && "ring-2 ring-offset-2 ring-offset-card ring-primary/40",
-                        )}
+                        className="size-7 rounded-full border border-black/10 shadow-sm"
                         style={{ backgroundColor: opt.swatch }}
                         aria-hidden
                       />
-                      <span className="text-center text-micro font-semibold leading-tight text-foreground">
+                      <span className="text-center text-[10px] font-semibold leading-tight text-foreground">
                         {opt.label}
                       </span>
                     </button>
                   );
                 })}
               </div>
+              <p className="text-micro text-muted-foreground">
+                تغییر فوری است؛ نیازی به ذخیره نیست.
+              </p>
             </div>
           </section>
         ) : null}
 
         {tab === "account" ? (
-          <section className="space-y-4 rounded-2xl border border-border/50 bg-card p-4 shadow-sm">
-            <div className="space-y-2">
-              <div>
-                <h2 className="text-body-sm font-semibold text-foreground">
-                  واحد پول پیش‌فرض
-                </h2>
-                <p className="mt-0.5 text-caption text-muted-foreground">
-                  برای فضاهای جدید
-                </p>
+          <div className="space-y-2.5">
+            <section className="space-y-2.5 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-body-sm font-semibold text-foreground">
+                    واحد پول پیش‌فرض
+                  </h2>
+                  <p className="mt-0.5 text-caption text-muted-foreground">
+                    فقط برای دفترهای جدیدی که می‌سازی
+                  </p>
+                </div>
+                {currencySaved ? (
+                  <span className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success">
+                    ذخیره شد
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-lg bg-muted px-2 py-1 text-micro font-medium text-muted-foreground">
+                    خودکار
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map(
@@ -248,9 +284,9 @@ export function AppSettingsPanel({
                       <button
                         key={code}
                         type="button"
-                        onClick={() => setPreferredCurrency(code)}
+                        onClick={() => onPickCurrency(code)}
                         className={cn(
-                          "rounded-xl px-3 py-2 text-body-sm font-semibold transition-all",
+                          "rounded-xl px-3 py-1.5 text-caption font-semibold transition-all",
                           selected
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted/70 text-muted-foreground hover:text-foreground",
@@ -262,66 +298,79 @@ export function AppSettingsPanel({
                   },
                 )}
               </div>
-            </div>
+            </section>
 
-            <div className="h-px bg-border/45" />
-
-            <form onSubmit={onSaveProfile} className="space-y-3">
-              <div>
-                <h2 className="text-body-sm font-semibold text-foreground">
-                  پروفایل
-                </h2>
-                <p
-                  className="mt-0.5 text-caption tabular-nums text-muted-foreground"
-                  dir="ltr"
+            <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
+              <form onSubmit={onSaveProfile} className="space-y-2.5">
+                <div>
+                  <h2 className="text-body-sm font-semibold text-foreground">
+                    پروفایل
+                  </h2>
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2">
+                    <span className="text-caption text-muted-foreground">
+                      شماره موبایل
+                    </span>
+                    <span
+                      className="text-caption font-semibold tabular-nums text-foreground"
+                      dir="ltr"
+                    >
+                      {phone}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="displayName" className="text-caption">
+                    نام نمایشی
+                  </Label>
+                  <Input
+                    id="displayName"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="مثلاً علی"
+                    className="h-11 rounded-xl"
+                    autoComplete="name"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl"
+                  disabled={pending || !profileDirty}
                 >
-                  {phone}
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="displayName" className="text-caption">
-                  نام نمایشی
-                </Label>
-                <Input
-                  id="displayName"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="مثلاً علی"
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="h-11 w-full rounded-xl"
-                disabled={pending}
-              >
-                {pending ? "در حال ذخیره…" : "ذخیره پروفایل"}
-              </Button>
-            </form>
-          </section>
+                  {pending
+                    ? "در حال ذخیره…"
+                    : profileDirty
+                      ? "ذخیره نام"
+                      : "تغییری نیست"}
+                </Button>
+              </form>
+            </section>
+          </div>
         ) : null}
 
         {tab === "data" ? (
-          <div className="space-y-3">
-            <PwaInstallCard />
+          <div className="space-y-2.5">
+            <PwaInstallCard className="p-3.5" />
             <AccountBackupPanel />
-
-            <section className="rounded-2xl border border-destructive/20 bg-card p-4 shadow-sm">
-              <h2 className="text-body-sm font-semibold text-destructive">
-                خروج از حساب
-              </h2>
-              <p className="mt-0.5 text-caption text-muted-foreground">
-                نشست این دستگاه پاک می‌شود
-              </p>
-              <form action={logout} className="mt-3">
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  className="h-11 w-full rounded-xl"
-                >
-                  خروج
-                </Button>
-              </form>
+            <section className="rounded-2xl border border-destructive/20 bg-card p-3.5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-body-sm font-semibold text-destructive">
+                    خروج از حساب
+                  </h2>
+                  <p className="mt-0.5 text-caption text-muted-foreground">
+                    فقط نشست این دستگاه پاک می‌شود
+                  </p>
+                </div>
+                <form action={logout} className="shrink-0">
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    className="h-10 rounded-xl px-4"
+                  >
+                    خروج
+                  </Button>
+                </form>
+              </div>
             </section>
           </div>
         ) : null}
@@ -329,7 +378,7 @@ export function AppSettingsPanel({
         {message || error ? (
           <p
             className={cn(
-              "rounded-xl px-3 py-2.5 text-body-sm",
+              "rounded-xl px-3 py-2 text-caption font-medium",
               error
                 ? "bg-destructive-soft text-destructive"
                 : "bg-success-soft text-success",
@@ -341,10 +390,10 @@ export function AppSettingsPanel({
         ) : null}
       </div>
 
-      <footer className="mt-auto border-t border-border/40 pt-3 text-center">
-        <p className="text-caption text-muted-foreground">
+      <footer className="border-t border-border/40 pt-2.5 text-center">
+        <p className="text-micro text-muted-foreground">
           سوپرحساب
-          <span className="mx-1.5 text-border">·</span>
+          <span className="mx-1 text-border">·</span>
           <span dir="ltr" className="tabular-nums">
             ver {APP_VERSION}
           </span>

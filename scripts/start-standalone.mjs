@@ -2,7 +2,7 @@
  * Local prod runner for Next.js `output: "standalone"`.
  * `next start` cannot serve this mode — copy static/public like the Dockerfile.
  */
-import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 
@@ -24,8 +24,11 @@ if (!existsSync(staticSrc)) {
 }
 
 mkdirSync(path.join(standalone, ".next"), { recursive: true });
+// Drop stale hashed chunks so a rebuild never mixes with the previous copy.
+rmSync(staticDest, { recursive: true, force: true });
 cpSync(staticSrc, staticDest, { recursive: true });
 if (existsSync(publicSrc)) {
+  rmSync(publicDest, { recursive: true, force: true });
   cpSync(publicSrc, publicDest, { recursive: true });
 }
 

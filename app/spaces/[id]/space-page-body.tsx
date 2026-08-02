@@ -46,7 +46,7 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const isFundShell = Boolean(features.fundRotating);
   const showChecklist = features.checklist;
 
-  const [space, expensesRow, balanceData, monthRows, buildingView, fundDashboard, fundProofs, deferredTab] =
+  const [space, expensesPage, balanceData, monthRows, buildingView, fundDashboard, fundProofs, deferredTab] =
     await Promise.all([
       loadSpaceWithMembers(id),
       loadSpaceExpensesPage(id, hiddenCategoriesKey),
@@ -84,7 +84,8 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
 
   if (!space) notFound();
 
-  const expenses = expensesRow?.expenses ?? [];
+  const expenses = expensesPage.expenses;
+  const expensesHasMore = expensesPage.hasMore;
   const buildingDashboard = buildingView?.dashboard ?? null;
   const buildingCalendar = buildingView?.calendar ?? null;
   const buildingUnits = buildingView?.units ?? [];
@@ -155,6 +156,7 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
           currentUserId={session.userId}
           currentUserRole={myRole}
           expenses={expenses}
+          expensesHasMore={expensesHasMore}
           members={members}
           inviteMembers={inviteMembers}
           balances={balanceData.balances}

@@ -50,6 +50,7 @@ export function BuildingSpaceTabs({
   currentUserId,
   currentUserRole,
   expenses,
+  expensesHasMore = false,
   members,
   inviteMembers,
   currency = "TOMAN",
@@ -130,6 +131,7 @@ export function BuildingSpaceTabs({
           members={members}
           inviteMembers={inviteMembers}
           expenses={expenses}
+          expensesHasMore={expensesHasMore}
           currency={currency}
           spaceType={spaceType}
           canMutate={canMutate}

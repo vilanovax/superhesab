@@ -87,30 +87,29 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-sm">
+    <div className={cn("space-y-2.5", className)}>
+      <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
         <h2 className="text-body-sm font-semibold text-foreground">بک‌آپ</h2>
-        <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
-          خروجی JSON از دفاتری که مالک آن‌ها هستید (نسخه ۲). برای بازیابی، فایل
-          را انتخاب کنید — همیشه دفتر جدید ساخته می‌شود.
+        <p className="mt-0.5 text-caption leading-snug text-muted-foreground">
+          دانلود JSON دفاتری که مالکی؛ بازیابی همیشه دفتر جدید می‌سازد.
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-xl"
+            className="h-10 w-full rounded-xl text-caption"
             disabled={pending}
             onClick={onExport}
           >
-            {pending ? "…" : "دانلود بک‌آپ حساب"}
+            {pending ? "…" : "دانلود"}
           </Button>
           <Button
             type="button"
-            className="h-11 w-full rounded-xl"
+            className="h-10 w-full rounded-xl text-caption"
             disabled={pending}
             onClick={onPickFile}
           >
-            بازیابی از فایل
+            بازیابی
           </Button>
         </div>
         <input

@@ -29,6 +29,8 @@ export type SpaceTabsProps = {
   currentUserId: string;
   currentUserRole: SpaceRole;
   expenses: ExpenseListItem[];
+  /** True when more ledger rows exist beyond the first page. */
+  expensesHasMore?: boolean;
   members: BalanceMember[];
   inviteMembers: InviteMemberRow[];
   balances: Record<string, number>;

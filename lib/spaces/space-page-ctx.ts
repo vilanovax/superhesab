@@ -15,6 +15,7 @@ import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
 import { tehranMonthRange } from "@/lib/personal";
 import type { SessionPayload } from "@/lib/session";
 import { getTemplate } from "@/lib/templates/registry";
+import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
 import {
   resolveDefaultTab,
   type SpaceTabId,
@@ -175,66 +176,15 @@ export const loadSpaceWithMembers = cache(async (spaceId: string) => {
   });
 });
 
-/** Ledger page (tab list) — not needed for hero chrome. */
+/** First ledger page — not needed for hero chrome. */
 export const loadSpaceExpensesPage = cache(
   async (spaceId: string, hiddenCategoriesKey: string) => {
     const hidden = hiddenCategoriesKey
       ? (hiddenCategoriesKey.split(",") as ExpenseCategory[])
       : [];
-    return prisma.space.findUnique({
-      where: { id: spaceId },
-      select: {
-        expenses: {
-          where: categoryPrivacyFilter(hidden),
-          select: {
-            id: true,
-            title: true,
-            totalAmount: true,
-            date: true,
-            createdAt: true,
-            updatedAt: true,
-            paidById: true,
-            transactionType: true,
-            category: true,
-            categoryLabel: true,
-            isCategoryLocked: true,
-            spaceId: true,
-            paidBy: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                isVirtual: true,
-              },
-            },
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                isVirtual: true,
-              },
-            },
-            updatedBy: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                isVirtual: true,
-              },
-            },
-            splits: {
-              select: {
-                userId: true,
-                owedAmount: true,
-                share: true,
-              },
-            },
-          },
-          orderBy: { date: "desc" },
-          take: 50,
-        },
-      },
+    return queryExpenseLedgerPage({
+      spaceId,
+      hiddenCategories: hidden,
     });
   },
 );

@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteExpense } from "@/app/actions/expense";
+import {
+  deleteExpense,
+  loadMoreSpaceExpenses,
+} from "@/app/actions/expense";
 import {
   ExpenseForm,
   type ExpenseInitialValues,
@@ -79,10 +82,26 @@ type ExpenseListProps = {
   members: ExpenseMember[];
   inviteMembers?: InviteMemberRow[];
   expenses: ExpenseListItem[];
+  expensesHasMore?: boolean;
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
   canMutate?: boolean;
 };
+
+function normalizeExpenseDates(item: ExpenseListItem): ExpenseListItem {
+  return {
+    ...item,
+    date: item.date instanceof Date ? item.date : new Date(item.date),
+    createdAt:
+      item.createdAt instanceof Date
+        ? item.createdAt
+        : new Date(item.createdAt),
+    updatedAt:
+      item.updatedAt instanceof Date
+        ? item.updatedAt
+        : new Date(item.updatedAt),
+  };
+}
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -320,7 +339,7 @@ function EditSheet({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <DrawerContent className="mt-0! h-[92dvh] max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
         <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
           <DrawerHeader className="space-y-1 p-0 text-start">
             <DrawerTitle className="text-xl font-bold text-on-hero">
@@ -331,7 +350,7 @@ function EditSheet({
             </DrawerDescription>
           </DrawerHeader>
         </div>
-        <div className="h-[calc(92dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-10">
+        <div className="min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {form}
         </div>
       </DrawerContent>
@@ -346,15 +365,28 @@ export function ExpenseList({
   currentUserRole = "EDITOR",
   members,
   inviteMembers,
-  expenses,
+  expenses: expensesProp,
+  expensesHasMore: expensesHasMoreProp = false,
   currency = "TOMAN",
   spaceType = "TRIP",
   canMutate = true,
 }: ExpenseListProps) {
   const [editing, setEditing] = useState<ExpenseListItem | null>(null);
+  const [items, setItems] = useState(() =>
+    expensesProp.map(normalizeExpenseDates),
+  );
+  const [hasMore, setHasMore] = useState(expensesHasMoreProp);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingMore, startMoreTransition] = useTransition();
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const isOwner = currentUserRole === "OWNER";
   const features = getTemplate(spaceType).features;
+
+  useEffect(() => {
+    setItems(expensesProp.map(normalizeExpenseDates));
+    setHasMore(expensesHasMoreProp);
+    setLoadError(null);
+  }, [expensesProp, expensesHasMoreProp]);
 
   function canEditExpense(expense: ExpenseListItem): boolean {
     if (!canMutate) return false;
@@ -365,7 +397,31 @@ export function ExpenseList({
     return false;
   }
 
-  if (expenses.length === 0) {
+  function onLoadMore() {
+    const last = items[items.length - 1];
+    if (!last || pendingMore) return;
+    setLoadError(null);
+    startMoreTransition(async () => {
+      const result = await loadMoreSpaceExpenses(spaceId, {
+        date: last.date.toISOString(),
+        id: last.id,
+      });
+      if (!result.ok) {
+        setLoadError(result.error);
+        return;
+      }
+      setItems((prev) => {
+        const seen = new Set(prev.map((e) => e.id));
+        const next = result.expenses
+          .map(normalizeExpenseDates)
+          .filter((e) => !seen.has(e.id));
+        return [...prev, ...next];
+      });
+      setHasMore(result.hasMore);
+    });
+  }
+
+  if (items.length === 0) {
     if (features.incomeExpense) {
       return <PersonalEmptyState canMutate={canMutate} />;
     }
@@ -405,7 +461,7 @@ export function ExpenseList({
     );
   }
 
-  const dayGroups = groupExpensesByDay(expenses);
+  const dayGroups = groupExpensesByDay(items);
   let rowIndex = 0;
 
   return (
@@ -525,6 +581,25 @@ export function ExpenseList({
           </section>
         ))}
       </div>
+
+      {hasMore ? (
+        <div className="mt-4 space-y-2 pb-2">
+          {loadError ? (
+            <p className="text-center text-caption text-destructive" role="alert">
+              {loadError}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full rounded-xl text-body-sm font-semibold"
+            disabled={pendingMore}
+            onClick={onLoadMore}
+          >
+            {pendingMore ? "در حال بارگذاری…" : "موارد قدیمی‌تر"}
+          </Button>
+        </div>
+      ) : null}
 
       {canMutate ? (
         <EditSheet

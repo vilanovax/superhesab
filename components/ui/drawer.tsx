@@ -40,7 +40,8 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-0 flex h-auto max-h-[92dvh] flex-col rounded-t-2xl border border-border/60 bg-background outline-none",
+        // Cap to app column width (max-w-lg) so desktop sheets don't go edge-to-edge.
+        "fixed inset-x-0 bottom-0 z-50 mx-auto mt-0 flex h-auto w-full max-w-lg max-h-[92dvh] flex-col rounded-t-2xl border border-border/60 bg-background outline-none",
         "shadow-drawer",
         className,
       )}

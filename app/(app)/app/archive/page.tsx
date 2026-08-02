@@ -4,8 +4,14 @@ import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 
-export default async function ArchivePage() {
+type ArchivePageProps = {
+  searchParams: Promise<{ archived?: string }>;
+};
+
+export default async function ArchivePage({ searchParams }: ArchivePageProps) {
   const session = await requireUser();
+  const { archived } = await searchParams;
+  const archivedName = archived?.trim() || null;
 
   const spacesRaw = await prisma.space.findMany({
     where: {
@@ -62,6 +68,15 @@ export default async function ArchivePage() {
           انجام می‌شود.
         </p>
       </header>
+
+      {archivedName ? (
+        <p
+          className="mb-3 rounded-xl bg-success-soft px-3 py-2.5 text-caption font-medium text-success"
+          role="status"
+        >
+          دفتر «{archivedName}» آرشیو شد.
+        </p>
+      ) : null}
 
       <ArchivedSpacesList spaces={spaces} />
     </main>

@@ -1,18 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { archiveSpace } from "@/app/actions/space";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 function ArchiveIcon({ className }: { className?: string }) {
@@ -47,7 +39,6 @@ export function SpaceArchiveButton({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [doneOpen, setDoneOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function onArchive() {
@@ -59,8 +50,11 @@ export function SpaceArchiveButton({
         return;
       }
       setConfirmOpen(false);
-      setDoneOpen(true);
-      router.refresh();
+      // Do not refresh the current space route — archived spaces return 404
+      // via requireSpaceMember. Leave for the archive list instead.
+      router.replace(
+        `/app/archive?archived=${encodeURIComponent(result.name)}`,
+      );
     });
   }
 
@@ -116,36 +110,6 @@ export function SpaceArchiveButton({
         error={error}
         onConfirm={onArchive}
       />
-
-      <Dialog open={doneOpen} onOpenChange={setDoneOpen}>
-        <DialogContent className="gap-4 rounded-2xl border-border/60 p-5 sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold tracking-tight">
-              آرشیو شد
-            </DialogTitle>
-            <DialogDescription className="text-body-sm leading-relaxed text-muted-foreground">
-              دفتر «{spaceName}» به آرشیو منتقل شد. در صورت تمایل می‌توانید از
-              صفحه آرشیو آن را برای همیشه حذف کنید.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Button asChild className="h-11 rounded-xl font-semibold">
-              <Link href="/app/archive">رفتن به آرشیو</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 rounded-xl"
-              onClick={() => {
-                setDoneOpen(false);
-                router.push("/app");
-              }}
-            >
-              بازگشت به خانه
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

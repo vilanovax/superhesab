@@ -36,6 +36,37 @@ async function createSession(user: { id: string; phone: string }) {
     phone: user.phone,
   });
   await setSessionCookie(token);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastSeenAt: new Date() },
+  });
+}
+
+async function assertLoginAllowed(
+  phone: string,
+): Promise<
+  | { ok: true; user: { id: string; phone: string } }
+  | { ok: false; error: string }
+> {
+  const user = await prisma.user.findUnique({
+    where: { phone },
+    select: {
+      id: true,
+      phone: true,
+      isVirtual: true,
+      disabledAt: true,
+    },
+  });
+  if (!user || user.isVirtual) {
+    return {
+      ok: false,
+      error: "حسابی با این شماره نیست. ابتدا ثبت‌نام کنید.",
+    };
+  }
+  if (user.disabledAt) {
+    return { ok: false, error: "این حساب غیرفعال شده است." };
+  }
+  return { ok: true, user: { id: user.id, phone: user.phone } };
 }
 
 export async function requestOtp(phone: string): Promise<AuthActionResult> {
@@ -44,16 +75,8 @@ export async function requestOtp(phone: string): Promise<AuthActionResult> {
     return { ok: false, error: "شماره موبایل معتبر نیست." };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { phone: normalized },
-    select: { id: true, isVirtual: true },
-  });
-  if (!user || user.isVirtual) {
-    return {
-      ok: false,
-      error: "حسابی با این شماره نیست. ابتدا ثبت‌نام کنید.",
-    };
-  }
+  const allowed = await assertLoginAllowed(normalized);
+  if (!allowed.ok) return allowed;
 
   // Mock: no SMS provider in MVP
   return { ok: true };
@@ -72,18 +95,10 @@ export async function verifyOtp(
     return { ok: false, error: "کد تأیید نادرست است." };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { phone: normalized },
-    select: { id: true, phone: true, isVirtual: true },
-  });
-  if (!user || user.isVirtual) {
-    return {
-      ok: false,
-      error: "حسابی با این شماره نیست. ابتدا ثبت‌نام کنید.",
-    };
-  }
+  const allowed = await assertLoginAllowed(normalized);
+  if (!allowed.ok) return allowed;
 
-  await createSession(user);
+  await createSession(allowed.user);
   return { ok: true };
 }
 
@@ -198,8 +213,13 @@ export async function loginWithPassword(
       phone: true,
       passwordHash: true,
       isVirtual: true,
+      disabledAt: true,
     },
   });
+
+  if (user?.disabledAt) {
+    return { ok: false, error: "این حساب غیرفعال شده است." };
+  }
 
   // Same generic error whether missing user or wrong password (no user enumeration).
   if (

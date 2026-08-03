@@ -1,6 +1,6 @@
 # PRD: بک‌آپ و بازیابی دفاتر
 
-**Status:** Phase 1 · **App backup schema:** `version: 2`
+**Status:** Phase 1 (+ admin platform export) · **App backup schema:** `version: 2`
 
 ## ۱. تصمیم‌های قفل‌شده
 
@@ -23,8 +23,9 @@
   "version": 2,
   "exportedAt": "ISO-8601",
   "app": "SuperHesab",
-  "scope": "account" | "space",
+  "scope": "account" | "space" | "platform" | "user",
   "user": { "id", "phone", "name", "email" },
+  "users": [ /* optional — admin platform/user export; no passwordHash */ ],
   "spaces": [ /* BackupSpacePayload */ ]
 }
 ```

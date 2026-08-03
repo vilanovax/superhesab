@@ -154,7 +154,7 @@ export function FamilySpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            <ReportExportButtons spaceId={spaceId} />
+            <ReportExportButtons spaceId={spaceId} variant="row" />
             <FamilyReportPanel
               currentUserId={currentUserId}
               members={familyReportMembers}

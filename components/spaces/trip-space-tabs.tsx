@@ -63,6 +63,7 @@ export function TripSpaceTabs({
 
   const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
+  const showExport = tab === "expenses" || tab === "balances";
 
   return (
     <Tabs
@@ -71,20 +72,23 @@ export function TripSpaceTabs({
       onValueChange={onTabChange}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <TabsList
-        className={cn(
-          "grid h-10 w-full",
-          tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
-        )}
-      >
-        <TabsTrigger value="expenses">هزینه‌ها</TabsTrigger>
-        <TabsTrigger value="balances">تراز</TabsTrigger>
-        {showChecklist ? (
-          <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
-        ) : null}
-      </TabsList>
+      <div className="flex items-center gap-2">
+        <TabsList
+          className={cn(
+            "grid h-10 min-w-0 flex-1",
+            tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
+          )}
+        >
+          <TabsTrigger value="expenses">هزینه‌ها</TabsTrigger>
+          <TabsTrigger value="balances">تراز</TabsTrigger>
+          {showChecklist ? (
+            <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
+          ) : null}
+        </TabsList>
+        {showExport ? <ReportExportButtons spaceId={spaceId} /> : null}
+      </div>
+
       <TabsContent value="expenses" className="mt-3">
-        <ReportExportButtons spaceId={spaceId} />
         <ExpenseList
           spaceId={spaceId}
           spaceName={spaceName}
@@ -100,7 +104,6 @@ export function TripSpaceTabs({
         />
       </TabsContent>
       <TabsContent value="balances" className="mt-3">
-        <ReportExportButtons spaceId={spaceId} />
         <SpaceBalances
           spaceId={spaceId}
           currentUserId={currentUserId}

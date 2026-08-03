@@ -55,17 +55,29 @@ const spaceSchema: z.ZodType<BackupSpacePayload> = z.object({
   fundPayments: z.array(z.any()),
 }) as z.ZodType<BackupSpacePayload>;
 
+const platformUserSchema = z.object({
+  originalUserId: z.string().min(1),
+  phone: z.string().min(1),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  isVirtual: z.boolean(),
+  platformRole: z.enum(["USER", "ADMIN"]),
+  disabledAt: z.string().nullable(),
+  createdAt: z.string().min(1),
+});
+
 export const backupFileSchema: z.ZodType<BackupFileV2> = z.object({
   version: z.literal(BACKUP_VERSION),
   exportedAt: z.string().min(1),
   app: z.literal(BACKUP_APP),
-  scope: z.enum(["account", "space"]),
+  scope: z.enum(["account", "space", "platform", "user"]),
   user: z.object({
     id: z.string(),
     phone: z.string(),
     name: z.string().nullable(),
     email: z.string().nullable(),
   }),
+  users: z.array(platformUserSchema).optional(),
   spaces: z.array(spaceSchema),
 });
 

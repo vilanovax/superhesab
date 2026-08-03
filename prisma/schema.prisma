@@ -32,6 +32,26 @@ enum SpaceRole {
   VIEWER
 }
 
+/// Platform-level role (not SpaceMember). ADMIN can access /admin.
+enum PlatformRole {
+  USER
+  ADMIN
+}
+
+/// Actions recorded in AdminAuditEvent (platform console).
+enum AdminAuditAction {
+  USER_DISABLE
+  USER_ENABLE
+  USER_RENAME
+  USER_ROLE_GRANT
+  USER_ROLE_REVOKE
+  BACKUP_EXPORT_PLATFORM
+  BACKUP_EXPORT_USER
+  BACKUP_EXPORT_SPACES
+  BACKUP_DRY_RUN
+  BACKUP_RESTORE
+}
+
 enum SettlementStatus {
   PENDING
   COMPLETED
@@ -75,6 +95,12 @@ model User {
   passwordHash String?
   /// Ghost / placeholder member without app login (Path B)
   isVirtual Boolean  @default(false)
+  /// Platform admin console access (`/admin`). Independent of Space roles.
+  platformRole PlatformRole @default(USER)
+  /// When set, login and app access are blocked.
+  disabledAt DateTime?
+  /// Updated on successful login / session use for engagement metrics.
+  lastSeenAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -100,10 +126,37 @@ model User {
   fundProofsUploaded    FundPaymentProof[]     @relation("FundProofUploadedBy")
   fundProofsReviewed    FundPaymentProof[]     @relation("FundProofReviewedBy")
   categoryPoliciesOwned SpaceCategoryPolicy[]  @relation("CategoryPolicyOwner")
+  adminAuditEvents      AdminAuditEvent[]      @relation("AdminAuditActor")
 
   @@index([phone])
   @@index([email])
   @@index([isVirtual])
+  @@index([platformRole])
+  @@index([disabledAt])
+  @@index([createdAt])
+  @@index([lastSeenAt])
+}
+
+/// Immutable-ish trail of platform-admin console actions.
+model AdminAuditEvent {
+  id           String           @id @default(cuid())
+  actorId      String
+  action       AdminAuditAction
+  /// Optional target user / space / etc.
+  targetType   String?
+  targetId     String?
+  /// Short human summary (Persian OK)
+  summary      String
+  /// JSON metadata (counts, phones, roles…) — no secrets
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+
+  actor User @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }
 
 model Space {

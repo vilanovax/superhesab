@@ -3,7 +3,19 @@
 export const BACKUP_VERSION = 2 as const;
 export const BACKUP_APP = "SuperHesab" as const;
 
-export type BackupScope = "account" | "space";
+export type BackupScope = "account" | "space" | "platform" | "user";
+
+/** User directory for platform / user-scoped admin exports (no password hashes). */
+export type BackupPlatformUser = {
+  originalUserId: string;
+  phone: string;
+  name: string | null;
+  email: string | null;
+  isVirtual: boolean;
+  platformRole: "USER" | "ADMIN";
+  disabledAt: string | null;
+  createdAt: string;
+};
 
 export type BackupPerson = {
   originalUserId: string;
@@ -222,13 +234,27 @@ export type BackupFileV2 = {
   exportedAt: string;
   app: typeof BACKUP_APP;
   scope: BackupScope;
+  /** Exporter account (owner for account/space; admin for platform/user). */
   user: {
     id: string;
     phone: string;
     name: string | null;
     email: string | null;
   };
+  /** Present on platform / user admin exports — password hashes never included. */
+  users?: BackupPlatformUser[];
   spaces: BackupSpacePayload[];
+};
+
+export type BackupRestoreDryRun = {
+  scope: BackupScope;
+  spaceCount: number;
+  expenseCount: number;
+  memberPhoneCount: number;
+  phonesExisting: number;
+  phonesMissing: number;
+  spacesByType: { type: string; count: number }[];
+  warnings: string[];
 };
 
 export type RestoreSpaceResult = {

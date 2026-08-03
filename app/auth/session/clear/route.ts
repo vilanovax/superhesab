@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { cookieSecure } from "@/lib/cookie-secure";
 import { SESSION_COOKIE } from "@/lib/session-token";
 
 /**
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(safeNext, request.url));
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     path: "/",
     maxAge: 0,

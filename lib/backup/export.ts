@@ -338,3 +338,145 @@ export async function buildBackupForOwnedSpaces(input: {
     spaces: payloads,
   };
 }
+
+async function serializeSpacesByIds(
+  spaceIds: string[],
+): Promise<BackupSpacePayload[]> {
+  if (spaceIds.length === 0) return [];
+  const spaces = await prisma.space.findMany({
+    where: { id: { in: spaceIds } },
+    include: spaceBackupInclude,
+    orderBy: { createdAt: "asc" },
+  });
+  const payloads: BackupSpacePayload[] = [];
+  for (const space of spaces) {
+    const payments = await loadChargePaymentsForSpace(space.id);
+    payloads.push(serializeSpace(space, payments));
+  }
+  return payloads;
+}
+
+async function loadPlatformUserDirectory(userIds?: string[]) {
+  const users = await prisma.user.findMany({
+    where: userIds ? { id: { in: userIds } } : undefined,
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      email: true,
+      isVirtual: true,
+      platformRole: true,
+      disabledAt: true,
+      createdAt: true,
+    },
+  });
+  return users.map((u) => ({
+    originalUserId: u.id,
+    phone: u.phone,
+    name: u.name,
+    email: u.email,
+    isVirtual: u.isVirtual,
+    platformRole: u.platformRole as "USER" | "ADMIN",
+    disabledAt: iso(u.disabledAt),
+    createdAt: isoReq(u.createdAt),
+  }));
+}
+
+/** Full platform snapshot for admin — all users (no passwords) + all spaces. */
+export async function buildPlatformBackup(adminUserId: string): Promise<BackupFileV2> {
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { id: adminUserId },
+    select: { id: true, phone: true, name: true, email: true },
+  });
+
+  const spaceRows = await prisma.space.findMany({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const [users, spaces] = await Promise.all([
+    loadPlatformUserDirectory(),
+    serializeSpacesByIds(spaceRows.map((s) => s.id)),
+  ]);
+
+  return {
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    app: BACKUP_APP,
+    scope: "platform",
+    user: admin,
+    users,
+    spaces,
+  };
+}
+
+/** All spaces owned by a user (admin selective export). */
+export async function buildBackupForUserOwnedSpaces(input: {
+  adminUserId: string;
+  targetUserId: string;
+}): Promise<BackupFileV2> {
+  const [admin, target] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: input.adminUserId },
+      select: { id: true, phone: true, name: true, email: true },
+    }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: input.targetUserId },
+      select: { id: true },
+    }),
+  ]);
+
+  const owned = await prisma.spaceMember.findMany({
+    where: { userId: target.id, role: "OWNER" },
+    select: { spaceId: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const [users, spaces] = await Promise.all([
+    loadPlatformUserDirectory([target.id]),
+    serializeSpacesByIds(owned.map((m) => m.spaceId)),
+  ]);
+
+  return {
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    app: BACKUP_APP,
+    scope: "user",
+    user: admin,
+    users,
+    spaces,
+  };
+}
+
+/** Explicit space id list (admin selective export). */
+export async function buildBackupForSpaceIds(input: {
+  adminUserId: string;
+  spaceIds: string[];
+}): Promise<BackupFileV2> {
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { id: input.adminUserId },
+    select: { id: true, phone: true, name: true, email: true },
+  });
+
+  const uniqueIds = [...new Set(input.spaceIds.filter(Boolean))];
+  const spaces = await serializeSpacesByIds(uniqueIds);
+
+  const memberUserIds = new Set<string>();
+  for (const space of spaces) {
+    for (const m of space.members) {
+      memberUserIds.add(m.originalUserId);
+    }
+  }
+
+  const users = await loadPlatformUserDirectory([...memberUserIds]);
+
+  return {
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    app: BACKUP_APP,
+    scope: "platform",
+    user: admin,
+    users,
+    spaces,
+  };
+}

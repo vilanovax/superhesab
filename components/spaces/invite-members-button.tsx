@@ -32,8 +32,8 @@ type InviteMembersButtonProps = {
   spaceName: string;
   members: InviteMemberRow[];
   currentUserRole: SpaceRole;
-  /** icon = hero +; banner = partner empty-state CTA; empty = expense empty secondary */
-  variant?: "icon" | "banner" | "empty";
+  /** icon = hero +; banner = large CTA; empty = secondary; inline = compact row CTA */
+  variant?: "icon" | "banner" | "empty" | "inline";
   /** FAMILY / FUND: role picker on invite link */
   inviteRolePicker?: boolean;
   spaceType?: SpaceType;
@@ -115,6 +115,14 @@ export function InviteMembersButton({
             : inviteRolePicker
               ? "دعوت عضو خانواده"
               : "دعوت طرف مقابل"}
+      </Button>
+    ) : variant === "inline" ? (
+      <Button
+        type="button"
+        size="sm"
+        className="h-9 shrink-0 rounded-xl px-3 text-caption font-semibold"
+      >
+        دعوت
       </Button>
     ) : variant === "empty" ? (
       <Button

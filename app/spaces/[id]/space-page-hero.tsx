@@ -530,19 +530,21 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
           />
         </div>
       ) : needsPartner && isOwner ? (
-        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-card px-4 py-5 text-center shadow-sm">
-          <p className="text-body font-semibold text-foreground">
-            طرف مقابل را به این حساب مشترک دعوت کنید
-          </p>
-          <p className="mt-1.5 text-body-sm leading-relaxed text-muted-foreground">
-            با لینک دعوت یا افزودن دستی، حساب دونفره‌تان کامل می‌شود.
-          </p>
+        <div className="animate-fade-up mb-3 flex items-center gap-3 rounded-2xl border border-primary/20 bg-card px-3 py-2.5 shadow-sm">
+          <div className="min-w-0 flex-1 text-start">
+            <p className="text-body-sm font-semibold text-foreground">
+              طرف مقابل را دعوت کنید
+            </p>
+            <p className="mt-0.5 text-caption text-muted-foreground">
+              با لینک دعوت، حساب دونفره کامل می‌شود.
+            </p>
+          </div>
           <InviteMembersButton
             spaceId={space.id}
             spaceName={space.name}
             members={inviteMembers}
             currentUserRole={myRole}
-            variant="banner"
+            variant="inline"
           />
         </div>
       ) : needsFamilyInvite ? (

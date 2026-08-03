@@ -175,6 +175,7 @@ export function BuildingSpaceTabs({
           <>
             <ReportExportButtons
               spaceId={spaceId}
+              variant="row"
               query={
                 reportPlanYear != null
                   ? reportMonth != null

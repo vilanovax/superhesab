@@ -6,6 +6,8 @@
  *   Ali  → 09120000001
  *   Sara → 09120000002
  *   Reza → 09120000003
+ *
+ * Platform admin: set PLATFORM_ADMIN_PHONES (e.g. 09120000001) then open /admin.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";

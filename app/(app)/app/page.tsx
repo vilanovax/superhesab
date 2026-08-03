@@ -5,13 +5,12 @@ import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
 import { HomeQuickActions } from "@/components/spaces/home-quick-actions";
 import { HomeSummaryCard } from "@/components/spaces/home-summary-card";
+import { HomeUserMenu } from "@/components/spaces/home-user-menu";
 import {
   SpaceTypeIcon,
   spaceTypeAccent,
   spaceTypeTint,
 } from "@/components/spaces/space-type-icon";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
@@ -21,24 +20,6 @@ import { getHomeSummary, type HomeSpaceStat } from "@/lib/home-summary";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
-
-function SettingsIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="3.25" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
 
 function roleLabel(role: string) {
   if (role === "OWNER") return "مالک";
@@ -123,7 +104,13 @@ export default async function AppHomePage({
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, phone: true, name: true, avatarUrl: true },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      avatarUrl: true,
+      platformRole: true,
+    },
   });
 
   if (!user) {
@@ -213,7 +200,14 @@ export default async function AppHomePage({
     : null;
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5">
+    <main
+      className={cn(
+        "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pt-4 sm:px-5",
+        isEmpty
+          ? "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+          : "pb-[calc(5.5rem+env(safe-area-inset-bottom))]",
+      )}
+    >
       {/* Identity */}
       <div className="mb-4 flex items-center gap-3">
         <UserAvatar
@@ -228,20 +222,10 @@ export default async function AppHomePage({
             سلام، {displayName}
           </p>
           <p className="text-caption text-muted-foreground">
-            {isEmpty ? "اولین دفترت را بساز" : `${spaceCount} دفتر فعال`}
+            {isEmpty ? "یک دفتر انتخاب کن تا شروع کنیم" : `${spaceCount} دفتر فعال`}
           </p>
         </div>
-        <Button
-          asChild
-          variant="outline"
-          size="icon"
-          className="size-10 shrink-0 rounded-2xl border-border/60 bg-card shadow-sm"
-          aria-label="تنظیمات اپ"
-        >
-          <Link href="/app/settings">
-            <SettingsIcon className="size-4" />
-          </Link>
-        </Button>
+        <HomeUserMenu isPlatformAdmin={user.platformRole === "ADMIN"} />
       </div>
 
       {!isEmpty ? <HomeSummaryCard summary={summary} /> : null}
@@ -280,23 +264,43 @@ export default async function AppHomePage({
         </div>
       ) : null}
 
-      {/* Compact brand hero — only when user has no spaces */}
+      {/* Empty home: compact brand strip + template picker (one job) */}
       {isEmpty ? (
-        <header className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-[1.25rem] px-5 py-4 shadow-md">
+        <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-[1.35rem] px-4 py-3.5 shadow-md">
           <div
             aria-hidden
-            className="pointer-events-none absolute -end-6 -top-10 size-28 rounded-full bg-on-hero/15 blur-3xl"
+            className="pointer-events-none absolute -end-8 -top-10 size-24 rounded-full bg-on-hero/15 blur-2xl"
           />
-          <div className="relative">
-            <p className="text-micro font-medium tracking-[0.14em] text-on-hero/50">
-              SuperHesab
-            </p>
-            <h1 className="mt-1 text-2xl font-bold leading-none tracking-tight text-on-hero">
-              سوپرحساب
-            </h1>
-            <p className="mt-2 max-w-[17rem] text-body-sm leading-relaxed text-on-hero/75">
-              خرج‌ها را ثبت کن؛ تراز و تسویه خودش جور می‌شود.
-            </p>
+          <div className="relative flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-on-hero/55">
+                SUPERHESAB
+              </p>
+              <h1 className="mt-0.5 text-xl font-bold tracking-tight text-on-hero">
+                اولین دفترت
+              </h1>
+              <p className="mt-1 max-w-[16rem] text-caption leading-relaxed text-on-hero/75">
+                خرج ثبت کن؛ تراز و تسویه خودش جور می‌شود.
+              </p>
+            </div>
+            <span
+              aria-hidden
+              className="mb-0.5 flex size-11 shrink-0 items-center justify-center rounded-2xl bg-on-hero/12 text-on-hero ring-1 ring-on-hero/20"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="size-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 5.5h10.5A2.5 2.5 0 0 1 18 8v11.5H7.5A2.5 2.5 0 0 1 5 17z" />
+                <path d="M5 5.5V17a2.5 2.5 0 0 0 2.5 2.5" />
+                <path d="M9 9.5h6M9 13h4" />
+              </svg>
+            </span>
           </div>
         </header>
       ) : null}
@@ -329,13 +333,9 @@ export default async function AppHomePage({
         ) : null}
 
         {isEmpty ? (
-          <EmptyState
-            icon="space"
-            title="هیچ حساب و کتابی ندارید"
-            description="سفر گروهی، حساب مشترک دونفره، یا دفتر خانه بسازید."
-            className="flex-1 justify-center"
-            actionNode={<HomeEmptyActions error={error} />}
-          />
+          <div className="animate-fade-up flex flex-1 flex-col">
+            <HomeEmptyActions error={error} />
+          </div>
         ) : (
           <ul className="space-y-2">
             {memberships.map(({ space, role }, index) => {
@@ -409,12 +409,14 @@ export default async function AppHomePage({
         )}
       </section>
 
-      {/* Circular FAB — create space */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        <div className="pointer-events-auto">
-          <CreateSpaceSheet error={error} layout="fab" />
+      {/* FAB only when spaces exist — empty home already lists create actions */}
+      {!isEmpty ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="pointer-events-auto">
+            <CreateSpaceSheet error={error} layout="fab" />
+          </div>
         </div>
-      </div>
+      ) : null}
     </main>
   );
 }

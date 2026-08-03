@@ -9,6 +9,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected =
     pathname.startsWith("/app") ||
+    pathname.startsWith("/admin") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/spaces") ||
     pathname.startsWith("/invite");
@@ -35,6 +36,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/app/:path*",
+    "/admin",
+    "/admin/:path*",
     "/dashboard/:path*",
     "/spaces/:path*",
     "/invite/:path*",

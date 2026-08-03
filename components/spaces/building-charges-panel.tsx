@@ -273,11 +273,6 @@ export function BuildingChargesPanel({
 
   return (
     <div className="space-y-3">
-      <BuildingExportButtons
-        spaceId={spaceId}
-        year={dashboard.year}
-        canExport={canMutate}
-      />
       {canMutate ? (
         <BuildingProofsInbox
           spaceId={spaceId}
@@ -286,7 +281,8 @@ export function BuildingChargesPanel({
           canReview={canMutate}
         />
       ) : null}
-      {/* Compact KPI strip */}
+
+      {/* KPI first — primary scan target after tabs */}
       <div className="grid grid-cols-3 gap-1.5">
         <StatCard
           label="مقرر"
@@ -307,31 +303,39 @@ export function BuildingChargesPanel({
         />
       </div>
 
-      <div className="flex gap-1 rounded-2xl bg-muted/70 p-1">
-        <button
-          type="button"
-          onClick={() => setView("calendar")}
-          className={cn(
-            "h-10 flex-1 rounded-xl text-caption font-semibold transition-colors",
-            view === "calendar"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground",
-          )}
-        >
-          تقویم سال
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("month")}
-          className={cn(
-            "h-10 flex-1 rounded-xl text-caption font-semibold transition-colors",
-            view === "month"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground",
-          )}
-        >
-          وصول ماهانه
-        </button>
+      {/* View switch + compact export — secondary actions, one row */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 gap-1 rounded-2xl bg-muted/70 p-1">
+          <button
+            type="button"
+            onClick={() => setView("calendar")}
+            className={cn(
+              "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors",
+              view === "calendar"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            تقویم سال
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("month")}
+            className={cn(
+              "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors",
+              view === "month"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            وصول ماهانه
+          </button>
+        </div>
+        <BuildingExportButtons
+          spaceId={spaceId}
+          year={dashboard.year}
+          canExport={canMutate}
+        />
       </div>
 
       {view === "calendar" ? (
@@ -715,8 +719,15 @@ function StatCard({
   tone?: "default" | "success" | "danger";
 }) {
   return (
-    <div className="rounded-xl border border-border/40 bg-card px-2 py-2 text-center shadow-sm">
-      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+    <div
+      className={cn(
+        "rounded-xl border bg-card px-2 py-2 text-center shadow-sm",
+        tone === "success" && "border-success/25",
+        tone === "danger" && "border-destructive/25",
+        tone === "default" && "border-border/45",
+      )}
+    >
+      <p className="text-[10px] font-semibold text-foreground/55">{label}</p>
       <p
         className={cn(
           "mt-0.5 text-[13px] font-bold leading-tight tabular-nums tracking-tight",
@@ -727,7 +738,7 @@ function StatCard({
       >
         {formatMoney(amount)}
       </p>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">{unit}</p>
+      <p className="mt-0.5 text-[10px] text-foreground/45">{unit}</p>
     </div>
   );
 }

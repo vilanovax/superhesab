@@ -173,24 +173,31 @@ export function BuildingSpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            <ReportExportButtons
-              spaceId={spaceId}
-              variant="row"
-              query={
-                reportPlanYear != null
-                  ? reportMonth != null
-                    ? `year=${reportPlanYear}&month=${reportMonth}`
-                    : `year=${reportPlanYear}`
-                  : ""
-              }
-            />
-            {reportPlanYear != null ? (
-              <BuildingReportPeriodFilter
+            <div className="mb-3 flex items-start gap-2">
+              {reportPlanYear != null ? (
+                <div className="min-w-0 flex-1">
+                  <BuildingReportPeriodFilter
+                    spaceId={spaceId}
+                    year={reportPlanYear}
+                    month={reportMonth}
+                  />
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1" />
+              )}
+              <ReportExportButtons
                 spaceId={spaceId}
-                year={reportPlanYear}
-                month={reportMonth}
+                variant="compact"
+                className="mt-5 shrink-0"
+                query={
+                  reportPlanYear != null
+                    ? reportMonth != null
+                      ? `year=${reportPlanYear}&month=${reportMonth}`
+                      : `year=${reportPlanYear}`
+                    : ""
+                }
               />
-            ) : null}
+            </div>
             <PersonalReportChart
               data={deferred.personalReportData}
               expenseLines={deferred.reportExpenseLines}

@@ -39,7 +39,7 @@ export function BuildingReportPeriodFilter({
   return (
     <div
       className={cn(
-        "mb-3 space-y-1.5",
+        "space-y-1.5",
         pending && "pointer-events-none opacity-70",
       )}
     >

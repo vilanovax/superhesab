@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
+import {
+  hashPassword,
+  PASSWORD_MAX_LEN,
+  validatePasswordPlain,
+  verifyPassword,
+} from "@/lib/password";
 
 export type ProfileActionResult =
   | { ok: true }
@@ -30,6 +36,67 @@ export async function updateProfile(input: {
   });
 
   revalidatePath("/app");
+  revalidatePath("/app/settings");
+  return { ok: true };
+}
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().max(PASSWORD_MAX_LEN),
+  newPassword: z.string().min(1).max(PASSWORD_MAX_LEN),
+  confirmPassword: z.string().min(1).max(PASSWORD_MAX_LEN),
+});
+
+/**
+ * Set or change the account password.
+ * - First time (no hash): currentPassword may be empty.
+ * - Afterwards: currentPassword must match.
+ */
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<ProfileActionResult> {
+  const session = await requireUser();
+  const parsed = changePasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "اطلاعات رمز نامعتبر است." };
+  }
+
+  const { currentPassword, newPassword, confirmPassword } = parsed.data;
+  if (newPassword !== confirmPassword) {
+    return { ok: false, error: "تکرار رمز با رمز جدید یکی نیست." };
+  }
+
+  const strengthError = validatePasswordPlain(newPassword);
+  if (strengthError) {
+    return { ok: false, error: strengthError };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, passwordHash: true, isVirtual: true },
+  });
+  if (!user || user.isVirtual) {
+    return { ok: false, error: "حساب کاربری معتبر نیست." };
+  }
+
+  if (user.passwordHash) {
+    if (!currentPassword) {
+      return { ok: false, error: "رمز فعلی را وارد کنید." };
+    }
+    if (!verifyPassword(currentPassword, user.passwordHash)) {
+      return { ok: false, error: "رمز فعلی نادرست است." };
+    }
+    if (verifyPassword(newPassword, user.passwordHash)) {
+      return { ok: false, error: "رمز جدید باید با رمز فعلی فرق داشته باشد." };
+    }
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: hashPassword(newPassword) },
+  });
+
   revalidatePath("/app/settings");
   return { ok: true };
 }

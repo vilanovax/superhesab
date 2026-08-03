@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateProfile } from "@/app/actions/settings";
+import { changePassword, updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
+import { PASSWORD_MIN_LEN } from "@/lib/password-policy";
 import { AccountBackupPanel } from "@/components/settings/backup-panels";
 import { PwaInstallCard } from "@/components/pwa/pwa-runtime";
 import { Button } from "@/components/ui/button";
@@ -24,13 +25,14 @@ import { cn } from "@/lib/utils";
 type AppSettingsPanelProps = {
   initialName: string;
   phone: string;
+  hasPassword: boolean;
 };
 
 type SettingsTab = "look" | "account" | "data";
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: "look", label: "ظاهر", hint: "تم و رنگ" },
-  { id: "account", label: "حساب", hint: "نام و ارز" },
+  { id: "account", label: "حساب", hint: "نام، ارز، رمز" },
   { id: "data", label: "داده", hint: "بک‌آپ و خروج" },
 ];
 
@@ -60,6 +62,7 @@ const THEME_OPTIONS: {
 export function AppSettingsPanel({
   initialName,
   phone,
+  hasPassword,
 }: AppSettingsPanelProps) {
   const router = useRouter();
   const theme = useAppSettingsStore((s) => s.theme);
@@ -77,6 +80,12 @@ export function AppSettingsPanel({
   const [error, setError] = useState<string | null>(null);
   const [currencySaved, setCurrencySaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [passwordPending, startPasswordTransition] = useTransition();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(initialName);
@@ -87,6 +96,10 @@ export function AppSettingsPanel({
   const themeLabel =
     THEME_OPTIONS.find((t) => t.value === theme)?.label ?? "روشن";
   const profileDirty = name.trim() !== (initialName ?? "").trim();
+  const passwordReady =
+    newPassword.length >= PASSWORD_MIN_LEN &&
+    confirmPassword.length >= PASSWORD_MIN_LEN &&
+    (!hasPassword || currentPassword.length > 0);
 
   function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -100,6 +113,32 @@ export function AppSettingsPanel({
         return;
       }
       setMessage("نام نمایشی ذخیره شد.");
+      router.refresh();
+    });
+  }
+
+  function onChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordMessage(null);
+    setError(null);
+    setMessage(null);
+    startPasswordTransition(async () => {
+      const result = await changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      if (!result.ok) {
+        setPasswordError(result.error);
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage(
+        hasPassword ? "رمز عبور به‌روز شد." : "رمز عبور تنظیم شد.",
+      );
       router.refresh();
     });
   }
@@ -341,6 +380,112 @@ export function AppSettingsPanel({
                     : profileDirty
                       ? "ذخیره نام"
                       : "تغییری نیست"}
+                </Button>
+              </form>
+            </section>
+
+            <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
+              <form onSubmit={onChangePassword} className="space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h2 className="text-body-sm font-semibold text-foreground">
+                      تغییر رمز عبور
+                    </h2>
+                    <p className="mt-0.5 text-caption text-muted-foreground">
+                      {hasPassword
+                        ? "با رمز می‌توانید بدون کد تأیید وارد شوید"
+                        : "هنوز رمزی ندارید؛ یک رمز برای ورود بگذارید"}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-lg px-2 py-1 text-micro font-semibold",
+                      hasPassword
+                        ? "bg-success-soft text-success"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {hasPassword ? "فعال" : "بدون رمز"}
+                  </span>
+                </div>
+
+                {hasPassword ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currentPassword" className="text-caption">
+                      رمز فعلی
+                    </Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      autoComplete="current-password"
+                      dir="ltr"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="h-11 rounded-xl"
+                      required
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="newPassword" className="text-caption">
+                    رمز جدید
+                  </Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    dir="ltr"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-11 rounded-xl"
+                    minLength={PASSWORD_MIN_LEN}
+                    placeholder={`حداقل ${PASSWORD_MIN_LEN} کاراکتر`}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword" className="text-caption">
+                    تکرار رمز جدید
+                  </Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    dir="ltr"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-11 rounded-xl"
+                    minLength={PASSWORD_MIN_LEN}
+                    required
+                  />
+                </div>
+
+                {passwordError || passwordMessage ? (
+                  <p
+                    className={cn(
+                      "rounded-xl px-3 py-2 text-caption font-medium",
+                      passwordError
+                        ? "bg-destructive-soft text-destructive"
+                        : "bg-success-soft text-success",
+                    )}
+                    role="status"
+                  >
+                    {passwordError ?? passwordMessage}
+                  </p>
+                ) : null}
+
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl"
+                  disabled={passwordPending || !passwordReady}
+                >
+                  {passwordPending
+                    ? "در حال ذخیره…"
+                    : hasPassword
+                      ? "به‌روزرسانی رمز"
+                      : "تنظیم رمز عبور"}
                 </Button>
               </form>
             </section>

@@ -71,6 +71,8 @@ model User {
   name      String?
   email     String?  @unique
   avatarUrl String?
+  /// Optional login password (scrypt hash). Null = OTP-only account.
+  passwordHash String?
   /// Ghost / placeholder member without app login (Path B)
   isVirtual Boolean  @default(false)
   createdAt DateTime @default(now())

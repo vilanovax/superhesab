@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { verifyPassword } from "@/lib/password";
 import {
   clearSessionCookie,
   setSessionCookie,
@@ -54,6 +55,51 @@ export async function verifyOtp(
     },
     update: {},
   });
+
+  const token = await signSessionToken({
+    userId: user.id,
+    phone: user.phone,
+  });
+  await setSessionCookie(token);
+
+  return { ok: true };
+}
+
+/**
+ * Login with phone + password for accounts that have set a password.
+ * OTP login remains available for everyone.
+ */
+export async function loginWithPassword(
+  phone: string,
+  password: string,
+): Promise<AuthActionResult> {
+  const normalized = normalizePhone(phone);
+  if (!normalized || !isValidPhone(normalized)) {
+    return { ok: false, error: "شماره موبایل معتبر نیست." };
+  }
+  if (!password || password.length > 72) {
+    return { ok: false, error: "رمز عبور را وارد کنید." };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { phone: normalized },
+    select: {
+      id: true,
+      phone: true,
+      passwordHash: true,
+      isVirtual: true,
+    },
+  });
+
+  // Same generic error whether missing user or wrong password (no user enumeration).
+  if (
+    !user ||
+    user.isVirtual ||
+    !user.passwordHash ||
+    !verifyPassword(password, user.passwordHash)
+  ) {
+    return { ok: false, error: "شماره یا رمز عبور نادرست است." };
+  }
 
   const token = await signSessionToken({
     userId: user.id,

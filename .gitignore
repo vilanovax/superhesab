@@ -49,3 +49,14 @@ next-env.d.ts
 .claude/
 .windsurf/
 skills-lock.json
+
+# Android APK shell secrets / local SDK path
+android-app/local.properties
+android-app/keystore.properties
+android-app/*.jks
+android-app/*.keystore
+android-app/release-sha256.txt
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/dist/

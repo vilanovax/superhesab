@@ -18,10 +18,9 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app",
-    "smoke": "tsx scripts/smoke.ts"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "apk:debug": "cd android-app && ./gradlew assembleDebug",
+    "apk:release": "cd android-app && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",

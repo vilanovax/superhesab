@@ -9,7 +9,7 @@ export default async function AppSettingsPage() {
   const session = await requireUser();
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { name: true, phone: true },
+    select: { name: true, phone: true, passwordHash: true },
   });
 
   if (!user) {
@@ -18,6 +18,7 @@ export default async function AppSettingsPage() {
 
   const displayName = user.name?.trim() || user.phone;
   const initial = (user.name?.trim()?.[0] || "ش").toUpperCase();
+  const hasPassword = Boolean(user.passwordHash);
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5">
@@ -57,7 +58,11 @@ export default async function AppSettingsPage() {
         </div>
       </header>
 
-      <AppSettingsPanel initialName={user.name ?? ""} phone={user.phone} />
+      <AppSettingsPanel
+        initialName={user.name ?? ""}
+        phone={user.phone}
+        hasPassword={hasPassword}
+      />
     </main>
   );
 }

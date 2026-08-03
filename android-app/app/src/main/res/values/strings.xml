@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">سوپرحساب</string>
+    <string name="loading">در حال بارگذاری…</string>
+    <string name="offline_title">ارتباط قطع است</string>
+    <string name="offline_body">اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="retry">تلاش دوباره</string>
+</resources>

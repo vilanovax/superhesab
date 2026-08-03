@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ir.superhesab.app",
+      "sha256_cert_fingerprints": [
+        "31:05:F0:76:E8:7B:33:A4:36:32:9C:EC:3D:B8:41:A0:69:73:95:C1:9D:7E:87:D2:EF:C4:74:48:60:D2:B1:02"
+      ]
+    }
+  }
+]

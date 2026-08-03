@@ -67,17 +67,17 @@ export function AdminKpi({
           tone === "success" && "bg-success",
           tone === "warn" && "bg-destructive",
           tone === "primary" && "bg-primary",
-          tone === "default" && "bg-border",
+          tone === "default" && "bg-primary/35",
         )}
       />
-      <p className="ps-2 text-caption font-medium text-muted-foreground">
+      <p className="ps-2 text-[11px] font-semibold text-foreground/65">
         {label}
       </p>
       <p className="mt-1 ps-2 text-2xl font-bold tabular-nums tracking-tight text-foreground">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 ps-2 text-micro leading-snug text-muted-foreground">
+        <p className="mt-1 ps-2 text-[11px] leading-snug text-foreground/55">
           {hint}
         </p>
       ) : null}

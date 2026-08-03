@@ -34,7 +34,10 @@ export default async function AdminUsersPage({
           }
         : {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [
+      { lastSeenAt: { sort: "desc", nulls: "last" } },
+      { createdAt: "desc" },
+    ],
     take: 100,
     select: {
       id: true,
@@ -54,6 +57,9 @@ export default async function AdminUsersPage({
     },
   });
 
+  const activeCount = users.filter((u) => !u.disabledAt).length;
+  const adminCount = users.filter((u) => u.platformRole === "ADMIN").length;
+
   return (
     <AdminShell
       title="کاربران"
@@ -63,7 +69,7 @@ export default async function AdminUsersPage({
     >
       <form method="get">
         <AdminFilterBar
-          countLabel={`${new Intl.NumberFormat("fa-IR").format(users.length)} کاربر (حداکثر ۱۰۰)`}
+          countLabel={`${new Intl.NumberFormat("fa-IR").format(users.length)} کاربر · ${new Intl.NumberFormat("fa-IR").format(activeCount)} فعال · ${new Intl.NumberFormat("fa-IR").format(adminCount)} ادمین`}
         >
           <input
             name="q"
@@ -71,11 +77,13 @@ export default async function AdminUsersPage({
             placeholder="جستجوی نام یا موبایل"
             className={adminFieldClass}
             dir="auto"
+            autoComplete="off"
           />
           <select
             name="status"
             defaultValue={status}
             className={adminSelectClass}
+            aria-label="وضعیت"
           >
             <option value="all">همه</option>
             <option value="active">فعال</option>
@@ -83,7 +91,7 @@ export default async function AdminUsersPage({
             <option value="admin">ادمین‌ها</option>
           </select>
           <button type="submit" className={adminFilterBtnClass}>
-            فیلتر
+            اعمال
           </button>
         </AdminFilterBar>
       </form>

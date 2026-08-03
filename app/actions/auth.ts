@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { assertFeatureEnabled } from "@/lib/feature-flags";
 import { PASSWORD_MAX_LEN } from "@/lib/password-policy";
 import { verifyPassword } from "@/lib/password";
 import {
@@ -106,6 +107,12 @@ export async function requestRegisterOtp(input: {
   name: string;
   phone: string;
 }): Promise<AuthActionResult> {
+  const regGate = await assertFeatureEnabled(
+    "new_registrations",
+    "ثبت‌نام فعلاً بسته است. بعداً دوباره تلاش کنید.",
+  );
+  if (!regGate.ok) return regGate;
+
   const name = normalizeName(input.name);
   const normalized = normalizePhone(input.phone);
 
@@ -139,6 +146,12 @@ export async function verifyRegisterOtp(input: {
   phone: string;
   otp: string;
 }): Promise<AuthActionResult> {
+  const regGate = await assertFeatureEnabled(
+    "new_registrations",
+    "ثبت‌نام فعلاً بسته است. بعداً دوباره تلاش کنید.",
+  );
+  if (!regGate.ok) return regGate;
+
   const name = normalizeName(input.name);
   const normalized = normalizePhone(input.phone);
 

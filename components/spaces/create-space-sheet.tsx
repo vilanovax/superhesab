@@ -94,9 +94,11 @@ function CreateTrigger({
 function SheetBody({
   error,
   initialType,
+  disabledTypes,
 }: {
   error?: string;
   initialType?: SpaceType;
+  disabledTypes?: SpaceType[];
 }) {
   return (
     <div className="flex max-h-[min(88dvh,640px)] flex-col">
@@ -127,6 +129,7 @@ function SheetBody({
           error={error}
           compact
           initialType={initialType}
+          disabledTypes={disabledTypes}
         />
       </div>
     </div>
@@ -140,6 +143,7 @@ export function CreateSpaceSheet({
   onOpenChange,
   initialType,
   hideTrigger = false,
+  disabledTypes,
 }: {
   error?: string;
   layout?: "inline" | "fab";
@@ -147,6 +151,7 @@ export function CreateSpaceSheet({
   onOpenChange?: (open: boolean) => void;
   initialType?: SpaceType;
   hideTrigger?: boolean;
+  disabledTypes?: SpaceType[];
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(Boolean(error));
   const isControlled = openProp !== undefined;
@@ -180,7 +185,11 @@ export function CreateSpaceSheet({
               یک دفتر برای خانه، سفر، مشترک یا ساختمان
             </DialogDescription>
           </DialogHeader>
-          <SheetBody error={error} initialType={initialType} />
+          <SheetBody
+            error={error}
+            initialType={initialType}
+            disabledTypes={disabledTypes}
+          />
         </DialogContent>
       </Dialog>
     );
@@ -200,7 +209,11 @@ export function CreateSpaceSheet({
             انتخاب قالب و ساخت دفتر حساب‌وکتاب
           </DrawerDescription>
         </DrawerHeader>
-        <SheetBody error={error} initialType={initialType} />
+        <SheetBody
+          error={error}
+          initialType={initialType}
+          disabledTypes={disabledTypes}
+        />
       </DrawerContent>
     </Drawer>
   );

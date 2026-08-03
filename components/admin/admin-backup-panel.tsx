@@ -10,6 +10,7 @@ import {
   restoreAdminBackupFile,
 } from "@/app/actions/admin";
 import type { BackupRestoreDryRun } from "@/lib/backup/types";
+import { AdminSection } from "@/components/admin/admin-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,19 @@ function downloadJson(data: unknown, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function StepLabel({ n, children }: { n: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <span className="flex size-6 items-center justify-center rounded-lg bg-muted text-micro font-bold tabular-nums text-muted-foreground">
+        {n}
+      </span>
+      <span className="text-body-sm font-semibold text-foreground">
+        {children}
+      </span>
+    </div>
+  );
 }
 
 export function AdminBackupPanel() {
@@ -52,10 +66,7 @@ export function AdminBackupPanel() {
         setError(result.error);
         return;
       }
-      downloadJson(
-        result.data,
-        `superhesab-platform-${stamp()}.json`,
-      );
+      downloadJson(result.data, `superhesab-platform-${stamp()}.json`);
       setMessage(
         `پلتفرم: ${result.data.users?.length ?? 0} کاربر · ${result.data.spaces.length} دفتر`,
       );
@@ -75,9 +86,7 @@ export function AdminBackupPanel() {
         result.data,
         `superhesab-user-${userPhone.replace(/\D/g, "") || "x"}-${stamp()}.json`,
       );
-      setMessage(
-        `کاربر: ${result.data.spaces.length} دفتر مالک دانلود شد.`,
-      );
+      setMessage(`کاربر: ${result.data.spaces.length} دفتر مالک دانلود شد.`);
     });
   }
 
@@ -94,10 +103,7 @@ export function AdminBackupPanel() {
         setError(result.error);
         return;
       }
-      downloadJson(
-        result.data,
-        `superhesab-spaces-${stamp()}.json`,
-      );
+      downloadJson(result.data, `superhesab-spaces-${stamp()}.json`);
       setMessage(`${result.data.spaces.length} دفتر دانلود شد.`);
     });
   }
@@ -160,28 +166,27 @@ export function AdminBackupPanel() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-        <h2 className="text-body-sm font-semibold text-foreground">
-          خروجی پلتفرم
-        </h2>
-        <p className="mt-0.5 text-caption text-muted-foreground">
-          همه کاربران (بدون رمز) و همه دفاتر. برای بایگانی عملیاتی.
-        </p>
+      <AdminSection
+        title="خروجی پلتفرم"
+        description="همه کاربران (بدون رمز) و همه دفاتر — برای بایگانی عملیاتی."
+        tone="accent"
+      >
+        <StepLabel n="۱">دانلود کامل</StepLabel>
         <Button
           type="button"
-          className="mt-3 h-11 w-full rounded-xl"
+          className="h-11 w-full rounded-xl"
           disabled={pending}
           onClick={onExportPlatform}
         >
           {pending ? "در حال آماده‌سازی…" : "دانلود بک‌آپ کامل"}
         </Button>
-      </section>
+      </AdminSection>
 
-      <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-        <h2 className="text-body-sm font-semibold text-foreground">
-          خروجی انتخابی
-        </h2>
-        <div className="mt-3 space-y-3">
+      <AdminSection
+        title="خروجی انتخابی"
+        description="فقط دفاتر یک کاربر، یا چند شناسه مشخص."
+      >
+        <div className="space-y-3.5">
           <div className="space-y-1.5">
             <Label htmlFor="backup-phone" className="text-caption">
               دفاتر مالک یک کاربر (موبایل)
@@ -198,7 +203,7 @@ export function AdminBackupPanel() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 shrink-0 rounded-xl px-3"
+                className="h-10 shrink-0 rounded-xl px-3.5"
                 disabled={pending || userPhone.trim().length < 8}
                 onClick={onExportUser}
               >
@@ -208,7 +213,7 @@ export function AdminBackupPanel() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="backup-space-ids" className="text-caption">
-              شناسه دفتر(ها) — با فاصله یا ویرگول
+              شناسه دفتر(ها) — فاصله یا ویرگول
             </Label>
             <div className="flex gap-2">
               <Input
@@ -222,7 +227,7 @@ export function AdminBackupPanel() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 shrink-0 rounded-xl px-3"
+                className="h-10 shrink-0 rounded-xl px-3.5"
                 disabled={pending || spaceIds.trim().length < 4}
                 onClick={onExportSpaces}
               >
@@ -231,16 +236,14 @@ export function AdminBackupPanel() {
             </div>
           </div>
         </div>
-      </section>
+      </AdminSection>
 
-      <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-        <h2 className="text-body-sm font-semibold text-foreground">
-          بازیابی
-        </h2>
-        <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
-          اول dry-run، بعد تأیید. همیشه دفتر جدید می‌سازد؛ overwrite ندارد.
-          شما OWNER دفاتر بازیابی‌شده می‌شوید.
-        </p>
+      <AdminSection
+        title="بازیابی"
+        description="اول dry-run، بعد تأیید. همیشه دفتر جدید می‌سازد؛ overwrite ندارد. شما OWNER می‌شوید."
+        tone="danger"
+      >
+        <StepLabel n="۱">انتخاب فایل</StepLabel>
         <input
           ref={fileRef}
           type="file"
@@ -251,7 +254,7 @@ export function AdminBackupPanel() {
         <Button
           type="button"
           variant="outline"
-          className="mt-3 h-11 w-full rounded-xl"
+          className="h-11 w-full rounded-xl"
           disabled={pending}
           onClick={onPickFile}
         >
@@ -259,10 +262,8 @@ export function AdminBackupPanel() {
         </Button>
 
         {dryRun ? (
-          <div className="mt-3 space-y-2 rounded-xl bg-muted/50 px-3 py-3">
-            <p className="text-caption font-semibold text-foreground">
-              خلاصه dry-run
-            </p>
+          <div className="mt-3 space-y-2.5 rounded-xl bg-muted/55 px-3.5 py-3 ring-1 ring-border/40">
+            <StepLabel n="۲">بررسی خلاصه</StepLabel>
             <ul className="space-y-1 text-caption text-muted-foreground">
               <li>
                 محدوده:{" "}
@@ -298,10 +299,11 @@ export function AdminBackupPanel() {
                 ))}
               </ul>
             ) : null}
+            <StepLabel n="۳">تأیید نهایی</StepLabel>
             <Button
               type="button"
               variant="destructive"
-              className="mt-2 h-11 w-full rounded-xl"
+              className="h-11 w-full rounded-xl"
               disabled={pending || dryRun.spaceCount === 0}
               onClick={onConfirmRestore}
             >
@@ -309,12 +311,12 @@ export function AdminBackupPanel() {
             </Button>
           </div>
         ) : null}
-      </section>
+      </AdminSection>
 
       {error || message ? (
         <p
           className={cn(
-            "rounded-xl px-3 py-2 text-caption font-medium",
+            "rounded-xl px-3 py-2.5 text-caption font-medium",
             error
               ? "bg-destructive-soft text-destructive"
               : "bg-success-soft text-success",

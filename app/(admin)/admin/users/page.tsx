@@ -1,4 +1,10 @@
 import { AdminShell } from "@/components/admin/admin-shell";
+import {
+  AdminFilterBar,
+  adminFieldClass,
+  adminFilterBtnClass,
+  adminSelectClass,
+} from "@/components/admin/admin-ui";
 import { AdminUserRow } from "@/components/admin/admin-user-row";
 import { requirePlatformAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
@@ -55,38 +61,35 @@ export default async function AdminUsersPage({
       adminName={admin.name?.trim() || admin.phone}
       pathname="/admin/users"
     >
-      <form className="mb-3 flex flex-col gap-2 sm:flex-row" method="get">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="جستجوی نام یا موبایل"
-          className="h-10 flex-1 rounded-xl border border-border/60 bg-card px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          dir="auto"
-        />
-        <select
-          name="status"
-          defaultValue={status}
-          className="h-10 rounded-xl border border-border/60 bg-card px-3 text-sm font-medium shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      <form method="get">
+        <AdminFilterBar
+          countLabel={`${new Intl.NumberFormat("fa-IR").format(users.length)} کاربر (حداکثر ۱۰۰)`}
         >
-          <option value="all">همه</option>
-          <option value="active">فعال</option>
-          <option value="disabled">غیرفعال</option>
-          <option value="admin">ادمین‌ها</option>
-        </select>
-        <button
-          type="submit"
-          className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
-        >
-          فیلتر
-        </button>
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="جستجوی نام یا موبایل"
+            className={adminFieldClass}
+            dir="auto"
+          />
+          <select
+            name="status"
+            defaultValue={status}
+            className={adminSelectClass}
+          >
+            <option value="all">همه</option>
+            <option value="active">فعال</option>
+            <option value="disabled">غیرفعال</option>
+            <option value="admin">ادمین‌ها</option>
+          </select>
+          <button type="submit" className={adminFilterBtnClass}>
+            فیلتر
+          </button>
+        </AdminFilterBar>
       </form>
 
-      <p className="mb-2 text-caption text-muted-foreground">
-        {users.length} کاربر (حداکثر ۱۰۰)
-      </p>
-
       {users.length === 0 ? (
-        <p className="rounded-2xl border border-border/50 bg-card px-4 py-8 text-center text-caption text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border/55 bg-card/60 px-4 py-10 text-center text-caption text-muted-foreground">
           کاربری با این فیلتر پیدا نشد.
         </p>
       ) : (

@@ -138,9 +138,12 @@ export function serializeSpace(
       categoryLabel: e.categoryLabel,
       isCategoryLocked: e.isCategoryLocked,
       date: isoReq(e.date),
+      splitMode: e.splitMode,
       splits: e.splits.map((s) => ({
         originalUserId: s.userId,
         owedAmount: s.owedAmount,
+        share: s.share,
+        percent: s.percent,
       })),
     })),
     settlements: space.settlements.map((s) => ({

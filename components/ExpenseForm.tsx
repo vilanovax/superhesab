@@ -35,9 +35,11 @@ import {
 import { formatCurrency } from "@/lib/formatters";
 import {
   asMoney,
+  calculatePercentageSplits,
   calculateWeightedSplits,
   clampShare,
   DEFAULT_SHARE,
+  distributeEqualPercents,
   formatShareLabel,
   MAX_SHARE,
   MIN_SHARE,
@@ -57,6 +59,7 @@ import {
 import {
   expenseSchema,
   type ExpenseFormValues,
+  type SplitMode,
   type TransactionTypeForm,
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
@@ -105,6 +108,8 @@ export type ExpenseInitialValues = {
   date: string;
   splitAmounts: Record<string, number>;
   splitShares?: Record<string, number>;
+  splitPercents?: Record<string, number>;
+  splitMode?: SplitMode;
   category: ExpenseCategory;
   transactionType?: TransactionTypeForm;
 };
@@ -179,6 +184,7 @@ function buildDefaultValues(
   defaultTransactionType: TransactionTypeForm = "EXPENSE",
 ): ExpenseFormValues {
   if (!initialExpense) {
+    const equalPercents = distributeEqualPercents(members.length);
     return {
       spaceId,
       title: "",
@@ -187,11 +193,12 @@ function buildDefaultValues(
       date: todayIsoDateTehran(),
       splitMode: "EQUAL",
       transactionType: defaultTransactionType,
-      splits: members.map((m) => ({
+      splits: members.map((m, i) => ({
         userId: m.userId,
         amount: 0,
         selected: true,
         share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
+        percent: equalPercents[i] ?? 0,
       })),
     };
   }
@@ -205,7 +212,19 @@ function buildDefaultValues(
       ),
     }),
   );
-  const splitMode = looksLikeWeightedEqual(priorRows) ? "EQUAL" : "EXACT";
+  const storedMode = initialExpense.splitMode;
+  const splitMode: SplitMode =
+    storedMode === "EQUAL" ||
+    storedMode === "EXACT" ||
+    storedMode === "PERCENT"
+      ? storedMode
+      : looksLikeWeightedEqual(priorRows)
+        ? "EQUAL"
+        : "EXACT";
+
+  const selectedCount = selectedIds.size || 1;
+  const fallbackPercents = distributeEqualPercents(selectedCount);
+  let percentSlot = 0;
 
   return {
     spaceId,
@@ -216,16 +235,29 @@ function buildDefaultValues(
     splitMode,
     transactionType: initialExpense.transactionType ?? "EXPENSE",
     category: initialExpense.category,
-    splits: members.map((m) => ({
-      userId: m.userId,
-      amount: initialExpense.splitAmounts[m.userId] ?? 0,
-      selected: selectedIds.has(m.userId),
-      share: clampShare(
-        initialExpense.splitShares?.[m.userId] ??
-          m.defaultShare ??
-          DEFAULT_SHARE,
-      ),
-    })),
+    splits: members.map((m) => {
+      const selected = selectedIds.has(m.userId);
+      const storedPercent = initialExpense.splitPercents?.[m.userId];
+      let percent = 0;
+      if (selected) {
+        percent =
+          typeof storedPercent === "number" && Number.isFinite(storedPercent)
+            ? Math.trunc(storedPercent)
+            : (fallbackPercents[percentSlot] ?? 0);
+        percentSlot += 1;
+      }
+      return {
+        userId: m.userId,
+        amount: initialExpense.splitAmounts[m.userId] ?? 0,
+        selected,
+        share: clampShare(
+          initialExpense.splitShares?.[m.userId] ??
+            m.defaultShare ??
+            DEFAULT_SHARE,
+        ),
+        percent,
+      };
+    }),
   };
 }
 
@@ -395,14 +427,41 @@ export function ExpenseForm({
     }
   }, [totalAmount, selectedIndexes, splits]);
 
+  const percentParts = useMemo(() => {
+    if (!totalAmount || selectedIndexes.length === 0) {
+      return [] as { userId: string; amount: number; percent: number }[];
+    }
+    try {
+      const selected = selectedIndexes.map((i) => {
+        const row = splits![i]!;
+        return {
+          userId: row.userId,
+          percent: Math.trunc(row.percent ?? 0),
+        };
+      });
+      const sum = selected.reduce((acc, s) => acc + s.percent, 0);
+      if (sum !== 100) return [];
+      return calculatePercentageSplits(asMoney(totalAmount), selected).map(
+        (row) => ({
+          userId: row.userId,
+          amount: row.amount,
+          percent: row.percent,
+        }),
+      );
+    } catch {
+      return [];
+    }
+  }, [totalAmount, selectedIndexes, splits]);
+
   const amountByUserId = useMemo(() => {
+    const source = splitMode === "PERCENT" ? percentParts : weightedParts;
     return Object.fromEntries(
-      weightedParts.map((p) => [p.userId, p.amount]),
+      source.map((p) => [p.userId, p.amount]),
     ) as Record<string, number>;
-  }, [weightedParts]);
+  }, [splitMode, percentParts, weightedParts]);
 
   useEffect(() => {
-    if (splitMode !== "EQUAL") return;
+    if (splitMode !== "EQUAL" && splitMode !== "PERCENT") return;
     const current = form.getValues("splits");
     const next = current.map((row) => {
       if (!row.selected) return { ...row, amount: 0 };
@@ -420,7 +479,17 @@ export function ExpenseForm({
       .reduce((acc, s) => acc + (Number.isFinite(s.amount) ? s.amount : 0), 0);
   }, [splits]);
 
+  const percentAllocated = useMemo(() => {
+    return (splits ?? [])
+      .filter((s) => s.selected)
+      .reduce(
+        (acc, s) => acc + (Number.isFinite(s.percent) ? s.percent : 0),
+        0,
+      );
+  }, [splits]);
+
   const remaining = totalAmount - exactAllocated;
+  const percentRemaining = 100 - percentAllocated;
   const selectedCount = selectedIndexes.length;
   const totalShareWeight = useMemo(
     () =>
@@ -429,6 +498,20 @@ export function ExpenseForm({
         .reduce((acc, s) => acc + clampShare(s.share ?? DEFAULT_SHARE), 0),
     [splits],
   );
+
+  function applyEqualPercentsToSelected(
+    rows: ExpenseFormValues["splits"],
+  ): ExpenseFormValues["splits"] {
+    const indexes = rows
+      .map((row, i) => (row.selected ? i : -1))
+      .filter((i) => i >= 0);
+    const percents = distributeEqualPercents(indexes.length);
+    return rows.map((row, index) => {
+      const pos = indexes.indexOf(index);
+      if (pos < 0) return { ...row, percent: 0, amount: 0 };
+      return { ...row, percent: percents[pos] ?? 0 };
+    });
+  }
 
   const datePreview = formatDateFa(
     watchedDate ? `${watchedDate}T12:00:00+03:30` : new Date(),
@@ -470,6 +553,7 @@ export function ExpenseForm({
               amount: values.totalAmount,
               selected: true,
               share: DEFAULT_SHARE,
+              percent: 100,
             },
           ],
         }
@@ -489,6 +573,7 @@ export function ExpenseForm({
                 amount: values.totalAmount,
                 selected: true,
                 share: DEFAULT_SHARE,
+                percent: 100,
               },
             ],
           }
@@ -508,6 +593,7 @@ export function ExpenseForm({
                   amount: values.totalAmount,
                   selected: true,
                   share: DEFAULT_SHARE,
+                  percent: 100,
                 },
               ],
             }
@@ -518,12 +604,16 @@ export function ExpenseForm({
                 splitMode: "EQUAL",
                 transactionType: "EXPENSE",
                 date: todayIsoDateTehran(),
-                splits: members.map((m) => ({
-                  userId: m.userId,
-                  amount: 0,
-                  selected: true,
-                  share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
-                })),
+                splits: (() => {
+                  const percents = distributeEqualPercents(members.length);
+                  return members.map((m, i) => ({
+                    userId: m.userId,
+                    amount: 0,
+                    selected: true,
+                    share: clampShare(m.defaultShare ?? DEFAULT_SHARE),
+                    percent: percents[i] ?? 0,
+                  }));
+                })(),
               }
             : {
                 ...base,
@@ -915,17 +1005,28 @@ export function ExpenseForm({
                 <FormLabel className="text-label text-muted-foreground">
                   تسهیم
                 </FormLabel>
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted/80 p-1">
                   {(
                     [
                       { value: "EQUAL", label: "مساوی" },
                       { value: "EXACT", label: "دقیق" },
+                      { value: "PERCENT", label: "درصدی" },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => field.onChange(opt.value)}
+                      onClick={() => {
+                        field.onChange(opt.value);
+                        if (opt.value === "PERCENT") {
+                          const current = form.getValues("splits");
+                          form.setValue(
+                            "splits",
+                            applyEqualPercentsToSelected(current),
+                            { shouldValidate: true },
+                          );
+                        }
+                      }}
                       className={cn(
                         "h-9 rounded-lg text-body-sm font-semibold transition-colors duration-150",
                         field.value === opt.value
@@ -980,6 +1081,9 @@ export function ExpenseForm({
                 {splitMode === "EQUAL" && totalShareWeight > 0
                   ? ` · ${totalShareWeight} سهم`
                   : ""}
+                {splitMode === "PERCENT"
+                  ? ` · ${new Intl.NumberFormat("fa-IR").format(percentAllocated)}٪`
+                  : ""}
                 {!splitsOpen ? " · برای ویرایش باز کنید" : ""}
               </p>
             </div>
@@ -1027,30 +1131,38 @@ export function ExpenseForm({
                                 const nextSelected = v === true;
                                 field.onChange(nextSelected);
 
-                                if (form.getValues("splitMode") !== "EXACT") {
-                                  return;
-                                }
-                                const total = asAmount(
-                                  form.getValues("totalAmount"),
-                                );
+                                const mode = form.getValues("splitMode");
                                 const current = form.getValues("splits");
                                 const nextRows = current.map((row, i) =>
                                   i === index
                                     ? { ...row, selected: nextSelected }
                                     : row,
                                 );
-                                const nextIndexes = nextRows
-                                  .map((row, i) => (row.selected ? i : -1))
-                                  .filter((i) => i >= 0);
-                                form.setValue(
-                                  "splits",
-                                  redistributeAmongSelected(
-                                    nextRows,
-                                    total,
-                                    nextIndexes,
-                                  ),
-                                  { shouldValidate: true },
-                                );
+                                if (mode === "EXACT") {
+                                  const total = asAmount(
+                                    form.getValues("totalAmount"),
+                                  );
+                                  const nextIndexes = nextRows
+                                    .map((row, i) => (row.selected ? i : -1))
+                                    .filter((i) => i >= 0);
+                                  form.setValue(
+                                    "splits",
+                                    redistributeAmongSelected(
+                                      nextRows,
+                                      total,
+                                      nextIndexes,
+                                    ),
+                                    { shouldValidate: true },
+                                  );
+                                  return;
+                                }
+                                if (mode === "PERCENT") {
+                                  form.setValue(
+                                    "splits",
+                                    applyEqualPercentsToSelected(nextRows),
+                                    { shouldValidate: true },
+                                  );
+                                }
                               }}
                               className="size-5 rounded-md data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                             />
@@ -1076,7 +1188,8 @@ export function ExpenseForm({
                       )}
                     />
 
-                    {splitMode === "EQUAL" && selected ? (
+                    {(splitMode === "EQUAL" || splitMode === "PERCENT") &&
+                    selected ? (
                       <span className="shrink-0 text-label font-semibold tabular-nums text-ink">
                         {equalAmount != null
                           ? formatCurrency(equalAmount, _currency)
@@ -1128,6 +1241,42 @@ export function ExpenseForm({
                             >
                               +
                             </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : null}
+
+                  {splitMode === "PERCENT" && selected ? (
+                    <FormField
+                      control={form.control}
+                      name={`splits.${index}.percent`}
+                      render={({ field }) => (
+                        <FormItem className="mt-2 ps-8">
+                          <div className="flex items-center gap-2">
+                            <FormControl>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                max={100}
+                                step={1}
+                                className="h-10 w-24 rounded-xl border-border/70 bg-sheet-muted text-sm font-semibold"
+                                placeholder="٪"
+                                name={field.name}
+                                ref={field.ref}
+                                onBlur={field.onBlur}
+                                value={field.value || ""}
+                                onChange={(e) => {
+                                  const n = parseAmountInput(e.target.value);
+                                  field.onChange(Math.min(100, Math.max(0, n)));
+                                }}
+                              />
+                            </FormControl>
+                            <span className="shrink-0 text-caption text-muted-foreground">
+                              ٪
+                            </span>
                           </div>
                           <FormMessage />
                         </FormItem>
@@ -1194,6 +1343,24 @@ export function ExpenseForm({
                   <span>باقی‌مانده</span>
                   <span className="font-bold tabular-nums">
                     {formatCurrency(remaining, _currency)}
+                  </span>
+                </div>
+              ) : null}
+
+              {splitMode === "PERCENT" ? (
+                <div
+                  className={cn(
+                    "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
+                    percentRemaining === 0
+                      ? "bg-success-soft text-success"
+                      : percentRemaining > 0
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-destructive-soft text-destructive",
+                  )}
+                >
+                  <span>باقی‌مانده درصد</span>
+                  <span className="font-bold tabular-nums">
+                    {new Intl.NumberFormat("fa-IR").format(percentRemaining)}٪
                   </span>
                 </div>
               ) : null}

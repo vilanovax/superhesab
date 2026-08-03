@@ -15,6 +15,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
+import { listDisabledSpaceTypes } from "@/lib/feature-flags";
 import { formatCurrency } from "@/lib/formatters";
 import { getHomeSummary, type HomeSpaceStat } from "@/lib/home-summary";
 import { canMutateMoney } from "@/lib/rbac";
@@ -139,33 +140,35 @@ export default async function AppHomePage({
 
   const spaceIds = memberships.map((m) => m.space.id);
 
-  const [archivedCount, dueSoonDebts, summary, lastExpense] = await Promise.all([
-    prisma.spaceMember.count({
-      where: {
-        userId: session.userId,
-        space: { archivedAt: { not: null } },
-      },
-    }),
-    listDueSoonDebtsForUser(session.userId),
-    getHomeSummary(
-      session.userId,
-      memberships.map((m) => ({
-        id: m.space.id,
-        type: m.space.type,
-        currency: m.space.currency,
-        ownerId: m.space.ownerId,
-        role: m.role,
-      })),
-    ),
-    /** Most recently touched ledger — the natural «ثبت خرج» target. */
-    spaceIds.length > 0
-      ? prisma.expense.findFirst({
-          where: { spaceId: { in: spaceIds } },
-          orderBy: { createdAt: "desc" },
-          select: { spaceId: true },
-        })
-      : null,
-  ]);
+  const [archivedCount, dueSoonDebts, summary, lastExpense, disabledSpaceTypes] =
+    await Promise.all([
+      prisma.spaceMember.count({
+        where: {
+          userId: session.userId,
+          space: { archivedAt: { not: null } },
+        },
+      }),
+      listDueSoonDebtsForUser(session.userId),
+      getHomeSummary(
+        session.userId,
+        memberships.map((m) => ({
+          id: m.space.id,
+          type: m.space.type,
+          currency: m.space.currency,
+          ownerId: m.space.ownerId,
+          role: m.role,
+        })),
+      ),
+      /** Most recently touched ledger — the natural «ثبت خرج» target. */
+      spaceIds.length > 0
+        ? prisma.expense.findFirst({
+            where: { spaceId: { in: spaceIds } },
+            orderBy: { createdAt: "desc" },
+            select: { spaceId: true },
+          })
+        : null,
+      listDisabledSpaceTypes(),
+    ]);
 
   const displayName = user.name?.trim() || user.phone;
   const spaceCount = memberships.length;
@@ -334,7 +337,10 @@ export default async function AppHomePage({
 
         {isEmpty ? (
           <div className="animate-fade-up flex flex-1 flex-col">
-            <HomeEmptyActions error={error} />
+            <HomeEmptyActions
+              error={error}
+              disabledTypes={disabledSpaceTypes}
+            />
           </div>
         ) : (
           <ul className="space-y-2">
@@ -413,7 +419,11 @@ export default async function AppHomePage({
       {!isEmpty ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="pointer-events-auto">
-            <CreateSpaceSheet error={error} layout="fab" />
+            <CreateSpaceSheet
+              error={error}
+              layout="fab"
+              disabledTypes={disabledSpaceTypes}
+            />
           </div>
         </div>
       ) : null}

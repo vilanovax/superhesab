@@ -50,6 +50,8 @@ enum AdminAuditAction {
   BACKUP_EXPORT_SPACES
   BACKUP_DRY_RUN
   BACKUP_RESTORE
+  FLAG_ENABLE
+  FLAG_DISABLE
 }
 
 enum SettlementStatus {
@@ -127,6 +129,7 @@ model User {
   fundProofsReviewed    FundPaymentProof[]     @relation("FundProofReviewedBy")
   categoryPoliciesOwned SpaceCategoryPolicy[]  @relation("CategoryPolicyOwner")
   adminAuditEvents      AdminAuditEvent[]      @relation("AdminAuditActor")
+  featureFlagsUpdated   FeatureFlag[]          @relation("FeatureFlagUpdatedBy")
 
   @@index([phone])
   @@index([email])
@@ -157,6 +160,18 @@ model AdminAuditEvent {
   @@index([action])
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+/// Platform kill-switches (admin console). Defaults seeded as enabled=true.
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(true)
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation("FeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
 }
 
 model Space {
@@ -227,8 +242,15 @@ model SpaceMember {
   @@index([spaceId])
 }
 
+/// How the expense was split in the UI/engine. Balances always use owedAmount.
+enum ExpenseSplitMode {
+  EQUAL
+  EXACT
+  PERCENT
+}
+
 model Expense {
-  id               String          @id @default(cuid())
+  id               String           @id @default(cuid())
   spaceId          String
   title            String
   /// Amount in smallest currency unit (never Float)
@@ -239,15 +261,17 @@ model Expense {
   /// Who last edited the expense (audit)
   updatedById      String?
   /// EXPENSE (default) or INCOME — same table, template decides UI
-  transactionType  TransactionType @default(EXPENSE)
-  category         ExpenseCategory @default(OTHER)
+  transactionType  TransactionType  @default(EXPENSE)
+  category         ExpenseCategory  @default(OTHER)
   /// Optional freeform label (custom category). When set, UI/reports prefer this over CATEGORY_LABELS[category].
   categoryLabel    String?
   /// When true, title-based auto-categorization will not overwrite category
-  isCategoryLocked Boolean         @default(false)
-  date             DateTime        @default(now())
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  isCategoryLocked Boolean          @default(false)
+  /// Split formula used at create/edit (PERCENT needs ExpenseSplit.percent).
+  splitMode        ExpenseSplitMode @default(EQUAL)
+  date             DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   space     Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   paidBy    User           @relation("ExpensePayer", fields: [paidById], references: [id], onDelete: Restrict)
@@ -264,6 +288,7 @@ model Expense {
   @@index([category])
   @@index([transactionType])
   @@index([spaceId, date, transactionType])
+  @@index([splitMode])
 }
 
 model ExpenseSplit {
@@ -272,8 +297,10 @@ model ExpenseSplit {
   userId     String
   /// Amount this user owes for the expense (smallest currency unit)
   owedAmount Int
-  /// Weight in half-units at expense time (EQUAL); EXACT rows store 2 (= 1×)
+  /// Weight in half-units at expense time (EQUAL); EXACT/PERCENT store 2 (= 1×)
   share      Int    @default(2)
+  /// Whole percent 0–100 when Expense.splitMode = PERCENT; null otherwise
+  percent    Int?
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

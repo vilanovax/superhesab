@@ -31,6 +31,7 @@ import { parseExpenseDateInput, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { asMoney } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
+import { assertFeatureEnabled } from "@/lib/feature-flags";
 import { getTemplate } from "@/lib/templates/registry";
 import {
   createUnitSchema,
@@ -1553,6 +1554,12 @@ export async function createChargeProofUploadIntent(
       error: "ذخیره‌سازی فایل پیکربندی نشده است (S3/R2).",
     };
   }
+
+  const proofGate = await assertFeatureEnabled(
+    "proof_uploads",
+    "آپلود فیش فعلاً غیرفعال است.",
+  );
+  if (!proofGate.ok) return proofGate;
 
   const session = await requireUser();
   const parsed = createChargeProofUploadIntentSchema.safeParse(input);

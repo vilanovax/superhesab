@@ -249,14 +249,26 @@ export function CreateSpaceForm({
   error,
   compact = false,
   initialType = "TRIP",
+  disabledTypes = [],
 }: {
   error?: string;
   compact?: boolean;
   initialType?: SpaceType;
+  /** Platform flags — e.g. BUILDING / FUND kill-switches. */
+  disabledTypes?: SpaceType[];
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
-  const [type, setType] = useState<SpaceType>(initialType);
-  const selected = ALL_TEMPLATES.find((t) => t.value === type) ?? ALL_TEMPLATES[0];
+  const disabled = new Set(disabledTypes);
+  const everyday = EVERYDAY.filter((t) => !disabled.has(t.value));
+  const group = GROUP.filter((t) => !disabled.has(t.value));
+  const available = [...everyday, ...group];
+  const safeInitial =
+    available.find((t) => t.value === initialType)?.value ??
+    available[0]?.value ??
+    "TRIP";
+  const [type, setType] = useState<SpaceType>(safeInitial);
+  const selected =
+    available.find((t) => t.value === type) ?? available[0] ?? ALL_TEMPLATES[0];
 
   return (
     <form
@@ -299,7 +311,7 @@ export function CreateSpaceForm({
               روزمره
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {EVERYDAY.map((t) => (
+              {everyday.map((t) => (
                 <TemplateCard
                   key={t.value}
                   option={t}
@@ -310,21 +322,28 @@ export function CreateSpaceForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
-              گروهی
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {GROUP.map((t) => (
-                <TemplateCard
-                  key={t.value}
-                  option={t}
-                  selected={type === t.value}
-                  onSelect={() => setType(t.value)}
-                />
-              ))}
+          {group.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
+                گروهی
+              </p>
+              <div
+                className={cn(
+                  "grid gap-2",
+                  group.length >= 3 ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
+                {group.map((t) => (
+                  <TemplateCard
+                    key={t.value}
+                    option={t}
+                    selected={type === t.value}
+                    onSelect={() => setType(t.value)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         {error ? (

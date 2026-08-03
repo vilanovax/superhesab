@@ -9,7 +9,7 @@ export type SpaceRole = "OWNER" | "EDITOR" | "VIEWER";
 export type SettlementStatus = "PENDING" | "COMPLETED";
 export type { SpaceCurrency } from "@/lib/format";
 
-export type SplitMode = "equal" | "exact";
+export type SplitMode = "EQUAL" | "EXACT" | "PERCENT";
 
 export type NetBalance = {
   userId: string;

@@ -16,6 +16,7 @@ import {
   type FundCycleIntegrity,
   type FundPeriodReport,
 } from "@/lib/fund";
+import { assertFeatureEnabled } from "@/lib/feature-flags";
 import { asMoney, formatShareLabel } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
@@ -681,6 +682,12 @@ export async function createFundProofUploadIntent(
       error: "ذخیره‌سازی فایل پیکربندی نشده است (S3/R2).",
     };
   }
+
+  const proofGate = await assertFeatureEnabled(
+    "proof_uploads",
+    "آپلود فیش فعلاً غیرفعال است.",
+  );
+  if (!proofGate.ok) return proofGate;
 
   const session = await requireUser();
   const parsed = createFundProofUploadIntentSchema.safeParse(input);

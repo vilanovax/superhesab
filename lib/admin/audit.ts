@@ -44,6 +44,8 @@ export const ADMIN_AUDIT_LABELS: Record<AdminAuditAction, string> = {
   BACKUP_EXPORT_SPACES: "خروجی بک‌آپ دفاتر",
   BACKUP_DRY_RUN: "dry-run بازیابی",
   BACKUP_RESTORE: "بازیابی بک‌آپ",
+  FLAG_ENABLE: "فعال‌سازی پرچم",
+  FLAG_DISABLE: "غیرفعال‌سازی پرچم",
 };
 
 export async function listAdminAuditEvents(limit = 80) {

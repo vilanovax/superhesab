@@ -12,6 +12,7 @@ import { parseExpenseDateInput } from "@/lib/format";
 import type { ExpenseCategory } from "@/lib/generated/prisma/enums";
 import {
   asMoney,
+  calculatePercentageSplits,
   calculateWeightedSplits,
   clampShare,
   DEFAULT_SHARE,
@@ -29,7 +30,12 @@ export type ExpenseActionResult =
   | { ok: true; expenseId: string }
   | { ok: false; error: string };
 
-type OwedRow = { userId: string; owedAmount: number; share: number };
+type OwedRow = {
+  userId: string;
+  owedAmount: number;
+  share: number;
+  percent: number | null;
+};
 
 async function assertCategoryNotHidden(
   spaceId: string,
@@ -91,6 +97,7 @@ function personalOwedRows(
       userId,
       owedAmount: asMoney(totalAmount),
       share: DEFAULT_SHARE,
+      percent: null,
     },
   ];
 }
@@ -167,9 +174,41 @@ async function resolveOwedRows(
         userId: row.userId,
         owedAmount: row.amount,
         share: row.share,
+        percent: null,
       }));
     } catch {
       return { ok: false, error: "ضریب تسهیم نامعتبر است." };
+    }
+  } else if (input.splitMode === "PERCENT") {
+    if (selected.some((s) => s.percent < 1)) {
+      return {
+        ok: false,
+        error: "درصد هر نفر انتخاب‌شده باید حداقل ۱ باشد.",
+      };
+    }
+    const percentSum = selected.reduce((acc, s) => acc + s.percent, 0);
+    if (percentSum !== 100) {
+      return {
+        ok: false,
+        error: `جمع درصدها (${percentSum}) باید ۱۰۰ باشد.`,
+      };
+    }
+    try {
+      const ordered = [...selected]
+        .map((s) => ({
+          userId: s.userId,
+          percent: s.percent,
+        }))
+        .sort((a, b) => a.userId.localeCompare(b.userId));
+      const parts = calculatePercentageSplits(total, ordered);
+      owedByUser = parts.map((row) => ({
+        userId: row.userId,
+        owedAmount: row.amount,
+        share: DEFAULT_SHARE,
+        percent: row.percent,
+      }));
+    } catch {
+      return { ok: false, error: "درصد تسهیم نامعتبر است." };
     }
   } else {
     if (selected.some((s) => s.amount < 1)) {
@@ -189,6 +228,7 @@ async function resolveOwedRows(
       userId: s.userId,
       owedAmount: s.amount,
       share: DEFAULT_SHARE,
+      percent: null,
     }));
   }
 
@@ -290,6 +330,7 @@ export async function addExpense(
           category,
           categoryLabel: customLabel,
           isCategoryLocked: categoryLocked,
+          splitMode: input.splitMode,
         },
       });
 
@@ -299,6 +340,7 @@ export async function addExpense(
           userId: row.userId,
           owedAmount: row.owedAmount,
           share: row.share,
+          percent: row.percent,
         })),
       });
 
@@ -447,6 +489,7 @@ export async function updateExpense(
           categoryLabel,
           isCategoryLocked,
           updatedById: session.userId,
+          splitMode: input.splitMode,
         },
       });
 
@@ -457,6 +500,7 @@ export async function updateExpense(
           userId: row.userId,
           owedAmount: row.owedAmount,
           share: row.share,
+          percent: row.percent,
         })),
       });
     });

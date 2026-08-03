@@ -8,6 +8,7 @@ import {
   type CategoryPolicyRow,
 } from "@/lib/category-privacy";
 import { prisma } from "@/lib/db/prisma";
+import { assertFeatureEnabled, isFeatureEnabled } from "@/lib/feature-flags";
 import { getTemplate } from "@/lib/templates/registry";
 import type { ExpenseCategory } from "@/lib/generated/prisma/enums";
 
@@ -34,6 +35,7 @@ export async function listCategoryPolicies(
 
   const features = getTemplate(membership.space.type).features;
   if (!features.categoryPrivacy) return [];
+  if (!(await isFeatureEnabled("category_privacy"))) return [];
 
   const rows = await prisma.spaceCategoryPolicy.findMany({
     where: { spaceId, visibility: "PRIVATE" },
@@ -66,6 +68,12 @@ export async function setCategoryPrivacy(
   if (!features.categoryPrivacy) {
     return { ok: false, error: "این قالب حریم دسته ندارد." };
   }
+
+  const privacyGate = await assertFeatureEnabled(
+    "category_privacy",
+    "حریم دسته فعلاً غیرفعال است.",
+  );
+  if (!privacyGate.ok) return privacyGate;
 
   const { spaceId, category, private: makePrivate } = parsed.data;
 

@@ -16,6 +16,7 @@ export const expenseListSelect = {
   category: true,
   categoryLabel: true,
   isCategoryLocked: true,
+  splitMode: true,
   spaceId: true,
   paidBy: {
     select: {
@@ -46,6 +47,7 @@ export const expenseListSelect = {
       userId: true,
       owedAmount: true,
       share: true,
+      percent: true,
     },
   },
 } as const;

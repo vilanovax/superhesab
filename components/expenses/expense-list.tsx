@@ -71,7 +71,13 @@ export type ExpenseListItem = {
     phone: string;
     isVirtual?: boolean;
   } | null;
-  splits: { userId: string; owedAmount: number; share: number }[];
+  splitMode?: "EQUAL" | "EXACT" | "PERCENT";
+  splits: {
+    userId: string;
+    owedAmount: number;
+    share: number;
+    percent?: number | null;
+  }[];
 };
 
 type ExpenseListProps = {
@@ -124,11 +130,17 @@ function toInitial(expense: ExpenseListItem): ExpenseInitialValues {
     date: expenseDayKey(expense.date),
     category: expense.category,
     transactionType: expense.transactionType ?? "EXPENSE",
+    splitMode: expense.splitMode,
     splitAmounts: Object.fromEntries(
       expense.splits.map((s) => [s.userId, s.owedAmount]),
     ),
     splitShares: Object.fromEntries(
       expense.splits.map((s) => [s.userId, s.share]),
+    ),
+    splitPercents: Object.fromEntries(
+      expense.splits
+        .filter((s) => typeof s.percent === "number")
+        .map((s) => [s.userId, s.percent as number]),
     ),
   };
 }

@@ -42,9 +42,19 @@ function Chevron({ className }: { className?: string }) {
 /**
  * Empty-home template picker — equal choices, each opens create-space sheet.
  */
-export function HomeEmptyActions({ error }: { error?: string }) {
+export function HomeEmptyActions({
+  error,
+  disabledTypes = [],
+}: {
+  error?: string;
+  disabledTypes?: SpaceType[];
+}) {
   const [open, setOpen] = useState(false);
-  const [initialType, setInitialType] = useState<SpaceType>("TRIP");
+  const disabled = new Set(disabledTypes);
+  const templates = TEMPLATES.filter((t) => !disabled.has(t.type));
+  const [initialType, setInitialType] = useState<SpaceType>(
+    templates[0]?.type ?? "TRIP",
+  );
 
   function openWith(type: SpaceType) {
     setInitialType(type);
@@ -58,7 +68,7 @@ export function HomeEmptyActions({ error }: { error?: string }) {
           نوع دفتر را انتخاب کن
         </p>
         <ul className="flex flex-col gap-2" role="list">
-          {TEMPLATES.map((item, index) => (
+          {templates.map((item, index) => (
             <li
               key={item.type}
               className="animate-fade-up"
@@ -110,6 +120,7 @@ export function HomeEmptyActions({ error }: { error?: string }) {
         onOpenChange={setOpen}
         initialType={initialType}
         hideTrigger
+        disabledTypes={disabledTypes}
       />
     </>
   );

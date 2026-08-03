@@ -177,10 +177,22 @@ export async function restoreSpaceFromBackup(input: {
             categoryLabel: e.categoryLabel,
             isCategoryLocked: e.isCategoryLocked,
             date: parseDate(e.date),
+            splitMode:
+              e.splitMode === "EXACT" || e.splitMode === "PERCENT"
+                ? e.splitMode
+                : "EQUAL",
             splits: {
               create: e.splits.map((s) => ({
                 userId: mapUser(s.originalUserId),
                 owedAmount: s.owedAmount,
+                share:
+                  typeof s.share === "number" && Number.isInteger(s.share)
+                    ? s.share
+                    : 2,
+                percent:
+                  typeof s.percent === "number" && Number.isInteger(s.percent)
+                    ? s.percent
+                    : null,
               })),
             },
           },

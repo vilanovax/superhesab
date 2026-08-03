@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { MAX_SHARE, MIN_SHARE } from "@/lib/money";
 
-export const splitModeSchema = z.enum(["EQUAL", "EXACT"]);
+export const splitModeSchema = z.enum(["EQUAL", "EXACT", "PERCENT"]);
 
 export const transactionTypeSchema = z.enum(["EXPENSE", "INCOME"]);
 
@@ -27,8 +27,10 @@ export const expenseSplitRowSchema = z.object({
   userId: z.string().min(1),
   amount: z.number().int().min(0),
   selected: z.boolean(),
-  /** Weight for EQUAL mode; EXACT stores 1 on the server. */
+  /** Weight for EQUAL mode; EXACT/PERCENT store DEFAULT_SHARE on the server. */
   share: z.number().int().min(MIN_SHARE).max(MAX_SHARE),
+  /** Whole percent for PERCENT mode (0–100). Ignored otherwise. */
+  percent: z.number().int().min(0).max(100),
 });
 
 const isoDateSchema = z
@@ -84,6 +86,35 @@ export const expenseSchema = z
       return;
     }
 
+    if (data.splitMode === "PERCENT") {
+      if (selected.some((row) => !Number.isInteger(row.percent) || row.percent < 0)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "درصد هر نفر باید عدد صحیح باشد.",
+          path: ["splits"],
+        });
+        return;
+      }
+      if (selected.some((row) => row.percent < 1)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "درصد هر نفر انتخاب‌شده باید حداقل ۱ باشد.",
+          path: ["splits"],
+        });
+        return;
+      }
+      const percentSum = selected.reduce((acc, s) => acc + s.percent, 0);
+      if (percentSum !== 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `جمع درصدها (${percentSum}) باید ۱۰۰ باشد.`,
+          path: ["splits"],
+        });
+      }
+      return;
+    }
+
+    // EXACT
     if (selected.some((row) => row.amount < 1)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -23,6 +23,7 @@ import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { tehranCivilYear } from "@/lib/building";
 import { CURRENCY_LABELS, type SpaceCurrency } from "@/lib/format";
 import { prisma } from "@/lib/db/prisma";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import {
   getTemplate,
   getTemplateDataset,
@@ -77,7 +78,9 @@ export default async function SpaceSettingsPage({
   const isOwner = membership.role === "OWNER";
   const showBudget = template.features.budget && !template.features.buildingCharges;
   const showCategoryBudgets = template.features.categoryBudgets;
-  const showCategoryPrivacy = Boolean(template.features.categoryPrivacy);
+  const showCategoryPrivacy =
+    Boolean(template.features.categoryPrivacy) &&
+    (await isFeatureEnabled("category_privacy"));
   const showRecurring = template.features.recurring;
   const showBuilding = template.features.buildingCharges;
   const showFundPlan = Boolean(template.features.fundRotating);

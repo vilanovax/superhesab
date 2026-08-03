@@ -36,6 +36,10 @@ export type BackupMember = {
 export type BackupExpenseSplit = {
   originalUserId: string;
   owedAmount: number;
+  /** Present for EQUAL; defaults to 2 on restore when missing. */
+  share?: number;
+  /** Present when splitMode is PERCENT. */
+  percent?: number | null;
 };
 
 export type BackupExpense = {
@@ -49,6 +53,8 @@ export type BackupExpense = {
   categoryLabel: string | null;
   isCategoryLocked: boolean;
   date: string;
+  /** Defaults to EQUAL when missing (older backups). */
+  splitMode?: "EQUAL" | "EXACT" | "PERCENT";
   splits: BackupExpenseSplit[];
 };
 

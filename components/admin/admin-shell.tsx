@@ -7,6 +7,8 @@ const NAV: { href: string; label: string }[] = [
   { href: "/admin/users", label: "کاربران" },
   { href: "/admin/spaces", label: "دفاتر" },
   { href: "/admin/backup", label: "بک‌آپ" },
+  { href: "/admin/flags", label: "پرچم" },
+  { href: "/admin/storage", label: "ذخیره" },
   { href: "/admin/audit", label: "گزارش" },
 ];
 
@@ -26,64 +28,70 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-5">
-      <header className="mb-4 flex items-start justify-between gap-3">
+    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-4 sm:px-5">
+      <header className="mb-3.5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold tracking-[0.2em] text-primary/70">
+          <p className="text-[10px] font-bold tracking-[0.22em] text-primary/65">
             ADMIN
           </p>
-          <h1 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">
+          <h1 className="mt-0.5 text-[1.35rem] font-bold leading-tight tracking-tight text-foreground">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mt-1 text-caption text-muted-foreground">{subtitle}</p>
+            <p className="mt-1 max-w-[22rem] text-caption leading-relaxed text-muted-foreground">
+              {subtitle}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <Link
             href="/app"
-            className="rounded-xl border border-border/60 bg-card px-3 py-1.5 text-caption font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+            className="rounded-xl border border-border/55 bg-card px-3 py-1.5 text-caption font-semibold text-muted-foreground shadow-sm transition-[color,border-color,transform] duration-150 hover:border-primary/25 hover:text-foreground active:scale-[0.98]"
           >
             بازگشت به اپ
           </Link>
-          <p className="max-w-[10rem] truncate text-micro text-muted-foreground">
+          <p className="max-w-[9.5rem] truncate text-micro text-muted-foreground">
             {adminName}
           </p>
         </div>
       </header>
 
       <nav
-        className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1"
+        className="relative mb-4 -mx-1"
         aria-label="بخش‌های ادمین"
       >
-        {NAV.map((item) => {
-          const active =
-            item.href === "/admin"
-              ? pathname === "/admin"
-              : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex h-10 shrink-0 items-center justify-center rounded-xl px-3 text-caption font-semibold transition-colors",
-                active
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+        <div className="overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="inline-flex min-w-full gap-1 rounded-2xl bg-muted/75 p-1">
+            {NAV.map((item) => {
+              const active =
+                item.href === "/admin"
+                  ? pathname === "/admin"
+                  : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex h-9 shrink-0 items-center justify-center rounded-[0.7rem] px-2.5 text-[12px] font-semibold transition-[color,background-color,box-shadow,transform] duration-150",
+                    active
+                      ? "bg-card text-foreground shadow-sm ring-1 ring-border/40"
+                      : "text-muted-foreground hover:bg-card/50 hover:text-foreground active:scale-[0.98]",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </nav>
 
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 animate-fade-up">{children}</div>
 
-      <footer className="mt-6 border-t border-border/40 pt-3 text-center">
+      <footer className="mt-7 border-t border-border/35 pt-3 text-center">
         <p className="text-micro text-muted-foreground">
           سوپرحساب ادمین
-          <span className="mx-1 text-border">·</span>
+          <span className="mx-1.5 text-border">·</span>
           <span dir="ltr" className="tabular-nums">
             ver {APP_VERSION}
           </span>

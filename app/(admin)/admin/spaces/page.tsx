@@ -1,5 +1,17 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin/admin-shell";
+import {
+  AdminBadge,
+  AdminFilterBar,
+  adminFieldClass,
+  adminFilterBtnClass,
+  adminSelectClass,
+} from "@/components/admin/admin-ui";
+import {
+  SpaceTypeIcon,
+  spaceTypeAccent,
+  spaceTypeTint,
+} from "@/components/spaces/space-type-icon";
 import { formatAdminDate } from "@/lib/admin/format";
 import { requirePlatformAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
@@ -67,113 +79,138 @@ export default async function AdminSpacesPage({
       adminName={admin.name?.trim() || admin.phone}
       pathname="/admin/spaces"
     >
-      <form className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap" method="get">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="نام دفتر یا مالک"
-          className="h-10 min-w-[12rem] flex-1 rounded-xl border border-border/60 bg-card px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <select
-          name="type"
-          defaultValue={type}
-          className="h-10 rounded-xl border border-border/60 bg-card px-3 text-sm font-medium shadow-sm"
+      <form method="get">
+        <AdminFilterBar
+          countLabel={`${new Intl.NumberFormat("fa-IR").format(spaces.length)} دفتر (حداکثر ۱۰۰)`}
         >
-          <option value="all">همه قالب‌ها</option>
-          <option value="TRIP">سفر</option>
-          <option value="PARTNER">مشترک</option>
-          <option value="FAMILY">خانه</option>
-          <option value="BUILDING">ساختمان</option>
-          <option value="FUND">صندوق</option>
-        </select>
-        <select
-          name="status"
-          defaultValue={status}
-          className="h-10 rounded-xl border border-border/60 bg-card px-3 text-sm font-medium shadow-sm"
-        >
-          <option value="active">فعال</option>
-          <option value="archived">آرشیو</option>
-          <option value="all">همه</option>
-        </select>
-        <button
-          type="submit"
-          className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
-        >
-          فیلتر
-        </button>
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="نام دفتر یا مالک"
+            className={adminFieldClass}
+          />
+          <select name="type" defaultValue={type} className={adminSelectClass}>
+            <option value="all">همه قالب‌ها</option>
+            <option value="TRIP">سفر</option>
+            <option value="PARTNER">مشترک</option>
+            <option value="FAMILY">خانه</option>
+            <option value="BUILDING">ساختمان</option>
+            <option value="FUND">صندوق</option>
+          </select>
+          <select
+            name="status"
+            defaultValue={status}
+            className={adminSelectClass}
+          >
+            <option value="active">فعال</option>
+            <option value="archived">آرشیو</option>
+            <option value="all">همه</option>
+          </select>
+          <button type="submit" className={adminFilterBtnClass}>
+            فیلتر
+          </button>
+        </AdminFilterBar>
       </form>
 
-      <p className="mb-2 text-caption text-muted-foreground">
-        {spaces.length} دفتر (حداکثر ۱۰۰)
-      </p>
-
       {spaces.length === 0 ? (
-        <p className="rounded-2xl border border-border/50 bg-card px-4 py-8 text-center text-caption text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border/55 bg-card/60 px-4 py-10 text-center text-caption text-muted-foreground">
           دفتری با این فیلتر پیدا نشد.
         </p>
       ) : (
         <ul className="space-y-2.5">
           {spaces.map((space) => {
             const archived = Boolean(space.archivedAt);
-            return (
-              <li
-                key={space.id}
-                className={cn(
-                  "rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm",
-                  archived && "opacity-75",
-                )}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-body-sm font-semibold text-foreground">
-                      {space.name}
-                    </p>
-                    <p className="mt-0.5 text-caption text-muted-foreground">
-                      {getTemplate(space.type).label}
-                      <span className="mx-1 opacity-40">·</span>
-                      {space.owner.name?.trim() || space.owner.phone}
-                    </p>
+            const href =
+              space.type === "BUILDING"
+                ? `/spaces/${space.id}`
+                : `/spaces/${space.id}`;
+            const body = (
+              <>
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-y-3 start-0 w-[3px] rounded-full",
+                    spaceTypeAccent(space.type),
+                  )}
+                />
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
+                        spaceTypeTint(space.type),
+                      )}
+                    >
+                      <SpaceTypeIcon type={space.type} className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-body-sm font-semibold text-foreground">
+                        {space.name}
+                      </p>
+                      <p className="mt-0.5 truncate text-caption text-muted-foreground">
+                        {getTemplate(space.type).label}
+                        <span className="mx-1 opacity-40">·</span>
+                        {space.owner.name?.trim() || space.owner.phone}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    {archived ? (
-                      <span className="rounded-lg bg-muted px-2 py-0.5 text-micro font-semibold text-muted-foreground">
-                        آرشیو
-                      </span>
-                    ) : (
-                      <span className="rounded-lg bg-success-soft px-2 py-0.5 text-micro font-semibold text-success">
-                        فعال
-                      </span>
-                    )}
-                  </div>
+                  {archived ? (
+                    <AdminBadge>آرشیو</AdminBadge>
+                  ) : (
+                    <AdminBadge tone="success">فعال</AdminBadge>
+                  )}
                 </div>
-                <dl className="mt-2.5 grid grid-cols-3 gap-2 text-caption text-muted-foreground">
+                <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 px-3 py-2">
                   <div>
-                    <dt className="text-micro">اعضا</dt>
-                    <dd className="font-semibold tabular-nums text-foreground">
+                    <dt className="text-micro text-muted-foreground">اعضا</dt>
+                    <dd className="mt-0.5 text-caption font-bold tabular-nums text-foreground">
                       {space._count.members}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-micro">هزینه</dt>
-                    <dd className="font-semibold tabular-nums text-foreground">
+                    <dt className="text-micro text-muted-foreground">هزینه</dt>
+                    <dd className="mt-0.5 text-caption font-bold tabular-nums text-foreground">
                       {space._count.expenses}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-micro">ایجاد</dt>
-                    <dd className="font-medium text-foreground">
+                    <dt className="text-micro text-muted-foreground">ایجاد</dt>
+                    <dd className="mt-0.5 text-caption font-semibold text-foreground">
                       {formatAdminDate(space.createdAt)}
                     </dd>
                   </div>
                 </dl>
                 {!archived ? (
-                  <Link
-                    href={`/spaces/${space.id}`}
-                    className="mt-3 inline-flex text-caption font-semibold text-primary underline-offset-4 hover:underline"
-                  >
+                  <p className="mt-2.5 text-caption font-semibold text-primary">
                     باز کردن دفتر
-                  </Link>
+                  </p>
                 ) : null}
+              </>
+            );
+
+            return (
+              <li key={space.id}>
+                {archived ? (
+                  <div
+                    className={cn(
+                      "relative overflow-hidden rounded-2xl border border-border/50 bg-card p-3.5 ps-4 shadow-sm opacity-75",
+                    )}
+                  >
+                    {body}
+                  </div>
+                ) : (
+                  <Link
+                    href={href}
+                    className={cn(
+                      "relative block overflow-hidden rounded-2xl border border-border/50 bg-card p-3.5 ps-4 shadow-sm",
+                      "transition-[border-color,box-shadow,transform] duration-150",
+                      "hover:border-primary/30 hover:shadow-md active:scale-[0.99]",
+                    )}
+                  >
+                    {body}
+                  </Link>
+                )}
               </li>
             );
           })}

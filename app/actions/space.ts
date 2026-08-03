@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
 import { isSpaceCurrency, type SpaceCurrency } from "@/lib/format";
+import { assertSpaceTypeCreatable } from "@/lib/feature-flags";
 import { canonicalizeSpaceType, getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
@@ -192,6 +193,9 @@ export async function createSpace(input: {
   if (!parsed.success) {
     return { ok: false, error: "نام یا نوع فضا نامعتبر است." };
   }
+
+  const typeGate = await assertSpaceTypeCreatable(parsed.data.type);
+  if (!typeGate.ok) return typeGate;
 
   const template = getTemplate(parsed.data.type);
   const spaceType = canonicalizeSpaceType(parsed.data.type);

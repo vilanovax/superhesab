@@ -18,6 +18,12 @@ import type {
 import { parseBackupFile } from "@/lib/backup/validate";
 import { requirePlatformAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import {
+  assertFeatureEnabled,
+  ensureFeatureFlags,
+  FEATURE_FLAG_DEFS,
+  parseFeatureFlagKey,
+} from "@/lib/feature-flags";
 
 export type AdminActionResult =
   | { ok: true }
@@ -273,6 +279,13 @@ export async function restoreAdminBackupFile(
   AdminBackupResult<{ spaces: RestoreSpaceResult[]; warnings: string[] }>
 > {
   const { user: admin } = await requirePlatformAdmin();
+
+  const gate = await assertFeatureEnabled(
+    "backup_restore",
+    "بازیابی بک‌آپ از پنل فعلاً غیرفعال است.",
+  );
+  if (!gate.ok) return gate;
+
   const parsed = parseBackupFile(raw);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   if (parsed.data.spaces.length === 0) {
@@ -324,4 +337,44 @@ export async function restoreAdminBackupFile(
       warnings: [...new Set(allWarnings)],
     },
   };
+}
+
+export async function setFeatureFlagEnabled(input: {
+  key: string;
+  enabled: boolean;
+}): Promise<AdminActionResult> {
+  const { user: admin } = await requirePlatformAdmin();
+  const key = parseFeatureFlagKey(input.key);
+  if (!key) {
+    return { ok: false, error: "پرچم نامعتبر است." };
+  }
+
+  await ensureFeatureFlags();
+  await prisma.featureFlag.update({
+    where: { key },
+    data: {
+      enabled: input.enabled,
+      updatedById: admin.id,
+    },
+  });
+
+  const def = FEATURE_FLAG_DEFS.find((d) => d.key === key);
+  await logAdminAudit({
+    actorId: admin.id,
+    action: input.enabled ? "FLAG_ENABLE" : "FLAG_DISABLE",
+    targetType: "feature_flag",
+    targetId: key,
+    summary: input.enabled
+      ? `پرچم «${def?.label ?? key}» روشن شد`
+      : `پرچم «${def?.label ?? key}» خاموش شد`,
+    metadata: { key, enabled: input.enabled },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/flags");
+  revalidatePath("/admin/storage");
+  revalidatePath("/admin/audit");
+  revalidatePath("/app");
+  revalidatePath("/register");
+  return { ok: true };
 }

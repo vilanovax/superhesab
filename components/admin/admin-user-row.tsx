@@ -7,6 +7,7 @@ import {
   setUserPlatformRole,
   updateAdminUserName,
 } from "@/app/actions/admin";
+import { AdminBadge } from "@/components/admin/admin-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatAdminDate, formatAdminDateTime } from "@/lib/admin/format";
@@ -38,6 +39,7 @@ export function AdminUserRow({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const disabled = Boolean(user.disabledAt);
+  const nameDirty = name.trim() !== (user.name ?? "").trim();
 
   function run(
     action: () => Promise<{ ok: true } | { ok: false; error: string }>,
@@ -59,11 +61,12 @@ export function AdminUserRow({
   return (
     <li
       className={cn(
-        "rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm",
-        disabled && "opacity-80",
+        "rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm",
+        "transition-[border-color,opacity] duration-150",
+        disabled && "border-border/40 opacity-75",
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-body-sm font-semibold text-foreground">
             {user.name?.trim() || "بدون نام"}
@@ -73,75 +76,68 @@ export function AdminUserRow({
               </span>
             ) : null}
           </p>
-          <p className="mt-0.5 tabular-nums text-caption text-muted-foreground" dir="ltr">
+          <p
+            className="mt-0.5 tabular-nums text-caption text-muted-foreground"
+            dir="ltr"
+          >
             {user.phone}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {user.platformRole === "ADMIN" ? (
-            <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-micro font-semibold text-primary">
-              ادمین
-            </span>
+            <AdminBadge tone="primary">ادمین</AdminBadge>
           ) : null}
           {disabled ? (
-            <span className="rounded-lg bg-destructive-soft px-2 py-0.5 text-micro font-semibold text-destructive">
-              غیرفعال
-            </span>
+            <AdminBadge tone="danger">غیرفعال</AdminBadge>
           ) : (
-            <span className="rounded-lg bg-success-soft px-2 py-0.5 text-micro font-semibold text-success">
-              فعال
-            </span>
+            <AdminBadge tone="success">فعال</AdminBadge>
           )}
-          {user.hasPassword ? (
-            <span className="rounded-lg bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-              رمز
-            </span>
-          ) : null}
+          {user.hasPassword ? <AdminBadge>رمز</AdminBadge> : null}
         </div>
       </div>
 
-      <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-caption text-muted-foreground sm:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-muted/45 px-3 py-2.5 sm:grid-cols-4">
         <div>
-          <dt className="text-micro">ثبت‌نام</dt>
-          <dd className="font-medium text-foreground">
+          <dt className="text-micro text-muted-foreground">ثبت‌نام</dt>
+          <dd className="mt-0.5 text-caption font-semibold text-foreground">
             {formatAdminDate(user.createdAt)}
           </dd>
         </div>
         <div>
-          <dt className="text-micro">آخرین بازدید</dt>
-          <dd className="font-medium text-foreground">
+          <dt className="text-micro text-muted-foreground">آخرین بازدید</dt>
+          <dd className="mt-0.5 text-caption font-semibold text-foreground">
             {formatAdminDateTime(user.lastSeenAt)}
           </dd>
         </div>
         <div>
-          <dt className="text-micro">دفاتر مالک</dt>
-          <dd className="font-semibold tabular-nums text-foreground">
+          <dt className="text-micro text-muted-foreground">دفاتر مالک</dt>
+          <dd className="mt-0.5 text-caption font-bold tabular-nums text-foreground">
             {user.ownedSpaces}
           </dd>
         </div>
         <div>
-          <dt className="text-micro">عضویت</dt>
-          <dd className="font-semibold tabular-nums text-foreground">
+          <dt className="text-micro text-muted-foreground">عضویت</dt>
+          <dd className="mt-0.5 text-caption font-bold tabular-nums text-foreground">
             {user.memberships}
           </dd>
         </div>
       </dl>
 
-      <div className="mt-3 flex flex-col gap-2 border-t border-border/40 pt-3 sm:flex-row sm:items-center">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="نام نمایشی"
-          className="h-9 rounded-xl text-sm"
-          disabled={pending}
-        />
-        <div className="flex flex-wrap gap-1.5">
+      <div className="mt-3 space-y-2 border-t border-border/35 pt-3">
+        <div className="flex gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="نام نمایشی"
+            className="h-9 flex-1 rounded-xl text-sm"
+            disabled={pending}
+            aria-label="نام نمایشی"
+          />
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className="h-9 rounded-xl"
-            disabled={pending}
+            className="h-9 shrink-0 rounded-xl px-3"
+            disabled={pending || !nameDirty}
             onClick={() =>
               run(
                 () => updateAdminUserName({ userId: user.id, name }),
@@ -149,32 +145,16 @@ export function AdminUserRow({
               )
             }
           >
-            ذخیره نام
+            ذخیره
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={disabled ? "default" : "destructive"}
-            className="h-9 rounded-xl"
-            disabled={pending || isSelf}
-            onClick={() =>
-              run(
-                () =>
-                  setUserDisabled({
-                    userId: user.id,
-                    disabled: !disabled,
-                  }),
-                disabled ? "کاربر فعال شد" : "کاربر غیرفعال شد",
-              )
-            }
-          >
-            {disabled ? "فعال‌سازی" : "غیرفعال"}
-          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-9 rounded-xl"
+            className="h-8 rounded-xl text-caption"
             disabled={pending || isSelf}
             onClick={() =>
               run(
@@ -190,6 +170,28 @@ export function AdminUserRow({
             }
           >
             {user.platformRole === "ADMIN" ? "حذف ادمین" : "ارتقا به ادمین"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-8 rounded-xl text-caption",
+              !disabled && "text-destructive hover:bg-destructive/10 hover:text-destructive",
+            )}
+            disabled={pending || isSelf}
+            onClick={() =>
+              run(
+                () =>
+                  setUserDisabled({
+                    userId: user.id,
+                    disabled: !disabled,
+                  }),
+                disabled ? "کاربر فعال شد" : "کاربر غیرفعال شد",
+              )
+            }
+          >
+            {disabled ? "فعال‌سازی" : "غیرفعال کردن"}
           </Button>
         </div>
       </div>

@@ -124,6 +124,80 @@ export function assertSplitsSumToTotal(total: Money, parts: Money[]): void {
   }
 }
 
+export type PercentageSplitInput = {
+  userId: string;
+  /** Whole percent 0–100; selected rows must sum to 100. */
+  percent: number;
+};
+
+export type PercentageSplitResult = {
+  userId: string;
+  percent: number;
+  amount: Money;
+};
+
+/**
+ * Percentage split — integer-only.
+ * floor(total * percent / 100), then +1 remainder round-robin in input order.
+ * Caller must ensure sum(percent) === 100 and stable order (e.g. sort by userId).
+ */
+export function calculatePercentageSplits(
+  totalAmount: number,
+  members: PercentageSplitInput[],
+): PercentageSplitResult[] {
+  if (!Number.isInteger(totalAmount) || totalAmount < 0) {
+    throw new Error("totalAmount must be a non-negative integer");
+  }
+  if (members.length === 0) {
+    throw new Error("members must be non-empty");
+  }
+
+  let percentSum = 0;
+  for (const m of members) {
+    if (
+      !Number.isInteger(m.percent) ||
+      m.percent < 0 ||
+      m.percent > 100
+    ) {
+      throw new Error(
+        `percent must be an integer 0–100 (got ${m.percent})`,
+      );
+    }
+    percentSum += m.percent;
+  }
+  if (percentSum !== 100) {
+    throw new Error(`percent sum ${percentSum} !== 100`);
+  }
+
+  const rows = members.map((m) => ({
+    userId: m.userId,
+    percent: m.percent,
+    amount: Math.floor((totalAmount * m.percent) / 100),
+  }));
+
+  let remainder = totalAmount - rows.reduce((sum, row) => sum + row.amount, 0);
+  let i = 0;
+  while (remainder > 0 && rows.length > 0) {
+    rows[i]!.amount += 1;
+    remainder -= 1;
+    i = (i + 1) % rows.length;
+  }
+
+  return rows.map((row) => ({
+    userId: row.userId,
+    percent: row.percent,
+    amount: asMoney(row.amount),
+  }));
+}
+
+/** Distribute 100 whole percents across N people (remainder to first slots). */
+export function distributeEqualPercents(count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(100 / count);
+  const rem = 100 % count;
+  return Array.from({ length: count }, (_, i) => base + (i < rem ? 1 : 0));
+}
+
 /**
  * Round magnitude up to the nearest thousand (e.g. 296666 → 297000).
  * Preserves sign. Zero stays zero.

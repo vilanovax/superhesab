@@ -2,7 +2,7 @@
  * Dev-only seed for E2E manual testing (UI, splits, empty states, roles).
  * Run: npx prisma db seed
  *
- * Login (mock OTP 123456):
+ * Login (mock OTP 111111):
  *   Ali  → 09120000001
  *   Sara → 09120000002
  *   Reza → 09120000003
@@ -607,7 +607,7 @@ async function main() {
 
   console.log("✅ Test data injected successfully. Ready for E2E manual testing.");
   console.log("");
-  console.log("Login phones (OTP: 123456):");
+  console.log("Login phones (OTP: 111111):");
   console.log(`  علی  → ${ali.phone}  (OWNER trip + partner + building)`);
   console.log(`  سارا → ${sara.phone}  (EDITOR)`);
   console.log(`  رضا  → ${reza.phone}  (OWNER empty space)`);

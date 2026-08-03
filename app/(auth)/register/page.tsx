@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { LoginForm } from "@/components/auth/login-form";
+import { RegisterForm } from "@/components/auth/register-form";
 import { prisma } from "@/lib/db/prisma";
 import { getSession } from "@/lib/session";
 
@@ -10,7 +10,7 @@ function safeCallbackUrl(raw: string | undefined): string {
   return raw;
 }
 
-export default async function LoginPage({
+export default async function RegisterPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string; next?: string }>;
@@ -27,12 +27,12 @@ export default async function LoginPage({
     if (user) {
       redirect(callbackUrl);
     }
-    redirect("/auth/session/clear?next=/login");
+    redirect("/auth/session/clear?next=/register");
   }
 
   return (
     <AuthShell>
-      <LoginForm callbackUrl={callbackUrl} />
+      <RegisterForm callbackUrl={callbackUrl} />
     </AuthShell>
   );
 }

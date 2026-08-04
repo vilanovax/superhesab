@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addDebtPayment,
   createDebt,
@@ -17,6 +17,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import {
   daysUntilDue,
   debtTypeLabel,
@@ -98,12 +99,45 @@ export function DebtPanel({
     [active],
   );
 
+  const createDirty =
+    createOpen &&
+    (counterparty.trim().length > 0 ||
+      amount.trim().length > 0 ||
+      hasDueDate ||
+      type !== "LENT");
+  const payDirty =
+    Boolean(payDebt) &&
+    (payAmount.trim().length > 0 ||
+      payNote.trim().length > 0 ||
+      changePayDate);
+  const formBlocked = createDirty || payDirty || pending;
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formBlocked);
+
+  useEffect(() => {
+    if (!formBlocked) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [formBlocked]);
+
   function resetCreate() {
     setType("LENT");
     setCounterparty("");
     setAmount("");
     setDueDate("");
     setHasDueDate(false);
+    setError(null);
+  }
+
+  function resetPay() {
+    setPayDebt(null);
+    setPayAmount("");
+    setPayNote("");
+    setPayDate(todayIsoDateTehran());
+    setChangePayDate(false);
     setError(null);
   }
 
@@ -144,11 +178,7 @@ export function DebtPanel({
         setError(result.error);
         return;
       }
-      setPayDebt(null);
-      setPayAmount("");
-      setPayNote("");
-      setPayDate(todayIsoDateTehran());
-      setChangePayDate(false);
+      resetPay();
     });
   }
 
@@ -273,8 +303,10 @@ export function DebtPanel({
       <Drawer
         open={createOpen}
         onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) resetCreate();
+          requestOpenChange(open, (next) => {
+            setCreateOpen(next);
+            if (!next) resetCreate();
+          });
         }}
         repositionInputs={false}
       >
@@ -428,11 +460,9 @@ export function DebtPanel({
       <Drawer
         open={Boolean(payDebt)}
         onOpenChange={(open) => {
-          if (!open) {
-            setPayDebt(null);
-            setError(null);
-            setChangePayDate(false);
-          }
+          requestOpenChange(open, (next) => {
+            if (!next) resetPay();
+          });
         }}
         repositionInputs={false}
       >
@@ -544,6 +574,8 @@ export function DebtPanel({
           </form>
         </DrawerContent>
       </Drawer>
+
+      {discardConfirm}
     </div>
   );
 }

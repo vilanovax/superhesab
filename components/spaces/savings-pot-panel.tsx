@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addSavingsTransaction,
   createSavingsPot,
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import type { SpaceCurrency } from "@/lib/format";
 import { todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
@@ -96,6 +97,46 @@ export function SavingsPotPanel({
     [pots],
   );
 
+  const createDirty =
+    createOpen &&
+    (title.trim().length > 0 ||
+      target.trim().length > 0 ||
+      hasDeadline);
+  const txDirty =
+    Boolean(txPot) &&
+    (txAmount.trim().length > 0 ||
+      txNote.trim().length > 0 ||
+      txType !== "DEPOSIT");
+  const formBlocked = createDirty || txDirty || pending;
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formBlocked);
+
+  useEffect(() => {
+    if (!formBlocked) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [formBlocked]);
+
+  function resetCreate() {
+    setTitle("");
+    setTarget("");
+    setDeadline("");
+    setHasDeadline(false);
+    setError(null);
+  }
+
+  function resetTx() {
+    setTxPot(null);
+    setTxAmount("");
+    setTxNote("");
+    setTxType("DEPOSIT");
+    setTxDate(todayIsoDateTehran());
+    setError(null);
+  }
+
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -111,10 +152,7 @@ export function SavingsPotPanel({
         return;
       }
       setCreateOpen(false);
-      setTitle("");
-      setTarget("");
-      setDeadline("");
-      setHasDeadline(false);
+      resetCreate();
     });
   }
 
@@ -136,11 +174,7 @@ export function SavingsPotPanel({
         setError(result.error);
         return;
       }
-      setTxPot(null);
-      setTxAmount("");
-      setTxNote("");
-      setTxType("DEPOSIT");
-      setTxDate(todayIsoDateTehran());
+      resetTx();
     });
   }
 
@@ -276,7 +310,12 @@ export function SavingsPotPanel({
 
       <Drawer
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          requestOpenChange(open, (next) => {
+            setCreateOpen(next);
+            if (!next) resetCreate();
+          });
+        }}
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
@@ -365,7 +404,9 @@ export function SavingsPotPanel({
       <Drawer
         open={Boolean(txPot)}
         onOpenChange={(open) => {
-          if (!open) setTxPot(null);
+          requestOpenChange(open, (next) => {
+            if (!next) resetTx();
+          });
         }}
         repositionInputs={false}
       >
@@ -482,6 +523,8 @@ export function SavingsPotPanel({
           </form>
         </DrawerContent>
       </Drawer>
+
+      {discardConfirm}
     </div>
   );
 }

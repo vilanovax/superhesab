@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addInternalLoanPayment,
   createInternalLoan,
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { daysUntilDue, isDueSoon } from "@/lib/family-loans";
 import type { SpaceCurrency } from "@/lib/format";
 import { todayIsoDateTehran } from "@/lib/format";
@@ -99,6 +100,41 @@ export function InternalLoanPanel({
     [active],
   );
 
+  const createDirty =
+    createOpen &&
+    (amount.trim().length > 0 || note.trim().length > 0 || hasDue);
+  const payDirty =
+    Boolean(payLoan) &&
+    (payAmount.trim().length > 0 || payNote.trim().length > 0);
+  const formBlocked = createDirty || payDirty || pending;
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formBlocked);
+
+  useEffect(() => {
+    if (!formBlocked) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [formBlocked]);
+
+  function resetCreate() {
+    setAmount("");
+    setNote("");
+    setDueDate("");
+    setHasDue(false);
+    setError(null);
+  }
+
+  function resetPay() {
+    setPayLoan(null);
+    setPayAmount("");
+    setPayNote("");
+    setPayDate(todayIsoDateTehran());
+    setError(null);
+  }
+
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -116,10 +152,7 @@ export function InternalLoanPanel({
         return;
       }
       setCreateOpen(false);
-      setAmount("");
-      setNote("");
-      setDueDate("");
-      setHasDue(false);
+      resetCreate();
     });
   }
 
@@ -139,10 +172,7 @@ export function InternalLoanPanel({
         setError(result.error);
         return;
       }
-      setPayLoan(null);
-      setPayAmount("");
-      setPayNote("");
-      setPayDate(todayIsoDateTehran());
+      resetPay();
     });
   }
 
@@ -298,7 +328,12 @@ export function InternalLoanPanel({
 
       <Drawer
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          requestOpenChange(open, (next) => {
+            setCreateOpen(next);
+            if (!next) resetCreate();
+          });
+        }}
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
@@ -425,7 +460,9 @@ export function InternalLoanPanel({
       <Drawer
         open={Boolean(payLoan)}
         onOpenChange={(open) => {
-          if (!open) setPayLoan(null);
+          requestOpenChange(open, (next) => {
+            if (!next) resetPay();
+          });
         }}
         repositionInputs={false}
       >
@@ -502,6 +539,8 @@ export function InternalLoanPanel({
           </form>
         </DrawerContent>
       </Drawer>
+
+      {discardConfirm}
     </div>
   );
 }

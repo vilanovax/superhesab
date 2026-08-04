@@ -20,6 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { cn } from "@/lib/utils";
 import type { SpaceType } from "@/types";
 
@@ -95,10 +96,12 @@ function SheetBody({
   error,
   initialType,
   disabledTypes,
+  onDirtyChange,
 }: {
   error?: string;
   initialType?: SpaceType;
   disabledTypes?: SpaceType[];
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   return (
     <div className="flex max-h-[min(88dvh,640px)] flex-col">
@@ -130,6 +133,7 @@ function SheetBody({
           compact
           initialType={initialType}
           disabledTypes={disabledTypes}
+          onDirtyChange={onDirtyChange}
         />
       </div>
     </div>
@@ -154,10 +158,33 @@ export function CreateSpaceSheet({
   disabledTypes?: SpaceType[];
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(Boolean(error));
+  const [formDirty, setFormDirty] = useState(false);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : uncontrolledOpen;
-  const setOpen = onOpenChange ?? setUncontrolledOpen;
+  const applyOpen = onOpenChange ?? setUncontrolledOpen;
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formDirty);
   const isDesktop = useIsDesktop();
+
+  useEffect(() => {
+    if (!open) setFormDirty(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!formDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [formDirty]);
+
+  function setOpen(next: boolean) {
+    requestOpenChange(next, (value) => {
+      applyOpen(value);
+      if (!value) setFormDirty(false);
+    });
+  }
 
   if (isDesktop === null) {
     if (hideTrigger) return null;
@@ -172,49 +199,57 @@ export function CreateSpaceSheet({
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        {!hideTrigger ? (
-          <DialogTrigger asChild>
-            <CreateTrigger layout={layout} />
-          </DialogTrigger>
-        ) : null}
-        <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-md">
-          <DialogHeader className="sr-only">
-            <DialogTitle>دفتر جدید</DialogTitle>
-            <DialogDescription>
-              یک دفتر برای خانه، سفر، مشترک یا ساختمان
-            </DialogDescription>
-          </DialogHeader>
-          <SheetBody
-            error={error}
-            initialType={initialType}
-            disabledTypes={disabledTypes}
-          />
-        </DialogContent>
-      </Dialog>
+      <>
+        <Dialog open={open} onOpenChange={setOpen}>
+          {!hideTrigger ? (
+            <DialogTrigger asChild>
+              <CreateTrigger layout={layout} />
+            </DialogTrigger>
+          ) : null}
+          <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-md">
+            <DialogHeader className="sr-only">
+              <DialogTitle>دفتر جدید</DialogTitle>
+              <DialogDescription>
+                یک دفتر برای خانه، سفر، مشترک یا ساختمان
+              </DialogDescription>
+            </DialogHeader>
+            <SheetBody
+              error={error}
+              initialType={initialType}
+              disabledTypes={disabledTypes}
+              onDirtyChange={setFormDirty}
+            />
+          </DialogContent>
+        </Dialog>
+        {discardConfirm}
+      </>
     );
   }
 
   return (
-    <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
-      {!hideTrigger ? (
-        <DrawerTrigger asChild>
-          <CreateTrigger layout={layout} />
-        </DrawerTrigger>
-      ) : null}
-      <DrawerContent className="mt-0! max-h-[min(88dvh,640px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
-        <DrawerHeader className="sr-only">
-          <DrawerTitle>دفتر جدید</DrawerTitle>
-          <DrawerDescription>
-            انتخاب قالب و ساخت دفتر حساب‌وکتاب
-          </DrawerDescription>
-        </DrawerHeader>
-        <SheetBody
-          error={error}
-          initialType={initialType}
-          disabledTypes={disabledTypes}
-        />
-      </DrawerContent>
-    </Drawer>
+    <>
+      <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
+        {!hideTrigger ? (
+          <DrawerTrigger asChild>
+            <CreateTrigger layout={layout} />
+          </DrawerTrigger>
+        ) : null}
+        <DrawerContent className="mt-0! max-h-[min(88dvh,640px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>دفتر جدید</DrawerTitle>
+            <DrawerDescription>
+              انتخاب قالب و ساخت دفتر حساب‌وکتاب
+            </DrawerDescription>
+          </DrawerHeader>
+          <SheetBody
+            error={error}
+            initialType={initialType}
+            disabledTypes={disabledTypes}
+            onDirtyChange={setFormDirty}
+          />
+        </DrawerContent>
+      </Drawer>
+      {discardConfirm}
+    </>
   );
 }

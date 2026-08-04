@@ -265,12 +265,14 @@ export function CreateSpaceForm({
   compact = false,
   initialType = "TRIP",
   disabledTypes = [],
+  onDirtyChange,
 }: {
   error?: string;
   compact?: boolean;
   initialType?: SpaceType;
   /** Platform flags — e.g. BUILDING / FUND kill-switches. */
   disabledTypes?: SpaceType[];
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const preferredCurrency = useAppSettingsStore((s) => s.preferredCurrency);
   const disabled = new Set(disabledTypes);
@@ -282,9 +284,16 @@ export function CreateSpaceForm({
     available[0]?.value ??
     "TRIP";
   const [type, setType] = useState<SpaceType>(safeInitial);
+  const [name, setName] = useState("");
   const selected =
     available.find((t) => t.value === type) ?? available[0] ?? ALL_TEMPLATES[0];
   const nameRef = useRef<HTMLInputElement>(null);
+  const draftDirty = name.trim().length > 0 || type !== safeInitial;
+
+  useEffect(() => {
+    onDirtyChange?.(draftDirty);
+    return () => onDirtyChange?.(false);
+  }, [draftDirty, onDirtyChange]);
 
   useEffect(() => {
     if (compact) return;
@@ -316,6 +325,8 @@ export function CreateSpaceForm({
             ref={nameRef}
             id="name"
             name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             autoComplete="organization"
             required
             minLength={2}

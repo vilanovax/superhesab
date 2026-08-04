@@ -171,7 +171,10 @@ export function BuildingSpaceTabs({
       onValueChange={onTabChange}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <TabsList className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1">
+      <TabsList
+        aria-label="زبانه‌های دفتر"
+        className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1"
+      >
         <TabsTrigger value="expenses" className="rounded-xl">
           هزینه
         </TabsTrigger>

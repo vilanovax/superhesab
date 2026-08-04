@@ -118,6 +118,7 @@ export function FamilySpaceTabs({
       className="flex min-h-0 flex-1 flex-col"
     >
       <TabsList
+        aria-label="زبانه‌های دفتر"
         className={cn(
           "grid h-11 w-full rounded-2xl bg-muted/70 p-1",
           tabCount >= 4

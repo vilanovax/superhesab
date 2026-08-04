@@ -85,6 +85,7 @@ export function TripSpaceTabs({
     >
       <div className="flex items-center gap-2">
         <TabsList
+          aria-label="زبانه‌های دفتر"
           className={cn(
             "grid h-10 min-w-0 flex-1",
             tabCount === 3 ? "grid-cols-3" : "grid-cols-2",

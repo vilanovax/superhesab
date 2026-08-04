@@ -83,9 +83,10 @@ export default async function AdminSpacesPage({
           <input
             name="q"
             defaultValue={q}
-            placeholder="نام، مالک، موبایل یا شناسه"
+            placeholder="نام، مالک، موبایل یا شناسه…"
             className={adminFieldClass}
             autoComplete="off"
+            aria-label="جستجوی دفتر"
           />
           <select
             name="type"

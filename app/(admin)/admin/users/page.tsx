@@ -74,10 +74,11 @@ export default async function AdminUsersPage({
           <input
             name="q"
             defaultValue={q}
-            placeholder="جستجوی نام یا موبایل"
+            placeholder="جستجوی نام یا موبایل…"
             className={adminFieldClass}
             dir="auto"
             autoComplete="off"
+            aria-label="جستجوی نام یا موبایل"
           />
           <select
             name="status"

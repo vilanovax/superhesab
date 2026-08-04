@@ -31,10 +31,13 @@ export function AdminShell({
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-4 sm:px-5">
       <header className="mb-3.5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold tracking-[0.22em] text-primary/65">
+          <p
+            className="text-[10px] font-bold tracking-[0.22em] text-primary/65"
+            translate="no"
+          >
             ADMIN
           </p>
-          <h1 className="mt-0.5 text-[1.35rem] font-bold leading-tight tracking-tight text-foreground">
+          <h1 className="mt-0.5 text-pretty text-[1.35rem] font-bold leading-tight tracking-tight text-foreground">
             {title}
           </h1>
           {subtitle ? (
@@ -71,6 +74,7 @@ export function AdminShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex h-9 shrink-0 items-center justify-center rounded-[0.7rem] px-2.5 text-[12px] font-semibold transition-[color,background-color,box-shadow,transform] duration-150",
                     active
@@ -90,9 +94,9 @@ export function AdminShell({
 
       <footer className="mt-7 border-t border-border/35 pt-3 text-center">
         <p className="text-micro text-muted-foreground">
-          سوپرحساب ادمین
+          <span translate="no">سوپرحساب</span> ادمین
           <span className="mx-1.5 text-border">·</span>
-          <span dir="ltr" className="tabular-nums">
+          <span dir="ltr" className="tabular-nums" translate="no">
             ver {APP_VERSION}
           </span>
         </p>

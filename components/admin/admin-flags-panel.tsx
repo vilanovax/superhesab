@@ -41,7 +41,11 @@ export function AdminFlagsPanel({ flags }: { flags: AdminFlagRow[] }) {
   return (
     <div className="space-y-3">
       {error ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption text-destructive">
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}
@@ -82,7 +86,8 @@ export function AdminFlagsPanel({ flags }: { flags: AdminFlagRow[] }) {
                   onClick={() => toggle(flag)}
                   role="switch"
                   aria-checked={flag.enabled}
-                  aria-label={flag.enabled ? "خاموش کردن" : "روشن کردن"}
+                  aria-label={`${flag.label}: ${flag.enabled ? "روشن — برای خاموش کردن بزنید" : "خاموش — برای روشن کردن بزنید"}`}
+                  aria-busy={busy}
                   className={cn(
                     "relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition-colors",
                     flag.enabled ? "bg-primary" : "bg-muted",

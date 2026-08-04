@@ -24,7 +24,7 @@ export function AdminSection({
       )}
     >
       <header className="mb-3">
-        <h2 className="text-body-sm font-semibold tracking-tight text-foreground">
+        <h2 className="text-pretty text-body-sm font-semibold tracking-tight text-foreground">
           {title}
         </h2>
         {description ? (

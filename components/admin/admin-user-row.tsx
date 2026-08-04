@@ -212,6 +212,8 @@ export function AdminUserRow({
             <div className="flex overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-ring/30">
               <Input
                 id={`admin-name-${user.id}`}
+                name="displayName"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
@@ -220,7 +222,7 @@ export function AdminUserRow({
                     saveName();
                   }
                 }}
-                placeholder="مثلاً علی"
+                placeholder="مثلاً علی…"
                 className="h-10 flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
                 disabled={pending}
               />
@@ -231,7 +233,7 @@ export function AdminUserRow({
                 disabled={pending || !nameDirty}
                 onClick={saveName}
               >
-                ذخیره
+                {pending && nameDirty ? "در حال ذخیره…" : "ذخیره"}
               </Button>
             </div>
             {user.hasPassword ? (
@@ -302,7 +304,8 @@ export function AdminUserRow({
                 "text-caption font-medium",
                 error ? "text-destructive" : "text-success",
               )}
-              role="status"
+              role={error ? "alert" : "status"}
+              aria-live={error ? "assertive" : "polite"}
             >
               {error ?? message}
             </p>

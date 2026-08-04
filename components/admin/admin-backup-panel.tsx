@@ -194,10 +194,15 @@ export function AdminBackupPanel() {
             <div className="flex gap-2">
               <Input
                 id="backup-phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                spellCheck={false}
                 dir="ltr"
                 value={userPhone}
                 onChange={(e) => setUserPhone(e.target.value)}
-                placeholder="0912…"
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹…"
                 className="h-10 rounded-xl"
               />
               <Button
@@ -207,7 +212,7 @@ export function AdminBackupPanel() {
                 disabled={pending || userPhone.trim().length < 8}
                 onClick={onExportUser}
               >
-                دانلود
+                {pending ? "…" : "دانلود"}
               </Button>
             </div>
           </div>
@@ -218,10 +223,13 @@ export function AdminBackupPanel() {
             <div className="flex gap-2">
               <Input
                 id="backup-space-ids"
+                name="spaceIds"
+                autoComplete="off"
+                spellCheck={false}
                 dir="ltr"
                 value={spaceIds}
                 onChange={(e) => setSpaceIds(e.target.value)}
-                placeholder="cuid…"
+                placeholder="مثلاً clxyz…"
                 className="h-10 rounded-xl font-mono text-xs"
               />
               <Button
@@ -231,7 +239,7 @@ export function AdminBackupPanel() {
                 disabled={pending || spaceIds.trim().length < 4}
                 onClick={onExportSpaces}
               >
-                دانلود
+                {pending ? "…" : "دانلود"}
               </Button>
             </div>
           </div>
@@ -249,6 +257,7 @@ export function AdminBackupPanel() {
           type="file"
           accept="application/json,.json"
           className="hidden"
+          aria-label="انتخاب فایل بک‌آپ JSON"
           onChange={onFileChange}
         />
         <Button
@@ -258,7 +267,7 @@ export function AdminBackupPanel() {
           disabled={pending}
           onClick={onPickFile}
         >
-          انتخاب فایل و dry-run
+          {pending ? "در حال بررسی…" : "انتخاب فایل و dry-run"}
         </Button>
 
         {dryRun ? (
@@ -307,7 +316,7 @@ export function AdminBackupPanel() {
               disabled={pending || dryRun.spaceCount === 0}
               onClick={onConfirmRestore}
             >
-              تأیید و بازیابی دفاتر
+              {pending ? "در حال بازیابی…" : "تأیید و بازیابی دفاتر"}
             </Button>
           </div>
         ) : null}
@@ -321,7 +330,8 @@ export function AdminBackupPanel() {
               ? "bg-destructive-soft text-destructive"
               : "bg-success-soft text-success",
           )}
-          role="status"
+          role={error ? "alert" : "status"}
+          aria-live={error ? "assertive" : "polite"}
         >
           {error ?? message}
         </p>

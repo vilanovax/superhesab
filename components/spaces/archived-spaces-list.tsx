@@ -95,13 +95,13 @@ export function ArchivedSpacesList({ spaces }: { spaces: ArchivedSpaceRow[] }) {
 
   return (
     <>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2.5" aria-label="دفاتر آرشیوشده">
         {spaces.map((space) => {
           const template = getTemplate(space.type);
           return (
             <li
               key={space.id}
-              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3.5"
+              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3.5 [content-visibility:auto] [contain-intrinsic-size:0_140px]"
             >
               <div className="flex items-start gap-3">
                 <span
@@ -113,7 +113,7 @@ export function ArchivedSpacesList({ spaces }: { spaces: ArchivedSpaceRow[] }) {
                   {markFor(space.type)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-semibold text-foreground">
+                  <p className="truncate text-pretty text-body font-semibold text-foreground">
                     {space.name}
                   </p>
                   <p className="mt-0.5 text-caption text-muted-foreground">
@@ -140,6 +140,7 @@ export function ArchivedSpacesList({ spaces }: { spaces: ArchivedSpaceRow[] }) {
                     variant="outline"
                     className="h-10 flex-1 rounded-xl text-body-sm font-semibold"
                     disabled={pending}
+                    aria-label={`بازگردانی «${space.name}»`}
                     onClick={() => {
                       setError(null);
                       setRestoreId(space.id);
@@ -152,6 +153,7 @@ export function ArchivedSpacesList({ spaces }: { spaces: ArchivedSpaceRow[] }) {
                     variant="destructive"
                     className="h-10 flex-1 rounded-xl text-body-sm font-semibold"
                     disabled={pending}
+                    aria-label={`حذف دائمی «${space.name}»`}
                     onClick={() => {
                       setError(null);
                       setDeleteId(space.id);

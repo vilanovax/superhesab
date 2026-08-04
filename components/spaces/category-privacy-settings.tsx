@@ -81,7 +81,7 @@ export function CategoryPrivacySettings({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-body-sm font-semibold text-foreground">
+        <h2 className="text-pretty text-body-sm font-semibold text-foreground">
           دسته‌های خصوصی
         </h2>
         <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
@@ -119,6 +119,9 @@ export function CategoryPrivacySettings({
                 <Button
                   type="button"
                   size="sm"
+                  role="switch"
+                  aria-checked={mine}
+                  aria-label={`${CATEGORY_LABELS[category]}: ${mine ? "خصوصی" : "مشترک"}`}
                   variant={mine ? "default" : "outline"}
                   disabled={disabled || busy}
                   className={cn(
@@ -127,7 +130,7 @@ export function CategoryPrivacySettings({
                   )}
                   onClick={() => toggle(category, !mine)}
                 >
-                  {mine ? "خصوصی" : "مشترک"}
+                  {busy ? "…" : mine ? "خصوصی" : "مشترک"}
                 </Button>
               )}
             </li>
@@ -136,7 +139,11 @@ export function CategoryPrivacySettings({
       </ul>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="text-sm text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}

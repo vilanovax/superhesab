@@ -121,7 +121,7 @@ export function CategoryPickerSheet({
             aria-hidden
           />
           <DrawerHeader className="relative space-y-2 px-5 pb-3 pt-2 text-start">
-            <DrawerTitle className="text-title tracking-tight">
+            <DrawerTitle className="text-pretty text-title tracking-tight">
               انتخاب دسته
             </DrawerTitle>
             <DrawerDescription className="text-body-sm leading-relaxed">
@@ -143,9 +143,12 @@ export function CategoryPickerSheet({
                 ⌕
               </span>
               <Input
+                name="category-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="جستجوی دسته…"
+                autoComplete="off"
+                aria-label="جستجوی دسته"
                 className="h-11 rounded-2xl border-border/60 bg-sheet-muted pe-3 ps-9"
               />
             </div>
@@ -162,9 +165,10 @@ export function CategoryPickerSheet({
                       <button
                         key={label}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => pickCustom(label)}
                         className={cn(
-                          "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-2 text-caption font-semibold transition-all",
+                          "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-2 text-caption font-semibold transition-[transform,background-color,color,box-shadow]",
                           "ring-1 ring-inset active:scale-[0.98]",
                           selected
                             ? "bg-success-soft text-success ring-success/30"
@@ -201,9 +205,11 @@ export function CategoryPickerSheet({
                       <button
                         key={code}
                         type="button"
+                        aria-pressed={selected}
+                        aria-label={labelFor(code)}
                         onClick={() => pickBuiltin(code)}
                         className={cn(
-                          "relative flex flex-col items-center gap-2 rounded-2xl border bg-linear-to-b px-2 py-4 transition-all",
+                          "relative flex flex-col items-center gap-2 rounded-2xl border bg-linear-to-b px-2 py-4 transition-[transform,border-color,box-shadow]",
                           CATEGORY_ACCENT[code] ?? "from-muted/40 to-card",
                           selected
                             ? "border-primary shadow-md ring-2 ring-primary/25"

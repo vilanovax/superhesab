@@ -125,6 +125,7 @@ export function ShareSummaryIconButton({
         <div
           className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4"
           role="status"
+          aria-live="polite"
         >
           <p className="animate-fade-up rounded-full border border-success/20 bg-success-soft px-4 py-2 text-label font-medium text-success shadow-sm">
             {toast}

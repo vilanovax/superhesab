@@ -68,7 +68,7 @@ export function SpaceArchiveButton({
       {variant === "panel" ? (
         <section className="space-y-3 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
           <div>
-            <h2 className="text-body-sm font-semibold text-foreground">
+            <h2 className="text-pretty text-body-sm font-semibold text-foreground">
               آرشیو دفتر
             </h2>
             <p className="mt-1 text-caption leading-relaxed text-muted-foreground">

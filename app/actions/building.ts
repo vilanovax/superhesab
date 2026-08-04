@@ -875,17 +875,8 @@ export async function getResidentPortalData(
   const membership = await requireSpaceMember(spaceId, session.userId);
   if (!membership) return null;
 
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      currency: true,
-      defaultPlanYear: true,
-    },
-  });
-  if (!space || !getTemplate(space.type).features.buildingCharges) {
+  const space = membership.space;
+  if (!getTemplate(space.type).features.buildingCharges) {
     return null;
   }
 
@@ -901,16 +892,37 @@ export async function getResidentPortalData(
 
   const year = space.defaultPlanYear ?? tehranCivilYear();
   const throughMonth = tehranCivilMonth();
-  const plan = await prisma.chargePlan.findUnique({
-    where: { spaceId_year: { spaceId, year } },
-  });
+  const bounds = jalaliYearBounds(year);
+
+  const [plan, payments, expenses] = await Promise.all([
+    prisma.chargePlan.findUnique({
+      where: { spaceId_year: { spaceId, year } },
+    }),
+    prisma.chargePayment.findMany({
+      where: { unitId: unit.id, year },
+      orderBy: [{ month: "desc" }],
+    }),
+    prisma.expense.findMany({
+      where: {
+        spaceId,
+        transactionType: "EXPENSE",
+        date: { gte: bounds.start, lte: bounds.end },
+      },
+      select: {
+        id: true,
+        title: true,
+        totalAmount: true,
+        date: true,
+        category: true,
+        categoryLabel: true,
+      },
+      orderBy: { date: "desc" },
+      take: 80,
+    }),
+  ]);
+
   const baseCharge = plan?.baseCharge ?? 0;
   const monthlyCharge = unitMonthlyCharge(baseCharge, unit.multiplier);
-
-  const payments = await prisma.chargePayment.findMany({
-    where: { unitId: unit.id, year },
-    orderBy: [{ month: "desc" }],
-  });
   const slices: PaymentSlice[] = payments.map((p) => ({
     month: p.month,
     amount: p.amount,
@@ -926,26 +938,6 @@ export async function getResidentPortalData(
     baseCharge,
     multiplier: unit.multiplier,
     payments: slices,
-  });
-
-  const bounds = jalaliYearBounds(year);
-
-  const expenses = await prisma.expense.findMany({
-    where: {
-      spaceId,
-      transactionType: "EXPENSE",
-      date: { gte: bounds.start, lte: bounds.end },
-    },
-    select: {
-      id: true,
-      title: true,
-      totalAmount: true,
-      date: true,
-      category: true,
-      categoryLabel: true,
-    },
-    orderBy: { date: "desc" },
-    take: 80,
   });
 
   return {

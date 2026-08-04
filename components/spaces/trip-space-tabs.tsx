@@ -1,7 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
-import { ExpenseList } from "@/components/expenses/expense-list";
 import { SpaceBalances } from "@/components/SpaceBalances";
 import { SpaceChecklist } from "@/components/SpaceChecklist";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
@@ -15,6 +15,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+const ExpenseList = dynamic(
+  () =>
+    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
+  { loading: () => <SpacePanelFallback rows={4} /> },
+);
 
 /** TRIP / PARTNER — settlements tabs only (no BUILDING / FAMILY panel graph). */
 export function TripSpaceTabs({

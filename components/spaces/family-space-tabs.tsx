@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
-import { ExpenseList } from "@/components/expenses/expense-list";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
@@ -15,6 +14,12 @@ import {
 } from "@/components/ui/tabs";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
+
+const ExpenseList = dynamic(
+  () =>
+    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
+  { loading: () => <SpacePanelFallback rows={4} /> },
+);
 
 const FamilyReportPanel = dynamic(
   () =>

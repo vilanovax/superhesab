@@ -10,6 +10,7 @@ import {
   type FundPaymentProofDTO,
 } from "@/app/actions/fund";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatDateFaShort, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -52,16 +53,22 @@ export function FundMemberProof({
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const periodProofs = proofs.filter((p) => p.periodIndex === periodIndex);
 
   function onUpload(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
+    setError(null);
+
     if (!file) {
+      setError("فایل فیش را انتخاب کنید.");
       showToast("فایل فیش را انتخاب کنید", "error");
       return;
     }
     if (!ALLOWED.has(file.type)) {
+      setError("فقط jpg / png / webp / pdf مجاز است.");
       showToast("فقط jpg/png/webp/pdf", "error");
       return;
     }
@@ -80,6 +87,7 @@ export function FundMemberProof({
         note: note.trim() || null,
       });
       if (!intent.ok) {
+        setError(intent.error);
         showToast(intent.error, "error");
         return;
       }
@@ -93,6 +101,7 @@ export function FundMemberProof({
         body: selected,
       });
       if (!put.ok) {
+        setError("آپلود فایل ناموفق بود. دوباره تلاش کنید.");
         showToast("آپلود فایل ناموفق بود", "error");
         return;
       }
@@ -102,6 +111,7 @@ export function FundMemberProof({
         proofId: intent.proofId,
       });
       if (!confirmed.ok) {
+        setError(confirmed.error);
         showToast(confirmed.error, "error");
         return;
       }
@@ -109,6 +119,7 @@ export function FundMemberProof({
       showToast("فیش ارسال شد");
       setFile(null);
       setNote("");
+      setError(null);
       router.refresh();
     });
   }
@@ -127,7 +138,7 @@ export function FundMemberProof({
   return (
     <section className="space-y-3 rounded-2xl border border-border/50 bg-card p-4 shadow-sm">
       <div>
-        <h2 className="text-body-sm font-semibold text-foreground">
+        <h2 className="text-pretty text-body-sm font-semibold text-foreground">
           فیش پرداخت · دوره {periodIndex}
         </h2>
         <p className="mt-0.5 text-caption text-muted-foreground">
@@ -148,25 +159,56 @@ export function FundMemberProof({
         </p>
       ) : (
         <form onSubmit={onUpload} className="space-y-2.5">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
-            className="block w-full text-caption file:me-2 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-caption file:font-semibold"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="یادداشت (اختیاری)"
-            maxLength={200}
-            className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-body-sm"
-          />
+          <div className="space-y-1">
+            <label
+              htmlFor="fund-proof-file"
+              className="text-label text-muted-foreground"
+            >
+              فایل فیش
+            </label>
+            <Input
+              id="fund-proof-file"
+              name="proofFile"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              aria-label="انتخاب فایل فیش (jpg، png، webp یا pdf)"
+              className="h-11 rounded-xl text-caption file:me-2"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="fund-proof-note"
+              className="text-label text-muted-foreground"
+            >
+              یادداشت
+            </label>
+            <Input
+              id="fund-proof-note"
+              name="note"
+              autoComplete="off"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="اختیاری…"
+              maxLength={200}
+              className="h-10 rounded-xl"
+            />
+          </div>
+          {error ? (
+            <p
+              className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
+              {error}
+            </p>
+          ) : null}
           <Button
             type="submit"
             className="h-11 w-full rounded-xl"
             disabled={pending || !file}
           >
-            {pending ? "…" : "ارسال فیش"}
+            {pending ? "در حال ارسال…" : "ارسال فیش"}
           </Button>
         </form>
       )}
@@ -176,7 +218,7 @@ export function FundMemberProof({
           {periodProofs.map((p) => (
             <li
               key={p.id}
-              className="flex items-center justify-between gap-2 px-3 py-2.5"
+              className="flex items-center justify-between gap-2 px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_3.5rem]"
             >
               <div className="min-w-0">
                 <p className="text-caption font-semibold text-foreground">
@@ -222,6 +264,7 @@ export function FundProofsInbox({
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [note, setNote] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const pendingCount = proofs.filter((p) => p.status === "PENDING").length;
   const visible =
@@ -241,6 +284,8 @@ export function FundProofsInbox({
   }
 
   function review(proofId: string, status: "APPROVED" | "REJECTED") {
+    if (pending) return;
+    setError(null);
     startTransition(async () => {
       const result = await reviewFundProof({
         spaceId,
@@ -249,12 +294,16 @@ export function FundProofsInbox({
         reviewNote: note.trim() || null,
       });
       if (!result.ok) {
+        setError(result.error);
         showToast(result.error, "error");
         return;
       }
-      showToast(status === "APPROVED" ? "فیش تایید و پرداخت ثبت شد" : "فیش رد شد");
+      showToast(
+        status === "APPROVED" ? "فیش تایید و پرداخت ثبت شد" : "فیش رد شد",
+      );
       setSelectedId(null);
       setNote("");
+      setError(null);
       router.refresh();
     });
   }
@@ -264,8 +313,8 @@ export function FundProofsInbox({
   return (
     <section className="space-y-2 rounded-2xl border border-border/50 bg-card px-3.5 py-3 shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-body-sm font-semibold text-foreground">
+        <div className="min-w-0">
+          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
             فیش‌های اعضا
           </h3>
           <p className="text-caption text-muted-foreground">
@@ -274,7 +323,11 @@ export function FundProofsInbox({
               : "فیش باز نیست"}
           </p>
         </div>
-        <div className="flex gap-1 rounded-xl bg-muted/70 p-0.5">
+        <div
+          role="radiogroup"
+          aria-label="فیلتر فیش‌ها"
+          className="flex gap-1 rounded-xl bg-muted/70 p-0.5"
+        >
           {(
             [
               { id: "pending" as const, label: "باز" },
@@ -284,12 +337,14 @@ export function FundProofsInbox({
             <button
               key={t.id}
               type="button"
+              role="radio"
+              aria-checked={filter === t.id}
               onClick={() => setFilter(t.id)}
               className={cn(
-                "rounded-lg px-2.5 py-1 text-caption font-semibold",
+                "rounded-lg px-2.5 py-1 text-caption font-semibold transition-colors",
                 filter === t.id
                   ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground",
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
@@ -300,7 +355,10 @@ export function FundProofsInbox({
 
       <ul className="divide-y divide-border/40 overflow-hidden rounded-xl border border-border/40">
         {visible.map((p) => (
-          <li key={p.id} className="space-y-2 px-3 py-2.5">
+          <li
+            key={p.id}
+            className="space-y-2 px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_4rem]"
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-body-sm font-semibold text-foreground">
@@ -331,9 +389,13 @@ export function FundProofsInbox({
                     size="sm"
                     variant="outline"
                     className="h-8 rounded-lg text-caption"
-                    onClick={() =>
-                      setSelectedId(selectedId === p.id ? null : p.id)
-                    }
+                    aria-expanded={selectedId === p.id}
+                    disabled={pending}
+                    onClick={() => {
+                      setSelectedId(selectedId === p.id ? null : p.id);
+                      setError(null);
+                      setNote("");
+                    }}
                   >
                     بررسی
                   </Button>
@@ -348,13 +410,33 @@ export function FundProofsInbox({
                     (سهم مورد انتظار)
                   </span>
                 </p>
-                <input
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="یادداشت بررسی (اختیاری)"
-                  className="h-9 w-full rounded-lg border border-border/60 bg-background px-2.5 text-caption"
-                  maxLength={300}
-                />
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`fund-review-note-${p.id}`}
+                    className="text-label text-muted-foreground"
+                  >
+                    یادداشت بررسی
+                  </label>
+                  <Input
+                    id={`fund-review-note-${p.id}`}
+                    name="reviewNote"
+                    autoComplete="off"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="اختیاری…"
+                    className="h-9 rounded-lg"
+                    maxLength={300}
+                  />
+                </div>
+                {error ? (
+                  <p
+                    className="rounded-lg bg-destructive-soft px-2 py-1.5 text-caption text-destructive"
+                    role="alert"
+                    aria-live="assertive"
+                  >
+                    {error}
+                  </p>
+                ) : null}
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -363,7 +445,7 @@ export function FundProofsInbox({
                     disabled={pending}
                     onClick={() => review(p.id, "APPROVED")}
                   >
-                    تایید
+                    {pending ? "در حال ذخیره…" : "تایید"}
                   </Button>
                   <Button
                     type="button"
@@ -373,7 +455,7 @@ export function FundProofsInbox({
                     disabled={pending}
                     onClick={() => review(p.id, "REJECTED")}
                   >
-                    رد
+                    {pending ? "در حال ذخیره…" : "رد"}
                   </Button>
                 </div>
               </div>

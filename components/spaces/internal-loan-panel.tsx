@@ -150,7 +150,7 @@ export function InternalLoanPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-body-sm font-semibold text-foreground">
+          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
             وام خانوادگی
           </h3>
           <p className="text-caption text-muted-foreground">
@@ -206,7 +206,11 @@ export function InternalLoanPanel({
       ) : null}
 
       {error && !createOpen && !payLoan ? (
-        <p className="text-caption text-destructive" role="alert">
+        <p
+          className="text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}
@@ -248,10 +252,17 @@ export function InternalLoanPanel({
                   </Button>
                 ) : null}
               </div>
-              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="mt-2.5 h-2 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-valuenow={loan.progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`پیشرفت بازپرداخت ${loan.fromName} به ${loan.toName}`}
+              >
                 <div
                   className={cn(
-                    "h-full rounded-full bg-primary transition-all",
+                    "h-full rounded-full bg-primary transition-[width] duration-300 ease-out",
                     loan.progressPercent >= 100 && "bg-success",
                   )}
                   style={{ width: `${loan.progressPercent}%` }}
@@ -265,6 +276,7 @@ export function InternalLoanPanel({
       {settled.length > 0 ? (
         <button
           type="button"
+          aria-expanded={showSettled}
           className="text-caption text-muted-foreground underline-offset-2 hover:underline"
           onClick={() => setShowSettled((v) => !v)}
         >
@@ -284,19 +296,35 @@ export function InternalLoanPanel({
           ))
         : null}
 
-      <Drawer open={createOpen} onOpenChange={setCreateOpen}>
-        <DrawerContent className="border-border/60 bg-[#eef5f4]">
-          <DrawerHeader className="text-start">
-            <DrawerTitle>وام خانوادگی جدید</DrawerTitle>
-            <DrawerDescription>
-              وام‌دهنده و وام‌گیرنده را از اعضای همین فضا انتخاب کنید.
-            </DrawerDescription>
-          </DrawerHeader>
-          <form onSubmit={onCreate} className="space-y-3 px-4 pb-8">
+      <Drawer
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        repositionInputs={false}
+      >
+        <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
+            <DrawerHeader className="space-y-0 p-0 text-start">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
+                وام خانوادگی جدید
+              </DrawerTitle>
+              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
+                وام‌دهنده و وام‌گیرنده را از اعضای همین فضا انتخاب کنید.
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+          <form
+            onSubmit={onCreate}
+            className="space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          >
             <div className="space-y-1.5">
-              <p className="text-caption font-medium">وام‌دهنده</p>
+              <p className="text-caption font-medium text-muted-foreground">
+                وام‌دهنده
+              </p>
               <Select value={fromId} onValueChange={setFromId}>
-                <SelectTrigger className="h-11 rounded-xl">
+                <SelectTrigger
+                  className="h-11 rounded-xl"
+                  aria-label="وام‌دهنده"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -309,9 +337,14 @@ export function InternalLoanPanel({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <p className="text-caption font-medium">وام‌گیرنده</p>
+              <p className="text-caption font-medium text-muted-foreground">
+                وام‌گیرنده
+              </p>
               <Select value={toId} onValueChange={setToId}>
-                <SelectTrigger className="h-11 rounded-xl">
+                <SelectTrigger
+                  className="h-11 rounded-xl"
+                  aria-label="وام‌گیرنده"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -323,21 +356,43 @@ export function InternalLoanPanel({
                 </SelectContent>
               </Select>
             </div>
-            <Input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="numeric"
-              placeholder="مبلغ"
-              className="h-11 rounded-xl"
-              required
-            />
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="یادداشت (اختیاری)"
-              className="h-11 rounded-xl"
-            />
-            <label className="flex items-center gap-2 text-body-sm">
+            <div className="space-y-1">
+              <label
+                htmlFor="loan-amount"
+                className="text-label text-muted-foreground"
+              >
+                مبلغ
+              </label>
+              <Input
+                id="loan-amount"
+                name="amount"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                inputMode="numeric"
+                placeholder="مثلاً ۲۰۰۰۰۰۰…"
+                className="h-11 rounded-xl"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="loan-note"
+                className="text-label text-muted-foreground"
+              >
+                یادداشت
+              </label>
+              <Input
+                id="loan-note"
+                name="note"
+                autoComplete="off"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="اختیاری…"
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-body-sm">
               <Checkbox
                 checked={hasDue}
                 onCheckedChange={(v) => setHasDue(v === true)}
@@ -348,7 +403,11 @@ export function InternalLoanPanel({
               <JalaliDatePicker value={dueDate} onChange={setDueDate} />
             ) : null}
             {error ? (
-              <p className="text-caption text-destructive" role="alert">
+              <p
+                className="text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </p>
             ) : null}
@@ -357,7 +416,7 @@ export function InternalLoanPanel({
               className="h-11 w-full rounded-xl"
               disabled={pending || !fromId || !toId}
             >
-              {pending ? "…" : "ثبت وام"}
+              {pending ? "در حال ثبت…" : "ثبت وام"}
             </Button>
           </form>
         </DrawerContent>
@@ -368,34 +427,68 @@ export function InternalLoanPanel({
         onOpenChange={(open) => {
           if (!open) setPayLoan(null);
         }}
+        repositionInputs={false}
       >
-        <DrawerContent className="border-border/60 bg-[#eef5f4]">
-          <DrawerHeader className="text-start">
-            <DrawerTitle>بازپرداخت</DrawerTitle>
-            <DrawerDescription>
-              {payLoan
-                ? `${payLoan.fromName} → ${payLoan.toName} · مانده ${formatCurrency(payLoan.remaining, currency)}`
-                : ""}
-            </DrawerDescription>
-          </DrawerHeader>
-          <form onSubmit={onPay} className="space-y-3 px-4 pb-8">
-            <Input
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-              inputMode="numeric"
-              placeholder="مبلغ پرداخت"
-              className="h-11 rounded-xl"
-              required
-            />
-            <Input
-              value={payNote}
-              onChange={(e) => setPayNote(e.target.value)}
-              placeholder="یادداشت (اختیاری)"
-              className="h-11 rounded-xl"
-            />
+        <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
+            <DrawerHeader className="space-y-0 p-0 text-start">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
+                بازپرداخت
+              </DrawerTitle>
+              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
+                {payLoan
+                  ? `${payLoan.fromName} → ${payLoan.toName} · مانده ${formatCurrency(payLoan.remaining, currency)}`
+                  : ""}
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+          <form
+            onSubmit={onPay}
+            className="space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          >
+            <div className="space-y-1">
+              <label
+                htmlFor="loan-pay-amount"
+                className="text-label text-muted-foreground"
+              >
+                مبلغ پرداخت
+              </label>
+              <Input
+                id="loan-pay-amount"
+                name="payAmount"
+                autoComplete="off"
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                inputMode="numeric"
+                placeholder="مثلاً ۵۰۰۰۰۰…"
+                className="h-11 rounded-xl"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="loan-pay-note"
+                className="text-label text-muted-foreground"
+              >
+                یادداشت
+              </label>
+              <Input
+                id="loan-pay-note"
+                name="payNote"
+                autoComplete="off"
+                value={payNote}
+                onChange={(e) => setPayNote(e.target.value)}
+                placeholder="اختیاری…"
+                className="h-11 rounded-xl"
+              />
+            </div>
             <JalaliDatePicker value={payDate} onChange={setPayDate} />
             {error ? (
-              <p className="text-caption text-destructive" role="alert">
+              <p
+                className="text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </p>
             ) : null}
@@ -404,7 +497,7 @@ export function InternalLoanPanel({
               className="h-11 w-full rounded-xl"
               disabled={pending}
             >
-              {pending ? "…" : "ثبت پرداخت"}
+              {pending ? "در حال ثبت…" : "ثبت پرداخت"}
             </Button>
           </form>
         </DrawerContent>

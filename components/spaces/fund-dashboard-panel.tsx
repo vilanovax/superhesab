@@ -98,7 +98,7 @@ export function FundDashboardPanel({
           <div className="mx-auto flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <PlanIcon className="size-5" />
           </div>
-          <h2 className="mt-3 text-body font-semibold text-foreground">
+          <h2 className="mt-3 text-pretty text-body font-semibold text-foreground">
             پلن صندوق هنوز تعریف نشده
           </h2>
           <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
@@ -127,6 +127,7 @@ export function FundDashboardPanel({
         <p
           className="rounded-xl bg-destructive-soft px-3 py-2 text-body-sm text-destructive"
           role="alert"
+          aria-live="assertive"
         >
           {error}
         </p>
@@ -166,7 +167,11 @@ export function FundDashboardPanel({
           </div>
         </div>
 
-        <div className="overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          role="navigation"
+          aria-label="دوره‌های صندوق"
+          className="overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           <div className="flex w-max gap-1">
             {dashboard.periods.map((p) => {
               const active = p.periodIndex === dashboard.periodIndex;
@@ -175,6 +180,12 @@ export function FundDashboardPanel({
                 <Link
                   key={p.periodIndex}
                   href={`/spaces/${spaceId}?period=${p.periodIndex}`}
+                  aria-current={active ? "page" : undefined}
+                  aria-label={
+                    p.winnerName
+                      ? `دوره ${p.periodIndex} · ${p.winnerName}`
+                      : `دوره ${p.periodIndex}`
+                  }
                   title={
                     p.winnerName
                       ? `دوره ${p.periodIndex} · ${p.winnerName}`
@@ -220,8 +231,11 @@ export function FundDashboardPanel({
                 }
                 disabled={pending}
               >
-                <SelectTrigger className="mt-1.5 h-10 rounded-xl">
-                  <SelectValue placeholder="انتخاب برنده" />
+                <SelectTrigger
+                  className="mt-1.5 h-10 rounded-xl"
+                  aria-label="انتخاب برنده دوره"
+                >
+                  <SelectValue placeholder="انتخاب برنده…" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">— بدون برنده —</SelectItem>
@@ -262,7 +276,14 @@ export function FundDashboardPanel({
                 </span>
               </p>
             </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="پیشرفت وصول دوره"
+            >
               <div
                 className={cn(
                   "h-full rounded-full transition-[width] duration-300 ease-out",
@@ -361,7 +382,7 @@ export function FundDashboardPanel({
 
       <section>
         <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-caption font-semibold text-muted-foreground">
+          <h2 className="text-pretty text-caption font-semibold text-muted-foreground">
             پرداخت اعضا
           </h2>
           <p className="text-caption tabular-nums text-muted-foreground">
@@ -379,7 +400,7 @@ export function FundDashboardPanel({
               <li
                 key={m.memberId}
                 className={cn(
-                  "flex items-center justify-between gap-3 px-3.5 py-2.5",
+                  "flex items-center justify-between gap-3 px-3.5 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]",
                   i > 0 && "border-t border-border/40",
                 )}
               >

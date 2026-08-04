@@ -40,10 +40,18 @@ export function FundPlanSettings({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (disabled) return;
+    if (disabled || pending) return;
     setError(null);
 
     const periods = Math.trunc(Number(periodCount.replace(/\D/g, ""))) || 0;
+    if (periods < 2 || periods > 60) {
+      setError("تعداد دوره باید بین ۲ تا ۶۰ باشد.");
+      return;
+    }
+    if (Math.trunc(shareAmount) <= 0) {
+      setError("مبلغ سهم را وارد کنید.");
+      return;
+    }
 
     startTransition(async () => {
       const result = await upsertFundPlan({
@@ -65,7 +73,7 @@ export function FundPlanSettings({
     <div className="space-y-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-body-sm font-semibold text-foreground">
+          <h2 className="text-pretty text-body-sm font-semibold text-foreground">
             پلن صندوق
           </h2>
           <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
@@ -97,10 +105,11 @@ export function FundPlanSettings({
             </Label>
             <MoneyInput
               id="fundShareAmount"
+              name="shareAmount"
               value={shareAmount}
               onValueChange={setShareAmount}
               disabled={disabled || pending}
-              placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}`}
+              placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}…`}
               className="h-11 rounded-xl"
               required
             />
@@ -112,11 +121,13 @@ export function FundPlanSettings({
             </Label>
             <Input
               id="fundPeriodCount"
+              name="periodCount"
+              autoComplete="off"
+              inputMode="numeric"
               value={periodCount}
               onChange={(e) => setPeriodCount(e.target.value)}
-              inputMode="numeric"
               disabled={disabled || pending}
-              placeholder="مثلاً ۱۲"
+              placeholder="مثلاً ۱۲…"
               className="h-11 rounded-xl tabular-nums"
               required
             />
@@ -125,7 +136,11 @@ export function FundPlanSettings({
         </div>
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}
@@ -140,7 +155,11 @@ export function FundPlanSettings({
             className="h-11 w-full rounded-xl active:scale-[0.98]"
             disabled={pending}
           >
-            {pending ? "…" : hasPlan ? "ذخیره پلن" : "ایجاد پلن و دوره‌ها"}
+            {pending
+              ? "در حال ذخیره…"
+              : hasPlan
+                ? "ذخیره پلن"
+                : "ایجاد پلن و دوره‌ها"}
           </Button>
         )}
       </form>

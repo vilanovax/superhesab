@@ -140,7 +140,13 @@ export function SpaceChecklist({
     <div className="space-y-4">
       {canMutate ? (
         <form onSubmit={onAdd} className="flex gap-2">
+          <label htmlFor="checklist-item-title" className="sr-only">
+            آیتم جدید
+          </label>
           <Input
+            id="checklist-item-title"
+            name="title"
+            autoComplete="off"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="آیتم جدید…"
@@ -148,13 +154,17 @@ export function SpaceChecklist({
             disabled={pending}
           />
           <Button type="submit" className="h-12 shrink-0 px-5" disabled={pending}>
-            افزودن
+            {pending ? "…" : "افزودن"}
           </Button>
         </form>
       ) : null}
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="text-sm text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}
@@ -174,7 +184,7 @@ export function SpaceChecklist({
           {optimisticItems.map((item) => (
             <li
               key={item.id}
-              className="flex min-h-12 items-center gap-3 rounded-xl border border-border/80 bg-card/90 px-3 py-2 backdrop-blur-sm"
+              className="flex min-h-12 items-center gap-3 rounded-xl border border-border/80 bg-card/90 px-3 py-2 backdrop-blur-sm [content-visibility:auto] [contain-intrinsic-size:auto_3rem]"
             >
               <Checkbox
                 checked={item.isCompleted}
@@ -200,7 +210,7 @@ export function SpaceChecklist({
                   className="size-12 shrink-0 text-muted-foreground hover:text-destructive"
                   onClick={() => onDelete(item.id)}
                   disabled={item.id.startsWith("temp-")}
-                  aria-label="حذف"
+                  aria-label={`حذف «${item.title}»`}
                 >
                   <TrashIcon className="size-5" />
                 </Button>

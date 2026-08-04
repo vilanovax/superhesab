@@ -21,7 +21,7 @@ export function FundMemberPortal({ portal }: FundMemberPortalProps) {
       <section className="overflow-hidden rounded-2xl border border-border/55 bg-card shadow-sm">
         <div className="px-4 pb-3 pt-4">
           <p className="text-caption text-muted-foreground">صندوق نوبتی</p>
-          <h1 className="mt-0.5 truncate text-lg font-bold text-foreground">
+          <h1 className="mt-0.5 truncate text-pretty text-lg font-bold text-foreground">
             {portal.spaceName}
           </h1>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -35,7 +35,11 @@ export function FundMemberPortal({ portal }: FundMemberPortalProps) {
           </p>
         ) : (
           <>
-            <div className="overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              role="navigation"
+              aria-label="دوره‌های صندوق"
+              className="overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               <div className="flex w-max gap-1">
                 {portal.periods.map((p) => {
                   const active = p.periodIndex === portal.periodIndex;
@@ -43,13 +47,15 @@ export function FundMemberPortal({ portal }: FundMemberPortalProps) {
                     <Link
                       key={p.periodIndex}
                       href={`/spaces/${portal.spaceId}/member?period=${p.periodIndex}`}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={`دوره ${p.periodIndex}${p.paid ? " · پرداخت‌شده" : ""}`}
                       className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-bold tabular-nums",
+                        "flex size-8 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-bold tabular-nums transition-colors",
                         active
                           ? "bg-primary text-primary-foreground"
                           : p.paid
                             ? "bg-success-soft text-success"
-                            : "bg-muted text-muted-foreground",
+                            : "bg-muted text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {p.periodIndex}

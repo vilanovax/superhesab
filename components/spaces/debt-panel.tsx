@@ -109,6 +109,7 @@ export function DebtPanel({
 
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError(null);
     startTransition(async () => {
       const result = await createDebt({
@@ -129,7 +130,7 @@ export function DebtPanel({
 
   function onPay(e: React.FormEvent) {
     e.preventDefault();
-    if (!payDebt) return;
+    if (!payDebt || pending) return;
     setError(null);
     startTransition(async () => {
       const result = await addDebtPayment({
@@ -248,6 +249,7 @@ export function DebtPanel({
         <div className="space-y-2">
           <button
             type="button"
+            aria-expanded={showArchive}
             className="text-caption font-semibold text-muted-foreground underline-offset-2 hover:underline"
             onClick={() => setShowArchive((v) => !v)}
           >
@@ -292,7 +294,11 @@ export function DebtPanel({
             onSubmit={onCreate}
             className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
           >
-            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/80 p-1">
+            <div
+              role="radiogroup"
+              aria-label="نوع بدهی یا طلب"
+              className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/80 p-1"
+            >
               {(
                 [
                   { value: "LENT" as const, label: "طلب", hint: "قرض دادم" },
@@ -308,6 +314,8 @@ export function DebtPanel({
                   <button
                     key={opt.value}
                     type="button"
+                    role="radio"
+                    aria-checked={active}
                     onClick={() => setType(opt.value)}
                     className={cn(
                       "flex h-12 flex-col items-center justify-center rounded-xl transition-colors",
@@ -333,32 +341,43 @@ export function DebtPanel({
             </div>
 
             <div className="space-y-2">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="debt-counterparty"
+                className="text-label text-muted-foreground"
+              >
                 طرف حساب
               </label>
               <Input
+                id="debt-counterparty"
+                name="counterparty"
+                autoComplete="off"
                 value={counterparty}
                 onChange={(e) => setCounterparty(e.target.value)}
-                placeholder="مثلاً علی"
+                placeholder="مثلاً علی…"
                 className="h-12 rounded-xl border-border/70 bg-card text-base"
                 required
                 minLength={2}
-                autoComplete="off"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="debt-amount"
+                className="text-label text-muted-foreground"
+              >
                 مبلغ اولیه
               </label>
               <Input
+                id="debt-amount"
+                name="amount"
+                autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={amount}
                 onChange={(e) =>
                   setAmount(e.target.value.replace(/[^\d]/g, ""))
                 }
-                placeholder="۰"
+                placeholder="مثلاً ۵۰۰۰۰۰…"
                 className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
                 required
               />
@@ -386,7 +405,11 @@ export function DebtPanel({
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
+              <p
+                className="text-sm text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </p>
             ) : null}
@@ -396,7 +419,7 @@ export function DebtPanel({
               className="h-12 w-full rounded-2xl text-base font-semibold"
               disabled={pending}
             >
-              {pending ? "…" : "ثبت"}
+              {pending ? "در حال ثبت…" : "ثبت"}
             </Button>
           </form>
         </DrawerContent>
@@ -432,15 +455,23 @@ export function DebtPanel({
             className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
           >
             <div className="space-y-2">
-              <label className="text-label text-muted-foreground">مبلغ</label>
+              <label
+                htmlFor="debt-pay-amount"
+                className="text-label text-muted-foreground"
+              >
+                مبلغ
+              </label>
               <Input
+                id="debt-pay-amount"
+                name="payAmount"
+                autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={payAmount}
                 onChange={(e) =>
                   setPayAmount(e.target.value.replace(/[^\d]/g, ""))
                 }
-                placeholder="۰"
+                placeholder="مثلاً ۱۰۰۰۰۰…"
                 className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
                 required
               />
@@ -475,20 +506,30 @@ export function DebtPanel({
             </div>
 
             <div className="space-y-2">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="debt-pay-note"
+                className="text-label text-muted-foreground"
+              >
                 یادداشت
               </label>
               <Input
+                id="debt-pay-note"
+                name="payNote"
+                autoComplete="off"
                 value={payNote}
                 onChange={(e) => setPayNote(e.target.value)}
-                placeholder="اختیاری"
+                placeholder="اختیاری…"
                 className="h-12 rounded-xl border-border/70 bg-card"
                 maxLength={200}
               />
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
+              <p
+                className="text-sm text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </p>
             ) : null}
@@ -498,7 +539,7 @@ export function DebtPanel({
               className="h-12 w-full rounded-2xl text-base font-semibold"
               disabled={pending}
             >
-              {pending ? "…" : "ثبت"}
+              {pending ? "در حال ثبت…" : "ثبت"}
             </Button>
           </form>
         </DrawerContent>
@@ -538,7 +579,7 @@ function DebtSection({
 
   return (
     <section className="space-y-2">
-      <h3 className="px-0.5 text-caption font-semibold text-muted-foreground">
+      <h3 className="px-0.5 text-pretty text-caption font-semibold text-muted-foreground">
         {title}
       </h3>
       <ul className="space-y-2.5">

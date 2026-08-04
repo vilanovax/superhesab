@@ -146,14 +146,17 @@ export function FamilyReportPanel({
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-border/55 bg-card p-3 shadow-sm">
-        <p className="mb-2 text-caption font-semibold text-muted-foreground">
+        <h2 className="mb-2 text-pretty text-caption font-semibold text-muted-foreground">
           فیلتر گزارش
-        </p>
+        </h2>
         <Select
           value={filter}
           onValueChange={(v) => startTransition(() => setFilter(v))}
         >
-          <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
+          <SelectTrigger
+            className="h-11 rounded-xl border-border/70 bg-sheet-muted"
+            aria-label="فیلتر گزارش بر اساس پرداخت‌کننده"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -179,10 +182,17 @@ export function FamilyReportPanel({
               {formatCurrency(monthlyBudget!, currency)}
             </span>
           </div>
-          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuenow={Math.min(100, usedPct!)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="مصرف بودجه ماه"
+          >
             <div
               className={cn(
-                "h-full rounded-full transition-all",
+                "h-full rounded-full transition-[width] duration-300 ease-out",
                 usedPct! > 100 ? "bg-destructive" : "bg-primary",
               )}
               style={{ width: `${Math.min(100, usedPct!)}%` }}

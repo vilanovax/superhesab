@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate, getTemplateDataset } from "@/lib/templates/registry";
-import { prisma } from "@/lib/db/prisma";
 
 type MemberPageProps = {
   params: Promise<{ id: string }>;
@@ -18,8 +17,8 @@ export default async function FundMemberPage({
   params,
   searchParams,
 }: MemberPageProps) {
-  const { id } = await params;
-  const { period: periodParam } = await searchParams;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const { period: periodParam } = sp;
   const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
   if (!membership) notFound();
@@ -28,11 +27,8 @@ export default async function FundMemberPage({
     redirect(`/spaces/${id}`);
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id },
-    select: { type: true, name: true },
-  });
-  if (!space || !getTemplate(space.type).features.fundRotating) {
+  const space = membership.space;
+  if (!getTemplate(space.type).features.fundRotating) {
     notFound();
   }
 

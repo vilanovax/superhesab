@@ -4,19 +4,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { PwaRuntime } from "@/components/pwa/pwa-runtime";
 import "./globals.css";
 
-/** Vazir FD-WOL (Farsi digits) — self-hosted from public/fonts */
+/**
+ * Vazir FD-WOL (Farsi digits) — only weights the UI actually uses.
+ * Dropped Thin/Light (~47KB) — no font-thin / font-light in the app.
+ * Tailwind semibold (600) → Medium; extrabold (800) → Bold.
+ */
 const vazir = localFont({
   src: [
-    {
-      path: "../public/fonts/Vazir-Thin-FD-WOL.woff2",
-      weight: "100",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/Vazir-Light-FD-WOL.woff2",
-      weight: "300",
-      style: "normal",
-    },
     {
       path: "../public/fonts/Vazir-FD-WOL.woff2",
       weight: "400",
@@ -27,7 +21,6 @@ const vazir = localFont({
       weight: "500",
       style: "normal",
     },
-    // Map Tailwind semibold (600) → Medium
     {
       path: "../public/fonts/Vazir-Medium-FD-WOL.woff2",
       weight: "600",
@@ -38,7 +31,6 @@ const vazir = localFont({
       weight: "700",
       style: "normal",
     },
-    // Map Tailwind extrabold (800) → Bold
     {
       path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
       weight: "800",
@@ -48,6 +40,7 @@ const vazir = localFont({
   variable: "--font-vazirmatn",
   display: "swap",
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+  preload: true,
 });
 
 export const metadata: Metadata = {

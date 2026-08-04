@@ -21,7 +21,12 @@ import {
  * Streams after hero — expense list, deferred tabs, fund panel, FAB.
  * Tab-aware: only the active tab’s heavy payload is awaited on first paint.
  */
-export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
+export async function SpacePageBody({
+  ctxPromise,
+}: {
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  const ctx = await ctxPromise;
   const {
     id,
     session,

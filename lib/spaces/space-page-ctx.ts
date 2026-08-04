@@ -1,5 +1,8 @@
 import { cache } from "react";
-import { getBuildingManagerView } from "@/app/actions/building";
+import {
+  getBuildingDashboard,
+  getBuildingManagerView,
+} from "@/app/actions/building";
 import { getFundDashboard, listFundProofsForManager } from "@/app/actions/fund";
 import { getSpaceBalances } from "@/app/actions/settlement";
 import { requireSpaceMember } from "@/lib/auth/guards";
@@ -270,6 +273,40 @@ export const loadCachedBalances = cache(async (spaceId: string) => {
 export const loadCachedBuildingView = cache(
   async (spaceId: string, planYear: number) => {
     return getBuildingManagerView(spaceId, planYear);
+  },
+);
+
+/**
+ * Hero-only building summary. Shares `loadBuildingChargeData` with the full
+ * manager view via React.cache — no second plan/units/payments round-trip.
+ */
+export const loadCachedBuildingDashboard = cache(
+  async (spaceId: string, planYear: number) => {
+    return getBuildingDashboard(spaceId, planYear);
+  },
+);
+
+/** Month expense total for BUILDING hero — avoids loading every month row. */
+export const loadMonthExpenseTotal = cache(
+  async (
+    spaceId: string,
+    startMs: number,
+    endMs: number,
+    hiddenCategoriesKey: string,
+  ) => {
+    const hidden = hiddenCategoriesKey
+      ? (hiddenCategoriesKey.split(",") as ExpenseCategory[])
+      : [];
+    const agg = await prisma.expense.aggregate({
+      where: {
+        spaceId,
+        transactionType: "EXPENSE",
+        date: { gte: new Date(startMs), lte: new Date(endMs) },
+        ...categoryPrivacyFilter(hidden),
+      },
+      _sum: { totalAmount: true },
+    });
+    return agg._sum.totalAmount ?? 0;
   },
 );
 

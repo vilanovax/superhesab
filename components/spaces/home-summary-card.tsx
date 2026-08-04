@@ -24,10 +24,10 @@ function Amount({
 }) {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
-      <span className="text-display font-bold leading-none tabular-nums tracking-tight">
+      <span className="text-[1.85rem] font-bold leading-none tabular-nums tracking-tight sm:text-display">
         {formatMoney(amount)}
       </span>
-      <span className="text-body-sm font-semibold text-on-hero/70">
+      <span className="text-body-sm font-medium text-on-hero/75">
         {currencyLabel(currency)}
       </span>
     </span>
@@ -44,12 +44,12 @@ function NetHeadline({
 
   return (
     <div>
-      <p className="text-caption text-on-hero/65">
+      <p className="text-caption font-medium text-on-hero/70">
         {settled ? "وضعیت شما" : isCredit ? "طلب شما" : "بدهی شما"}
       </p>
-      <p className="mt-1 text-on-hero">
+      <p className="mt-1.5 text-on-hero">
         {settled ? (
-          <span className="text-display font-bold leading-none tracking-tight">
+          <span className="text-[1.85rem] font-bold leading-none tracking-tight sm:text-display">
             تسویه
           </span>
         ) : (
@@ -57,7 +57,7 @@ function NetHeadline({
         )}
       </p>
       {row.credit > 0 && row.debit > 0 ? (
-        <p className="mt-2 text-caption tabular-nums text-on-hero/70">
+        <p className="mt-2.5 text-caption tabular-nums text-on-hero/70">
           طلب {formatCurrency(row.credit, row.currency)}
           {" · "}
           بدهی {formatCurrency(row.debit, row.currency)}
@@ -77,20 +77,32 @@ export function HomeSummaryCard({ summary }: { summary: HomeSummary }) {
 
   return (
     <section
-      className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-[1.25rem] px-5 py-4 shadow-md"
+      className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-3xl px-5 py-5 shadow-md"
       aria-label="خلاصه مالی"
     >
+      {/* Soft light wells — depth without competing with the amount */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -end-8 -top-12 size-32 rounded-full bg-on-hero/15 blur-3xl"
+        className="pointer-events-none absolute -inset-e-10 -top-14 size-40 rounded-full bg-on-hero/12 blur-3xl"
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-s-12 -bottom-10 size-36 rounded-full bg-ink/25 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-linear-to-l from-transparent via-on-hero/25 to-transparent"
+      />
+
       <div className="relative">
         {primaryNet ? (
           <NetHeadline row={primaryNet} />
         ) : (
           <div>
-            <p className="text-caption text-on-hero/65">خرج این ماه</p>
-            <p className="mt-1 text-on-hero">
+            <p className="text-caption font-medium text-on-hero/70">
+              خرج این ماه
+            </p>
+            <p className="mt-1.5 text-on-hero">
               <Amount
                 amount={primarySpend!.amount}
                 currency={primarySpend!.currency}
@@ -100,7 +112,7 @@ export function HomeSummaryCard({ summary }: { summary: HomeSummary }) {
         )}
 
         {extraNets.length > 0 ? (
-          <p className="mt-2 text-caption tabular-nums text-on-hero/70">
+          <p className="mt-2.5 text-caption tabular-nums text-on-hero/70">
             {extraNets
               .map(
                 (r) =>
@@ -111,8 +123,10 @@ export function HomeSummaryCard({ summary }: { summary: HomeSummary }) {
         ) : null}
 
         {primaryNet && primarySpend ? (
-          <div className="mt-3 flex items-center gap-2 border-t border-on-hero/15 pt-3">
-            <span className="text-caption text-on-hero/65">خرج این ماه</span>
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-on-hero/10 px-3.5 py-2.5 ring-1 ring-on-hero/10">
+            <span className="text-caption font-medium text-on-hero/70">
+              خرج این ماه
+            </span>
             <span className="text-body-sm font-semibold tabular-nums text-on-hero">
               {formatCurrency(primarySpend.amount, primarySpend.currency)}
             </span>

@@ -4,6 +4,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
@@ -29,6 +30,43 @@ export const DEFERRED_TABS = new Set<SpaceTabId>([
   "expenses",
   "units",
 ]);
+
+/** In-flight tab fetches — dedupe rapid tab switches / double taps. */
+const tabInflight = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof loadSpaceTabData>>>
+>();
+
+function tabFetchKey(
+  spaceId: string,
+  tab: SpaceTabId,
+  year?: number,
+  reportMonth?: number | null,
+) {
+  return `${spaceId}|${tab}|${year ?? ""}|${reportMonth ?? ""}`;
+}
+
+function loadSpaceTabDataDeduped(input: {
+  spaceId: string;
+  tab: SpaceTabId;
+  year?: number;
+  reportMonth?: number | null;
+}) {
+  const key = tabFetchKey(
+    input.spaceId,
+    input.tab,
+    input.year,
+    input.reportMonth,
+  );
+  const existing = tabInflight.get(key);
+  if (existing) return existing;
+
+  const promise = loadSpaceTabData(input).finally(() => {
+    tabInflight.delete(key);
+  });
+  tabInflight.set(key, promise);
+  return promise;
+}
 
 export function syncTabQuery(tab: string) {
   if (typeof window === "undefined") return;
@@ -98,6 +136,8 @@ export function useDeferredSpaceTabs(args: {
   );
   const [pendingTab, setPendingTab] = useState<SpaceTabId | null>(null);
   const [deferred, setDeferred] = useState<DeferredTabPayload>(initial);
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
 
   useEffect(() => {
     setTab(defaultTab);
@@ -109,10 +149,10 @@ export function useDeferredSpaceTabs(args: {
 
   const ensureTabData = useCallback(
     (next: SpaceTabId) => {
-      if (!DEFERRED_TABS.has(next) || loaded.has(next)) return;
+      if (!DEFERRED_TABS.has(next) || loadedRef.current.has(next)) return;
       setPendingTab(next);
       startTransition(async () => {
-        const result = await loadSpaceTabData({
+        const result = await loadSpaceTabDataDeduped({
           spaceId,
           tab: next,
           year: tabLoadContext?.planYear ?? reportPlanYear,
@@ -126,7 +166,6 @@ export function useDeferredSpaceTabs(args: {
       });
     },
     [
-      loaded,
       reportMonth,
       reportPlanYear,
       spaceId,

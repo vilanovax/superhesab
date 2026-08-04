@@ -40,8 +40,8 @@ export default async function SpaceSettingsPage({
   params,
   searchParams,
 }: SettingsPageProps) {
-  const { id } = await params;
-  const { error } = await searchParams;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const { error } = sp;
   const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
 
@@ -56,32 +56,15 @@ export default async function SpaceSettingsPage({
     redirect(`/spaces/${id}/member`);
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      currency: true,
-      roundUpToThousand: true,
-      monthlyBudget: true,
-      defaultPlanYear: true,
-      ownerId: true,
-    },
-  });
-
-  if (!space) {
-    notFound();
-  }
+  /** Cached membership.space already has settings fields — skip extra findUnique. */
+  const space = membership.space;
 
   const template = getTemplate(space.type);
   const templateDataset = getTemplateDataset(space.type);
   const isOwner = membership.role === "OWNER";
   const showBudget = template.features.budget && !template.features.buildingCharges;
   const showCategoryBudgets = template.features.categoryBudgets;
-  const showCategoryPrivacy =
-    Boolean(template.features.categoryPrivacy) &&
-    (await isFeatureEnabled("category_privacy"));
+  const categoryPrivacyPossible = Boolean(template.features.categoryPrivacy);
   const showRecurring = template.features.recurring;
   const showBuilding = template.features.buildingCharges;
   const showFundPlan = Boolean(template.features.fundRotating);
@@ -89,39 +72,53 @@ export default async function SpaceSettingsPage({
   const currentJalali = tehranCivilYear();
   const planYear = space.defaultPlanYear ?? currentJalali;
 
-  const [categoryBudgets, categoryPolicies, recurringRules, buildingPlan, fundPlan, buildingManagers] =
-    await Promise.all([
-      showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
-      showCategoryPrivacy ? listCategoryPolicies(id) : Promise.resolve([]),
-      showRecurring ? listRecurringRules(id) : Promise.resolve([]),
-      showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
-      showFundPlan
-        ? prisma.fundPlan.findUnique({
-            where: { spaceId: id },
-            select: { shareAmount: true, periodCount: true },
-          })
-        : Promise.resolve(null),
-      showBuilding
-        ? prisma.spaceMember.findMany({
-            where: {
-              spaceId: id,
-              role: { in: ["OWNER", "EDITOR"] },
-            },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  phone: true,
-                  avatarUrl: true,
-                  isVirtual: true,
-                },
+  const [
+    categoryPrivacyEnabled,
+    categoryBudgets,
+    recurringRules,
+    buildingPlan,
+    fundPlan,
+    buildingManagers,
+  ] = await Promise.all([
+    categoryPrivacyPossible
+      ? isFeatureEnabled("category_privacy")
+      : Promise.resolve(false),
+    showCategoryBudgets ? listCategoryBudgets(id) : Promise.resolve([]),
+    showRecurring ? listRecurringRules(id) : Promise.resolve([]),
+    showBuilding ? getChargePlanForYear(id, planYear) : Promise.resolve(null),
+    showFundPlan
+      ? prisma.fundPlan.findUnique({
+          where: { spaceId: id },
+          select: { shareAmount: true, periodCount: true },
+        })
+      : Promise.resolve(null),
+    showBuilding
+      ? prisma.spaceMember.findMany({
+          where: {
+            spaceId: id,
+            role: { in: ["OWNER", "EDITOR"] },
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                avatarUrl: true,
+                isVirtual: true,
               },
             },
-            orderBy: { createdAt: "asc" },
-          })
-        : Promise.resolve([]),
-    ]);
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const showCategoryPrivacy =
+    categoryPrivacyPossible && categoryPrivacyEnabled;
+  const categoryPolicies = showCategoryPrivacy
+    ? await listCategoryPolicies(id)
+    : [];
 
   const managerInviteRows = buildingManagers.map((m) => ({
     userId: m.user.id,

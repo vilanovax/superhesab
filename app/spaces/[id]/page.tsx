@@ -1,10 +1,8 @@
-import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { ensureRecurringExpenses } from "@/app/actions/recurring";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { getTemplate } from "@/lib/templates/registry";
 import { after } from "next/server";
-import SpaceLoading from "./loading";
 import { SpacePageContent } from "./space-page-content";
 
 type SpacePageProps = {
@@ -18,8 +16,8 @@ type SpacePageProps = {
 };
 
 /**
- * Auth + redirects return immediately; heavy ledger/charges load streams
- * inside Suspense so the route shell (and loading.tsx) can paint first.
+ * Auth + redirects return immediately. SpacePageContent is sync and starts
+ * ctx without awaiting — hero/body stream via inner Suspense boundaries.
  */
 export default async function SpacePage({ params, searchParams }: SpacePageProps) {
   const { id } = await params;
@@ -55,13 +53,11 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
   }
 
   return (
-    <Suspense fallback={<SpaceLoading />}>
-      <SpacePageContent
-        id={id}
-        session={session}
-        membership={membership}
-        searchParams={sp}
-      />
-    </Suspense>
+    <SpacePageContent
+      id={id}
+      session={session}
+      membership={membership}
+      searchParams={sp}
+    />
   );
 }

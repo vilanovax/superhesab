@@ -57,13 +57,14 @@ function CreateTrigger({
   className,
   ...props
 }: Omit<React.ComponentProps<typeof Button>, "variant"> & {
-  layout?: "inline" | "fab";
+  layout?: "inline" | "fab" | "compact";
 }) {
   const isFab = layout === "fab";
+  const isCompact = layout === "compact";
   return (
     <Button
       type="button"
-      size={isFab ? "icon" : "default"}
+      size={isFab ? "icon" : isCompact ? "sm" : "default"}
       aria-label="دفتر جدید"
       className={cn(
         isFab
@@ -73,7 +74,14 @@ function CreateTrigger({
               "transition-transform duration-150 ease-out hover:scale-105 active:scale-95",
               "ring-4 ring-background/80",
             ]
-          : "h-10 min-h-10 shrink-0 gap-1.5 rounded-xl bg-card px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-card/90",
+          : isCompact
+            ? [
+                "h-8 min-h-8 gap-1 rounded-full border border-primary/20 bg-primary/8 px-2.5",
+                "text-caption font-semibold text-primary shadow-none",
+                "hover:bg-primary/14 hover:border-primary/30",
+                "cursor-pointer transition-colors duration-150",
+              ]
+            : "h-10 min-h-10 shrink-0 gap-1.5 rounded-xl bg-card px-3.5 text-sm font-semibold text-primary shadow-none hover:bg-card/90",
         className,
       )}
       {...props}
@@ -82,10 +90,10 @@ function CreateTrigger({
         <PlusIcon className="size-6" />
       ) : (
         <>
-          <span className="flex size-5 items-center justify-center">
-            <PlusIcon className="size-4" />
+          <span className="flex size-4 items-center justify-center">
+            <PlusIcon className={isCompact ? "size-3.5" : "size-4"} />
           </span>
-          دفتر جدید
+          {isCompact ? "جدید" : "دفتر جدید"}
         </>
       )}
     </Button>
@@ -150,7 +158,7 @@ export function CreateSpaceSheet({
   disabledTypes,
 }: {
   error?: string;
-  layout?: "inline" | "fab";
+  layout?: "inline" | "fab" | "compact";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   initialType?: SpaceType;

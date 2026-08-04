@@ -18,18 +18,6 @@ type SpacePageContentProps = {
   searchParams: SpacePageSearchParams;
 };
 
-function HeroFallback() {
-  return (
-    <div className="mb-4 space-y-3" aria-hidden>
-      <div className="flex items-center gap-2">
-        <div className="h-9 w-24 animate-pulse rounded-xl bg-muted" />
-        <div className="ms-auto h-9 w-28 animate-pulse rounded-xl bg-muted" />
-      </div>
-      <div className="h-36 animate-pulse rounded-[1.25rem] bg-primary/15" />
-    </div>
-  );
-}
-
 function TabsFallback() {
   return (
     <div className="space-y-3" aria-hidden>
@@ -44,16 +32,16 @@ function TabsFallback() {
 }
 
 /**
- * Resolves light privacy/params, then streams hero and tabs in separate
- * Suspense boundaries so chrome+hero can paint before ledger/deferred tabs.
+ * Sync shell (theme + hero chrome) paints immediately. Hero card and tabs
+ * stream via Suspense; both share one ctx promise.
  */
-export async function SpacePageContent({
+export function SpacePageContent({
   id,
   session,
   membership,
   searchParams,
 }: SpacePageContentProps) {
-  const ctx = await resolveSpacePageCtx({
+  const ctxPromise = resolveSpacePageCtx({
     id,
     session,
     membership,
@@ -68,11 +56,13 @@ export async function SpacePageContent({
       className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5"
     >
       <SpaceTheme type={membership.space.type} />
-      <Suspense fallback={<HeroFallback />}>
-        <SpacePageHero ctx={ctx} />
-      </Suspense>
+      <SpacePageHero
+        spaceId={id}
+        membership={membership}
+        ctxPromise={ctxPromise}
+      />
       <Suspense fallback={<TabsFallback />}>
-        <SpacePageBody ctx={ctx} />
+        <SpacePageBody ctxPromise={ctxPromise} />
       </Suspense>
     </main>
   );

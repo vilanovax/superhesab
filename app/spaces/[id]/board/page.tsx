@@ -8,7 +8,6 @@ import { BuildingCommunityHub } from "@/components/spaces/building-community-hub
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
-import { prisma } from "@/lib/db/prisma";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate, getTemplateDataset } from "@/lib/templates/registry";
 
@@ -26,12 +25,7 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
     redirect(`/spaces/${id}/resident`);
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id },
-    select: { id: true, name: true, type: true },
-  });
-  if (!space) notFound();
-
+  const space = membership.space;
   const template = getTemplate(space.type);
   if (!template.features.buildingCharges) {
     redirect(`/spaces/${id}`);

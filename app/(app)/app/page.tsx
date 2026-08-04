@@ -4,11 +4,12 @@ import { listDueSoonDebtsForUser } from "@/app/actions/debt";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
 import { HomeQuickActions } from "@/components/spaces/home-quick-actions";
+import { HomeSpaceSpeculation } from "@/components/spaces/home-space-speculation";
 import { HomeSummaryCard } from "@/components/spaces/home-summary-card";
 import { HomeUserMenu } from "@/components/spaces/home-user-menu";
+import { PrefetchSpaceLink } from "@/components/spaces/prefetch-space-link";
 import {
   SpaceTypeIcon,
-  spaceTypeAccent,
   spaceTypeTint,
 } from "@/components/spaces/space-type-icon";
 import { requireUser } from "@/lib/auth/guards";
@@ -25,6 +26,12 @@ function roleLabel(role: string) {
   if (role === "OWNER") return "مالک";
   if (role === "VIEWER") return "ناظر";
   return "ویرایشگر";
+}
+
+function firstName(name: string | null, phone: string) {
+  const trimmed = name?.trim();
+  if (!trimmed) return phone;
+  return trimmed.split(/\s+/)[0] ?? trimmed;
 }
 
 /** Money headline shown on each space card, tone-coded by sign. */
@@ -173,6 +180,7 @@ export default async function AppHomePage({
 
   const spaceCount = memberships.length;
   const isEmpty = spaceCount === 0;
+  const greetingName = firstName(user.name, user.phone);
 
   const currencyBySpace = Object.fromEntries(
     memberships.map((m) => [m.space.id, m.space.currency]),
@@ -205,30 +213,45 @@ export default async function AppHomePage({
   return (
     <main
       className={cn(
-        "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pt-4 sm:px-5",
-        isEmpty
-          ? "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-          : "pb-[calc(5.5rem+env(safe-area-inset-bottom))]",
+        "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pt-3 sm:px-5",
+        "pb-[max(1.5rem,env(safe-area-inset-bottom))]",
       )}
     >
-      {/* Account — profile menu only, start edge (right in RTL) */}
-      <div className="mb-4 flex items-center justify-start">
+      {!isEmpty ? <HomeSpaceSpeculation /> : null}
+
+      {/* Greeting + account — one clear home header */}
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div className="min-w-0 animate-fade-up">
+          <p className="text-caption font-medium text-muted-foreground">
+            سوپرحساب
+          </p>
+          <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-foreground">
+            سلام، {greetingName}
+          </h1>
+          {!isEmpty ? (
+            <p className="mt-1 text-caption text-muted-foreground">
+              {spaceCount === 1
+                ? "یک دفتر فعال"
+                : `${spaceCount} دفتر فعال`}
+            </p>
+          ) : null}
+        </div>
         <HomeUserMenu isPlatformAdmin={user.platformRole === "ADMIN"} />
-      </div>
+      </header>
 
       {!isEmpty ? <HomeSummaryCard summary={summary} /> : null}
 
       {dueSoonDebts.length > 0 ? (
-        <div className="animate-fade-up mb-4 rounded-2xl border border-destructive/25 bg-destructive-soft px-4 py-3">
+        <div className="animate-fade-up mb-5 rounded-[1.25rem] border border-destructive/20 bg-destructive-soft/80 px-4 py-3.5">
           <p className="text-body-sm font-semibold text-destructive">
             سررسید بدهی / طلب
           </p>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2.5 space-y-2">
             {dueSoonDebts.slice(0, 4).map((d) => (
               <li key={d.debtId}>
-                <Link
+                <PrefetchSpaceLink
                   href={`/spaces/${d.spaceId}`}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-card/60 px-3 py-2 text-caption transition-colors hover:bg-card"
+                  className="flex cursor-pointer items-center justify-between gap-2 rounded-xl bg-card/70 px-3 py-2.5 text-caption transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="min-w-0 truncate text-foreground">
                     {debtTypeLabel(d.type)} «{d.counterparty}» · {d.spaceName}
@@ -245,7 +268,7 @@ export default async function AppHomePage({
                       currencyBySpace[d.spaceId] ?? "TOMAN",
                     )}
                   </span>
-                </Link>
+                </PrefetchSpaceLink>
               </li>
             ))}
           </ul>
@@ -254,26 +277,26 @@ export default async function AppHomePage({
 
       {/* Empty home: compact brand strip + template picker (one job) */}
       {isEmpty ? (
-        <header className="surface-hero animate-fade-up relative mb-4 overflow-hidden rounded-[1.35rem] px-4 py-3.5 shadow-md">
+        <div className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-3xl px-5 py-4 shadow-md">
           <div
             aria-hidden
-            className="pointer-events-none absolute -end-8 -top-10 size-24 rounded-full bg-on-hero/15 blur-2xl"
+            className="pointer-events-none absolute -inset-e-8 -top-10 size-28 rounded-full bg-on-hero/15 blur-2xl"
           />
           <div className="relative flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold tracking-[0.18em] text-on-hero/55">
                 SUPERHESAB
               </p>
-              <h1 className="mt-0.5 text-xl font-bold tracking-tight text-on-hero">
+              <p className="mt-0.5 text-xl font-bold tracking-tight text-on-hero">
                 اولین دفترت
-              </h1>
+              </p>
               <p className="mt-1 max-w-[16rem] text-caption leading-relaxed text-on-hero/75">
                 خرج ثبت کن؛ تراز و تسویه خودش جور می‌شود.
               </p>
             </div>
             <span
               aria-hidden
-              className="mb-0.5 flex size-11 shrink-0 items-center justify-center rounded-2xl bg-on-hero/12 text-on-hero ring-1 ring-on-hero/20"
+              className="mb-0.5 flex size-12 shrink-0 items-center justify-center rounded-2xl bg-on-hero/12 text-on-hero ring-1 ring-on-hero/20"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -290,7 +313,7 @@ export default async function AppHomePage({
               </svg>
             </span>
           </div>
-        </header>
+        </div>
       ) : null}
 
       {!isEmpty ? (
@@ -302,21 +325,28 @@ export default async function AppHomePage({
 
       <section className="flex min-h-0 flex-1 flex-col">
         {!isEmpty ? (
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-base font-bold tracking-tight text-foreground">
               فضاهای من
             </h2>
-            <Link
-              href="/app/archive"
-              className="rounded-full border border-border/60 bg-card/70 px-2.5 py-1 text-caption font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"
-            >
-              آرشیو
-              {archivedCount > 0 ? (
-                <span className="ms-1 tabular-nums text-muted-foreground/80">
-                  ({archivedCount})
-                </span>
-              ) : null}
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/app/archive"
+                className="inline-flex h-8 cursor-pointer items-center rounded-full border border-border/55 bg-card/80 px-2.5 text-caption font-semibold text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                آرشیو
+                {archivedCount > 0 ? (
+                  <span className="ms-1 tabular-nums text-muted-foreground/80">
+                    ({archivedCount})
+                  </span>
+                ) : null}
+              </Link>
+              <CreateSpaceSheet
+                error={error}
+                layout="compact"
+                disabledTypes={disabledSpaceTypes}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -328,90 +358,85 @@ export default async function AppHomePage({
             />
           </div>
         ) : (
-          <ul className="space-y-2">
-            {memberships.map(({ space, role }, index) => {
-              const spaceHref =
-                space.type === "BUILDING" && role === "VIEWER"
-                  ? `/spaces/${space.id}/resident`
-                  : space.type === "FUND" && role === "VIEWER"
-                    ? `/spaces/${space.id}/member`
-                    : `/spaces/${space.id}`;
-              const meta = [
-                getTemplate(space.type).label,
-                role !== "OWNER" ? roleLabel(role) : null,
-                `${space._count.members} عضو`,
-              ]
-                .filter(Boolean)
-                .join(" · ");
-              const stat = summary.statBySpace[space.id];
+          <>
+            <ul className="space-y-2.5">
+              {memberships.map(({ space, role }, index) => {
+                const spaceHref =
+                  space.type === "BUILDING" && role === "VIEWER"
+                    ? `/spaces/${space.id}/resident`
+                    : space.type === "FUND" && role === "VIEWER"
+                      ? `/spaces/${space.id}/member`
+                      : `/spaces/${space.id}`;
+                const meta = [
+                  getTemplate(space.type).label,
+                  role !== "OWNER" ? roleLabel(role) : null,
+                  `${space._count.members} عضو`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                const stat = summary.statBySpace[space.id];
 
-              return (
-                <li
-                  key={space.id}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
-                >
-                  <Link
-                    href={spaceHref}
-                    className={cn(
-                      "group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card ps-3.5 pe-3 py-3",
-                      "transition-[box-shadow,border-color,transform] duration-150 ease-out",
-                      "hover:border-primary/25 hover:shadow-md active:scale-[0.99]",
-                    )}
+                return (
+                  <li
+                    key={space.id}
+                    className="animate-fade-up"
+                    style={{ animationDelay: `${80 + Math.min(index, 6) * 45}ms` }}
                   >
-                    <span
-                      aria-hidden
+                    <PrefetchSpaceLink
+                      href={spaceHref}
                       className={cn(
-                        "absolute inset-y-3 start-0 w-[3px] rounded-full",
-                        spaceTypeAccent(space.type),
-                      )}
-                    />
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-xl",
-                        spaceTypeTint(space.type),
+                        "group flex min-h-17 cursor-pointer items-center gap-3.5 rounded-[1.25rem] border border-border/45 bg-card px-3.5 py-3.5",
+                        "shadow-sm transition-[box-shadow,border-color,transform] duration-200 ease-out",
+                        "hover:border-primary/28 hover:shadow-md active:scale-[0.99]",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       )}
                     >
-                      <SpaceTypeIcon type={space.type} className="size-5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-body font-semibold text-foreground">
-                        {space.name}
-                      </p>
-                      <p className="mt-0.5 truncate text-caption text-muted-foreground">
-                        {meta}
-                      </p>
-                      {stat && stat.kind !== "none" ? (
-                        <p className="mt-1 truncate">
-                          <SpaceStatLine
-                            stat={stat}
-                            currency={space.currency}
-                          />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "flex size-12 shrink-0 items-center justify-center rounded-2xl",
+                          spaceTypeTint(space.type),
+                        )}
+                      >
+                        <SpaceTypeIcon type={space.type} className="size-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-body font-semibold text-foreground">
+                          {space.name}
                         </p>
-                      ) : null}
-                    </div>
-                    <Chevron className="size-4 shrink-0 text-muted-foreground/50 transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-primary" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                        <p className="mt-0.5 truncate text-caption text-muted-foreground">
+                          {meta}
+                        </p>
+                        {stat && stat.kind !== "none" ? (
+                          <p className="mt-1.5 truncate">
+                            <SpaceStatLine
+                              stat={stat}
+                              currency={space.currency}
+                            />
+                          </p>
+                        ) : null}
+                      </div>
+                      <span
+                        aria-hidden
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/70 text-muted-foreground transition-colors duration-150 group-hover:bg-primary/10 group-hover:text-primary"
+                      >
+                        <Chevron className="size-4 transition-transform duration-150 group-hover:-translate-x-0.5" />
+                      </span>
+                    </PrefetchSpaceLink>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Soft tip when the list is short — fills empty viewport usefully */}
+            {spaceCount < 3 ? (
+              <p className="animate-fade-up mt-8 px-1 text-center text-caption leading-relaxed text-muted-foreground/85">
+                برای هر خانه، سفر یا حساب مشترک یک دفتر جدا بساز تا ترازها قاطی نشوند.
+              </p>
+            ) : null}
+          </>
         )}
       </section>
-
-      {/* FAB only when spaces exist — empty home already lists create actions */}
-      {!isEmpty ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <div className="pointer-events-auto">
-            <CreateSpaceSheet
-              error={error}
-              layout="fab"
-              disabledTypes={disabledSpaceTypes}
-            />
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

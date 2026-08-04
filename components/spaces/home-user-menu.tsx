@@ -104,8 +104,8 @@ export function HomeUserMenu({
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex size-10 items-center justify-center rounded-2xl border border-border/60 bg-card text-foreground shadow-sm",
-          "transition-colors hover:border-primary/30 hover:bg-muted/40",
+          "flex size-11 cursor-pointer items-center justify-center rounded-2xl border border-border/55 bg-card text-foreground shadow-sm",
+          "transition-colors duration-150 hover:border-primary/30 hover:bg-muted/40",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           open && "border-primary/35 bg-muted/50",
         )}

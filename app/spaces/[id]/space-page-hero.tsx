@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense, type ReactNode } from "react";
 import { BuildingBoardNavButton } from "@/components/spaces/building-board-nav-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
@@ -14,18 +15,19 @@ import { maybeCeilToThousand } from "@/lib/money";
 import {
   emptyBalances,
   loadCachedBalances,
-  loadCachedBuildingView,
+  loadCachedBuildingDashboard,
   loadCachedFundDashboard,
   loadExpenseHeroStats,
+  loadMonthExpenseTotal,
   loadMonthRows,
   loadOpenBoardCount,
   loadShareExpenseLines,
   loadSpaceWithMembers,
+  type SpaceMembership,
   type SpacePageCtx,
 } from "@/lib/spaces/space-page-ctx";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
 
 function BackChevron({ className }: { className?: string }) {
   return (
@@ -86,8 +88,200 @@ function HeroStat({
   );
 }
 
-/** Streams after chrome nav — hero + onboarding, without expense list / deferred tabs. */
-export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
+function HeroCardFallback() {
+  return (
+    <div
+      className="mb-4 min-h-[11.5rem] animate-pulse rounded-[1.25rem] bg-primary/15"
+      aria-hidden
+    />
+  );
+}
+
+function ChromeIconFallback() {
+  return (
+    <div
+      className="size-9 shrink-0 animate-pulse rounded-xl bg-muted"
+      aria-hidden
+    />
+  );
+}
+
+/** Sync top bar — paints with the route shell (no data await). */
+function SpacePageHeroChrome({
+  spaceId,
+  membership,
+  ctxPromise,
+}: {
+  spaceId: string;
+  membership: SpaceMembership;
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  const template = getTemplate(membership.space.type);
+  const { features } = template;
+  const isPartner = membership.space.type === "PARTNER";
+  const isPersonalShell = features.solo;
+  const isFamilyShell = features.householdLedger;
+  const isBuildingShell = features.buildingCharges;
+  const isFundShell = Boolean(features.fundRotating);
+  const showTypedPill =
+    isPersonalShell || isFamilyShell || isBuildingShell || isFundShell;
+
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
+      >
+        <Link href="/app">
+          <BackChevron className="size-4 text-muted-foreground" />
+          بازگشت
+        </Link>
+      </Button>
+
+      {showTypedPill ? (
+        <div className="ms-auto flex items-center gap-1.5">
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
+            {isBuildingShell
+              ? "ساختمان"
+              : isFundShell
+                ? "صندوق نوبتی"
+                : isFamilyShell
+                  ? "خانواده"
+                  : "شخصی"}
+          </span>
+          {isBuildingShell ? (
+            <Suspense
+              fallback={<BuildingBoardNavButton spaceId={spaceId} />}
+            >
+              <HeroBoardButton spaceId={spaceId} ctxPromise={ctxPromise} />
+            </Suspense>
+          ) : null}
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+            aria-label="تنظیمات فضا"
+          >
+            <Link href={`/spaces/${spaceId}/settings`}>
+              <SettingsIcon className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <>
+          <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-caption font-medium text-primary-foreground">
+            {isPartner ? "حساب مشترک" : template.label}
+          </span>
+          {features.settlements ? (
+            <Suspense fallback={<ChromeIconFallback />}>
+              <HeroShareButton ctxPromise={ctxPromise} />
+            </Suspense>
+          ) : null}
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+            aria-label="تنظیمات فضا"
+          >
+            <Link href={`/spaces/${spaceId}/settings`}>
+              <SettingsIcon className="size-4" />
+            </Link>
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+async function HeroBoardButton({
+  spaceId,
+  ctxPromise,
+}: {
+  spaceId: string;
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  await ctxPromise;
+  const badgeCount = await loadOpenBoardCount(spaceId);
+  return (
+    <BuildingBoardNavButton spaceId={spaceId} badgeCount={badgeCount} />
+  );
+}
+
+async function HeroShareButton({
+  ctxPromise,
+}: {
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  const ctx = await ctxPromise;
+  const { id, session, features, hiddenCategoriesKey } = ctx;
+  if (!features.settlements) return null;
+
+  const [space, balanceData, shareExpenses] = await Promise.all([
+    loadSpaceWithMembers(id),
+    loadCachedBalances(id),
+    loadShareExpenseLines(id, hiddenCategoriesKey),
+  ]);
+  if (!space) return null;
+
+  const members = space.members.map((m) => ({
+    userId: m.user.id,
+    name: m.user.name,
+    phone: m.user.phone,
+    isVirtual: m.user.isVirtual,
+    defaultShare: m.defaultShare,
+  }));
+
+  return (
+    <ShareSummaryIconButton
+      spaceName={space.name}
+      expenses={shareExpenses}
+      members={members}
+      suggestions={balanceData.suggestions}
+      currentUserId={session.userId}
+      currency={space.currency}
+      roundUpToThousand={space.roundUpToThousand}
+    />
+  );
+}
+
+/**
+ * Sync chrome + streamed hero card. Top bar paints with the shell; stats
+ * and onboarding suspend independently (LCP / perceived speed).
+ */
+export function SpacePageHero({
+  spaceId,
+  membership,
+  ctxPromise,
+}: {
+  spaceId: string;
+  membership: SpaceMembership;
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  return (
+    <>
+      <SpacePageHeroChrome
+        spaceId={spaceId}
+        membership={membership}
+        ctxPromise={ctxPromise}
+      />
+      <Suspense fallback={<HeroCardFallback />}>
+        <SpacePageHeroCard ctxPromise={ctxPromise} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams after chrome nav — hero card + onboarding, without expense list. */
+async function SpacePageHeroCard({
+  ctxPromise,
+}: {
+  ctxPromise: Promise<SpacePageCtx>;
+}) {
+  const ctx = await ctxPromise;
   const {
     id,
     session,
@@ -107,39 +301,51 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
   const isFundShell = Boolean(features.fundRotating);
   const myRole = membership.role;
   const isOwner = myRole === "OWNER";
+  /** Family/personal need per-row month data; BUILDING only needs expense total. */
+  const needMonthRows =
+    !isBuildingShell && (features.incomeExpense || features.budget);
+  const needMonthExpenseTotal =
+    isBuildingShell && (features.incomeExpense || features.budget);
 
-  const [space, balanceData, monthRows, buildingView, openBoardSuggestions, fundDashboard, heroStats, shareExpenses] =
-    await Promise.all([
-      loadSpaceWithMembers(id),
-      features.settlements
-        ? loadCachedBalances(id)
-        : Promise.resolve(emptyBalances),
-      features.incomeExpense || features.budget
-        ? loadMonthRows(
-            id,
-            monthRange.start.getTime(),
-            monthRange.end.getTime(),
-            hiddenCategoriesKey,
-          )
-        : Promise.resolve([]),
-      features.buildingCharges
-        ? loadCachedBuildingView(id, planYear)
-        : Promise.resolve(null),
-      features.buildingCharges
-        ? loadOpenBoardCount(id)
-        : Promise.resolve(0),
-      features.fundRotating
-        ? loadCachedFundDashboard(id, fundPeriod)
-        : Promise.resolve(null),
-      loadExpenseHeroStats(id, hiddenCategoriesKey),
-      features.settlements
-        ? loadShareExpenseLines(id, hiddenCategoriesKey)
-        : Promise.resolve([]),
-    ]);
+  const [
+    space,
+    balanceData,
+    monthRows,
+    monthExpenseTotal,
+    buildingDashboard,
+    fundDashboard,
+    heroStats,
+  ] = await Promise.all([
+    loadSpaceWithMembers(id),
+    features.settlements
+      ? loadCachedBalances(id)
+      : Promise.resolve(emptyBalances),
+    needMonthRows
+      ? loadMonthRows(
+          id,
+          monthRange.start.getTime(),
+          monthRange.end.getTime(),
+          hiddenCategoriesKey,
+        )
+      : Promise.resolve([]),
+    needMonthExpenseTotal
+      ? loadMonthExpenseTotal(
+          id,
+          monthRange.start.getTime(),
+          monthRange.end.getTime(),
+          hiddenCategoriesKey,
+        )
+      : Promise.resolve(0),
+    features.buildingCharges
+      ? loadCachedBuildingDashboard(id, planYear)
+      : Promise.resolve(null),
+    features.fundRotating
+      ? loadCachedFundDashboard(id, fundPeriod)
+      : Promise.resolve(null),
+    loadExpenseHeroStats(id, hiddenCategoriesKey),
+  ]);
 
   if (!space) notFound();
-
-  const buildingDashboard = buildingView?.dashboard ?? null;
   const inviteMembers = space.members.map((m) => ({
     userId: m.user.id,
     name: m.user.name,
@@ -155,14 +361,6 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
   const managerCount = isBuildingShell
     ? managerMembers.length
     : space.members.length;
-
-  const members = space.members.map((m) => ({
-    userId: m.user.id,
-    name: m.user.name,
-    phone: m.user.phone,
-    isVirtual: m.user.isVirtual,
-    defaultShare: m.defaultShare,
-  }));
 
   const partner = space.members.find((m) => m.user.id !== session.userId)?.user;
   const partnerLabel =
@@ -184,91 +382,20 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
   const monthIncome = monthRows
     .filter((r) => r.transactionType === "INCOME")
     .reduce((s, r) => s + r.totalAmount, 0);
-  const monthExpense = monthRows
-    .filter((r) => r.transactionType === "EXPENSE")
-    .reduce((s, r) => s + r.totalAmount, 0);
+  const monthExpense = needMonthExpenseTotal
+    ? monthExpenseTotal
+    : monthRows
+        .filter((r) => r.transactionType === "EXPENSE")
+        .reduce((s, r) => s + r.totalAmount, 0);
 
   const needsPartner = isPartner && space.members.length < 2;
   const partnerOnboarding =
-    isPartner &&
-    space.members.length === 1 &&
-    expenseCount === 0;
+    isPartner && space.members.length === 1 && expenseCount === 0;
   const needsFamilyInvite =
     isFamilyShell && space.members.length < 2 && isOwner;
 
   return (
     <>
-      <div className="mb-3 flex items-center gap-2">
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
-        >
-          <Link href="/app">
-            <BackChevron className="size-4 text-muted-foreground" />
-            بازگشت
-          </Link>
-        </Button>
-
-        {isPersonalShell || isFamilyShell || isBuildingShell || isFundShell ? (
-          <div className="ms-auto flex items-center gap-1.5">
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
-              {isBuildingShell
-                ? "ساختمان"
-                : isFundShell
-                  ? "صندوق نوبتی"
-                  : isFamilyShell
-                    ? "خانواده"
-                    : "شخصی"}
-            </span>
-            {isBuildingShell ? (
-              <BuildingBoardNavButton
-                spaceId={space.id}
-                badgeCount={openBoardSuggestions}
-              />
-            ) : null}
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
-              aria-label="تنظیمات فضا"
-            >
-              <Link href={`/spaces/${space.id}/settings`}>
-                <SettingsIcon className="size-4" />
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <>
-            <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-caption font-medium text-primary-foreground">
-              {isPartner ? "حساب مشترک" : template.label}
-            </span>
-            <ShareSummaryIconButton
-              spaceName={space.name}
-              expenses={shareExpenses}
-              members={members}
-              suggestions={balanceData.suggestions}
-              currentUserId={session.userId}
-              currency={space.currency}
-              roundUpToThousand={space.roundUpToThousand}
-            />
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
-              aria-label="تنظیمات فضا"
-            >
-              <Link href={`/spaces/${space.id}/settings`}>
-                <SettingsIcon className="size-4" />
-              </Link>
-            </Button>
-          </>
-        )}
-      </div>
-
       <header
         className={cn(
           "surface-hero animate-fade-up relative mb-4 overflow-hidden px-4",
@@ -468,7 +595,8 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
             </div>
           ) : null}
 
-          {isBuildingShell || isFundShell ? null : isPersonalShell || isFamilyShell ? (
+          {isBuildingShell || isFundShell ? null : isPersonalShell ||
+            isFamilyShell ? (
             <PersonalMonthHero
               income={monthIncome}
               expenses={monthExpense}
@@ -553,7 +681,8 @@ export async function SpacePageHero({ ctx }: { ctx: SpacePageCtx }) {
             اعضای خانواده را دعوت کنید
           </p>
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted-foreground">
-            با لینک دعوت می‌توانید همسر یا اعضا را به‌عنوان عضو فعال یا ناظر اضافه کنید.
+            با لینک دعوت می‌توانید همسر یا اعضا را به‌عنوان عضو فعال یا ناظر اضافه
+            کنید.
           </p>
           <InviteMembersButton
             spaceId={space.id}

@@ -81,14 +81,7 @@ async function assertFundEnabled(spaceId: string, userId: string) {
   if (!membership) {
     return { ok: false as const, error: "به این فضا دسترسی ندارید." };
   }
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true },
-  });
-  if (!space) {
-    return { ok: false as const, error: "فضا پیدا نشد." };
-  }
-  if (!getTemplate(space.type).features.fundRotating) {
+  if (!getTemplate(membership.space.type).features.fundRotating) {
     return {
       ok: false as const,
       error: "ماژول صندوق نوبتی در این قالب فعال نیست.",
@@ -568,19 +561,14 @@ export async function getFundMemberPortal(
   const access = await assertFundEnabled(spaceId, session.userId);
   if (!access.ok) return null;
 
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { id: true, name: true, currency: true },
-  });
-  if (!space) return null;
+  const space = access.membership.space;
+  const memberId = access.membership.id;
 
-  const myMembership = await prisma.spaceMember.findFirst({
-    where: { spaceId, userId: session.userId },
-    include: { user: { select: { name: true, phone: true } } },
-  });
-  if (!myMembership) return null;
-
-  const [plan, turns, payments, proofs] = await Promise.all([
+  const [myMembership, plan, turns, payments, proofs] = await Promise.all([
+    prisma.spaceMember.findUnique({
+      where: { id: memberId },
+      include: { user: { select: { name: true, phone: true } } },
+    }),
     prisma.fundPlan.findUnique({ where: { spaceId } }),
     prisma.fundTurn.findMany({
       where: { spaceId },
@@ -590,10 +578,10 @@ export async function getFundMemberPortal(
       orderBy: { periodIndex: "asc" },
     }),
     prisma.fundPayment.findMany({
-      where: { spaceId, memberId: myMembership.id },
+      where: { spaceId, memberId },
     }),
     prisma.fundPaymentProof.findMany({
-      where: { spaceId, memberId: myMembership.id },
+      where: { spaceId, memberId },
       include: {
         member: { include: { user: { select: { name: true, phone: true } } } },
         uploadedBy: { select: { name: true, phone: true } },
@@ -602,6 +590,7 @@ export async function getFundMemberPortal(
       take: 40,
     }),
   ]);
+  if (!myMembership) return null;
 
   const activePeriod =
     periodIndex && periodIndex >= 1

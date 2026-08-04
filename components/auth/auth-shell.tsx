@@ -33,10 +33,11 @@ export function AuthShell({ children, className }: AuthShellProps) {
       />
 
       <div className="relative z-1 mb-6 w-full max-w-md text-center sm:mb-8">
-        <p className="animate-fade-up text-[11px] font-bold tracking-[0.28em] text-primary/80">
+        {/* No fade-up here — opacity:0 animations delay LCP on the brand. */}
+        <p className="text-[11px] font-bold tracking-[0.28em] text-primary/80">
           SUPERHESAB
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-primary sm:text-[2.15rem]">
+        <h1 className="mt-2 text-balance text-3xl font-bold tracking-tight text-primary sm:text-[2.15rem]">
           سوپرحساب
         </h1>
         <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">

@@ -86,7 +86,7 @@ export function RegisterForm({
   }
 
   return (
-    <div className="animate-fade-up overflow-hidden rounded-[1.35rem] border border-border/60 bg-card/90 shadow-lg backdrop-blur-md transition-transform duration-300 motion-safe:hover:-translate-y-0.5">
+    <div className="overflow-hidden rounded-[1.35rem] border border-border/60 bg-card shadow-lg">
       <div className="surface-hero relative overflow-hidden px-5 py-5 sm:px-6">
         <div
           aria-hidden

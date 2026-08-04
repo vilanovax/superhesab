@@ -1,16 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/theme-provider";
-import { PwaRuntime } from "@/components/pwa/pwa-runtime";
+import { DeferredPwaRuntime } from "@/components/pwa/deferred-pwa-runtime";
 import "./globals.css";
 
 /**
- * Vazir FD-WOL (Farsi digits) — only weights the UI actually uses.
- * Dropped Thin/Light (~47KB) — no font-thin / font-light in the app.
- * Tailwind semibold (600) → Medium; extrabold (800) → Bold.
+ * Vazir FD-WOL — Regular + Medium + Bold only.
+ * Bold listed first so next/font preloads the LCP heading face.
+ * Thin/Light removed from disk and from this list.
  */
 const vazir = localFont({
   src: [
+    {
+      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
+      weight: "800",
+      style: "normal",
+    },
     {
       path: "../public/fonts/Vazir-FD-WOL.woff2",
       weight: "400",
@@ -26,20 +36,11 @@ const vazir = localFont({
       weight: "600",
       style: "normal",
     },
-    {
-      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
-      weight: "800",
-      style: "normal",
-    },
   ],
   variable: "--font-vazirmatn",
   display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+  adjustFontFallback: "Arial",
+  fallback: ["Tahoma", "Arial", "sans-serif"],
   preload: true,
 });
 
@@ -99,7 +100,7 @@ export default function RootLayout({
         <div className="app-shell flex min-h-full flex-1 flex-col">
           <ThemeProvider>{children}</ThemeProvider>
         </div>
-        <PwaRuntime />
+        <DeferredPwaRuntime />
       </body>
     </html>
   );

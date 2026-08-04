@@ -89,7 +89,9 @@ export function BuildingReportInsights({
           aria-label="خلاصه بازه"
         >
           <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
-            <p className="text-caption font-bold text-foreground">خلاصه بازه</p>
+            <h2 className="text-pretty text-caption font-bold text-foreground">
+              خلاصه بازه
+            </h2>
             {periodLabel ? (
               <span className="truncate rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-foreground/70">
                 {periodLabel}
@@ -182,9 +184,9 @@ export function BuildingReportInsights({
           <section className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
             <div className="flex items-center justify-between gap-2 px-3 py-2">
               <div className="min-w-0">
-                <p className="text-caption font-semibold text-foreground">
+                <h2 className="text-pretty text-caption font-semibold text-foreground">
                   بیشترین هزینه‌ها
-                </p>
+                </h2>
                 <p className="text-[10px] text-muted-foreground">
                   تا {TOP_MAX} مورد برتر این بازه
                 </p>
@@ -192,6 +194,7 @@ export function BuildingReportInsights({
               <button
                 type="button"
                 onClick={() => setAllOpen(true)}
+                aria-haspopup="dialog"
                 className="shrink-0 rounded-xl bg-primary/10 px-2.5 py-1.5 text-micro font-bold text-primary transition-colors hover:bg-primary/15 active:scale-[0.98]"
               >
                 همه ({expenseLines.length})
@@ -242,6 +245,7 @@ export function BuildingReportInsights({
               {hasMoreTops ? (
                 <button
                   type="button"
+                  aria-expanded={topsOpen}
                   onClick={() => setTopsOpen((o) => !o)}
                   className="flex-1 py-2 text-micro font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                 >
@@ -253,6 +257,7 @@ export function BuildingReportInsights({
               <button
                 type="button"
                 onClick={() => setAllOpen(true)}
+                aria-haspopup="dialog"
                 className={cn(
                   "py-2 text-micro font-semibold text-primary transition-colors hover:bg-primary/6",
                   hasMoreTops ? "flex-1 border-s border-border/35" : "w-full",

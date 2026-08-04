@@ -52,12 +52,14 @@ export function BuildingReportPeriodFilter({
         </p>
       </div>
       <div
-        role="group"
+        role="radiogroup"
         aria-label="فیلتر بازه زمانی شمسی"
         className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <button
           type="button"
+          role="radio"
+          aria-checked={month == null}
           onClick={() => go(null)}
           className={cn(
             "shrink-0 rounded-xl px-2.5 py-1.5 text-caption font-semibold transition-colors",
@@ -74,6 +76,8 @@ export function BuildingReportPeriodFilter({
             <button
               key={m}
               type="button"
+              role="radio"
+              aria-checked={on}
               onClick={() => go(m)}
               className={cn(
                 "shrink-0 rounded-xl px-2.5 py-1.5 text-caption font-semibold transition-colors",

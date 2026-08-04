@@ -133,7 +133,7 @@ export function BuildingAllExpensesDrawer({
         {/* Sort control */}
         <div className="shrink-0 border-b border-border/40 bg-card px-3 py-2.5">
           <div
-            role="group"
+            role="radiogroup"
             aria-label="مرتب‌سازی"
             className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1"
           >
@@ -185,7 +185,7 @@ export function BuildingAllExpensesDrawer({
                 <li
                   key={line.id}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors",
+                    "flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_4.5rem]",
                     highlight
                       ? "border-primary/20 bg-primary/5"
                       : "border-border/40 bg-card",
@@ -254,11 +254,12 @@ function SortTab({
   return (
     <button
       type="button"
+      role="radio"
       onClick={onClick}
       title={hint}
-      aria-pressed={active}
+      aria-checked={active}
       className={cn(
-        "flex h-11 flex-col items-center justify-center rounded-xl transition-all active:scale-[0.98]",
+        "flex h-11 flex-col items-center justify-center rounded-xl transition-[transform,background-color,color,box-shadow] active:scale-[0.98]",
         active
           ? "bg-card text-foreground shadow-sm"
           : "text-muted-foreground hover:text-foreground",

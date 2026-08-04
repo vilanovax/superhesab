@@ -10,6 +10,7 @@ import {
   type BuildingUnitRow,
 } from "@/app/actions/building";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Drawer,
@@ -23,6 +24,10 @@ import { type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
+
+type ConfirmUnitAction =
+  | { kind: "unlink"; unit: BuildingUnitRow }
+  | { kind: "regenerate"; unit: BuildingUnitRow };
 
 type BuildingUnitsPanelProps = {
   spaceId: string;
@@ -95,6 +100,9 @@ export function BuildingUnitsPanel({
   const [editActive, setEditActive] = useState(true);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] =
+    useState<ConfirmUnitAction | null>(null);
 
   useEffect(() => {
     setUnits(initialUnits);
@@ -108,6 +116,13 @@ export function BuildingUnitsPanel({
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [menuId]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const el = document.getElementById("unit-add-name");
+    if (el instanceof HTMLInputElement) el.focus();
+  }, [addOpen]);
 
   const activeCount = useMemo(
     () => units.filter((u) => u.isActive).length,
@@ -137,30 +152,45 @@ export function BuildingUnitsPanel({
     }
   }
 
-  function onUnlink(unit: BuildingUnitRow) {
+  function requestUnlink(unit: BuildingUnitRow) {
     if (!unit.linkedUserId) return;
     setMenuId(null);
-    startTransition(async () => {
-      const result = await unlinkUnitResident(spaceId, unit.id);
-      if (!result.ok) {
-        showToast(result.error, "error");
-        return;
-      }
-      setUnits((prev) =>
-        prev.map((u) =>
-          u.id === unit.id
-            ? { ...u, linkedUserId: null, linkedUserName: null, linkedAt: null }
-            : u,
-        ),
-      );
-      showToast(`اتصال واحد ${unit.name} قطع شد`);
-      router.refresh();
-    });
+    setConfirmAction({ kind: "unlink", unit });
   }
 
-  function onRegenerate(unit: BuildingUnitRow) {
+  function requestRegenerate(unit: BuildingUnitRow) {
     setMenuId(null);
+    setConfirmAction({ kind: "regenerate", unit });
+  }
+
+  function runConfirmedAction() {
+    if (!confirmAction) return;
+    const { kind, unit } = confirmAction;
     startTransition(async () => {
+      if (kind === "unlink") {
+        const result = await unlinkUnitResident(spaceId, unit.id);
+        if (!result.ok) {
+          showToast(result.error, "error");
+          return;
+        }
+        setUnits((prev) =>
+          prev.map((u) =>
+            u.id === unit.id
+              ? {
+                  ...u,
+                  linkedUserId: null,
+                  linkedUserName: null,
+                  linkedAt: null,
+                }
+              : u,
+          ),
+        );
+        setConfirmAction(null);
+        showToast(`اتصال واحد ${unit.name} قطع شد`);
+        router.refresh();
+        return;
+      }
+
       const result = await regenerateUnitInviteToken(spaceId, unit.id);
       if (!result.ok) {
         showToast(result.error, "error");
@@ -183,12 +213,14 @@ export function BuildingUnitsPanel({
           showToast(`لینک جدید واحد ${unit.name} ساخته شد`);
         }
       }
+      setConfirmAction(null);
       router.refresh();
     });
   }
 
   function openEdit(unit: BuildingUnitRow) {
     setMenuId(null);
+    setFormError(null);
     setEditUnit(unit);
     setEditName(unit.name);
     setEditArea(unit.area != null ? String(unit.area) : "");
@@ -196,23 +228,41 @@ export function BuildingUnitsPanel({
     setEditActive(unit.isActive);
   }
 
+  function focusField(id: string) {
+    queueMicrotask(() => {
+      const el = document.getElementById(id);
+      if (el instanceof HTMLInputElement) el.focus();
+    });
+  }
+
   function onAddUnit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
+    setFormError(null);
+    const name = unitName.trim();
+    if (!name) {
+      setFormError("نام واحد را وارد کنید.");
+      focusField("unit-add-name");
+      return;
+    }
     startTransition(async () => {
       const areaRaw = unitArea.trim();
       const result = await createUnit({
         spaceId,
-        name: unitName,
+        name,
         area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
         multiplier: Math.trunc(Number(unitMult)) || 1000,
       });
       if (!result.ok) {
+        setFormError(result.error);
         showToast(result.error, "error");
+        focusField("unit-add-name");
         return;
       }
       setUnitName("");
       setUnitArea("");
       setUnitMult("1000");
+      setFormError(null);
       setAddOpen(false);
       showToast("واحد اضافه شد");
       router.refresh();
@@ -221,11 +271,18 @@ export function BuildingUnitsPanel({
 
   function onSaveEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editUnit) return;
+    if (!editUnit || pending) return;
+    setFormError(null);
+    const name = editName.trim();
+    if (!name) {
+      setFormError("نام واحد را وارد کنید.");
+      focusField("unit-edit-name");
+      return;
+    }
     const areaRaw = editArea.trim();
     const next: BuildingUnitRow = {
       ...editUnit,
-      name: editName.trim(),
+      name,
       area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
       multiplier: Math.trunc(Number(editMult)) || 1000,
       isActive: editActive,
@@ -240,10 +297,13 @@ export function BuildingUnitsPanel({
         isActive: next.isActive,
       });
       if (!result.ok) {
+        setFormError(result.error);
         showToast(result.error, "error");
+        focusField("unit-edit-name");
         return;
       }
       setUnits((prev) => prev.map((u) => (u.id === next.id ? next : u)));
+      setFormError(null);
       setEditUnit(null);
       showToast("واحد به‌روزرسانی شد");
       router.refresh();
@@ -254,7 +314,9 @@ export function BuildingUnitsPanel({
     <div className="space-y-3">
       <div className="flex items-end justify-between gap-2">
         <div>
-          <h2 className="text-body-sm font-semibold text-foreground">واحدها</h2>
+          <h2 className="text-pretty text-body-sm font-semibold text-foreground">
+            واحدها
+          </h2>
           <p className="mt-0.5 text-caption text-muted-foreground">
             {units.length === 0
               ? "هنوز واحدی تعریف نشده"
@@ -306,7 +368,7 @@ export function BuildingUnitsPanel({
               <li
                 key={u.id}
                 className={cn(
-                  "rounded-2xl border bg-card px-3 py-2.5",
+                  "rounded-2xl border bg-card px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_4.25rem]",
                   u.isActive
                     ? "border-border/55"
                     : "border-border/40 bg-muted/30 opacity-80",
@@ -363,7 +425,7 @@ export function BuildingUnitsPanel({
                     <div className="relative flex shrink-0 items-center gap-1">
                       <button
                         type="button"
-                        aria-label="ویرایش"
+                        aria-label={`ویرایش واحد ${u.name}`}
                         title="ویرایش"
                         disabled={pending}
                         onClick={() => openEdit(u)}
@@ -373,8 +435,12 @@ export function BuildingUnitsPanel({
                       </button>
                       <button
                         type="button"
-                        aria-label="بیشتر"
+                        aria-label={`بیشتر برای واحد ${u.name}`}
+                        aria-haspopup="menu"
                         aria-expanded={menuId === u.id}
+                        aria-controls={
+                          menuId === u.id ? `unit-menu-${u.id}` : undefined
+                        }
                         disabled={pending}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -391,6 +457,7 @@ export function BuildingUnitsPanel({
                       </button>
                       {menuId === u.id ? (
                         <div
+                          id={`unit-menu-${u.id}`}
                           role="menu"
                           className="absolute end-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-border/60 bg-card py-1 shadow-lg"
                           onClick={(e) => e.stopPropagation()}
@@ -407,7 +474,7 @@ export function BuildingUnitsPanel({
                             type="button"
                             role="menuitem"
                             className="block w-full px-3 py-2 text-start text-caption font-medium hover:bg-muted"
-                            onClick={() => onRegenerate(u)}
+                            onClick={() => requestRegenerate(u)}
                           >
                             تولید مجدد لینک
                           </button>
@@ -416,7 +483,7 @@ export function BuildingUnitsPanel({
                               type="button"
                               role="menuitem"
                               className="block w-full px-3 py-2 text-start text-caption font-medium text-destructive hover:bg-destructive-soft"
-                              onClick={() => onUnlink(u)}
+                              onClick={() => requestUnlink(u)}
                             >
                               قطع اتصال
                             </button>
@@ -432,11 +499,18 @@ export function BuildingUnitsPanel({
         </ul>
       )}
 
-      <Drawer open={addOpen} onOpenChange={setAddOpen}>
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <Drawer
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) setFormError(null);
+        }}
+        repositionInputs={false}
+      >
+        <DrawerContent className="mt-0! flex h-auto max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
-              <DrawerTitle className="text-body font-bold text-on-hero">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                 واحد جدید
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
@@ -446,49 +520,67 @@ export function BuildingUnitsPanel({
           </div>
           <form
             onSubmit={onAddUnit}
-            className="space-y-2.5 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
             <div className="space-y-1">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="unit-add-name"
+                className="text-label text-muted-foreground"
+              >
                 نام / شماره
               </label>
               <Input
+                id="unit-add-name"
+                name="unitName"
+                autoComplete="off"
+                spellCheck={false}
                 value={unitName}
                 onChange={(e) => setUnitName(e.target.value)}
-                placeholder="مثلاً ۱ یا شرقی"
+                placeholder="مثلاً ۱ یا شرقی…"
                 className="h-11 rounded-xl"
                 required
-                autoFocus
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">
+                <label
+                  htmlFor="unit-add-area"
+                  className="text-label text-muted-foreground"
+                >
                   متراژ (م²)
                 </label>
                 <Input
+                  id="unit-add-area"
+                  name="area"
+                  autoComplete="off"
                   type="text"
                   inputMode="numeric"
                   value={unitArea}
                   onChange={(e) =>
                     setUnitArea(e.target.value.replace(/[^\d]/g, ""))
                   }
-                  placeholder="اختیاری"
+                  placeholder="اختیاری…"
                   className="h-11 rounded-xl tabular-nums"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">
+                <label
+                  htmlFor="unit-add-mult"
+                  className="text-label text-muted-foreground"
+                >
                   ضریب (هزارم)
                 </label>
                 <Input
+                  id="unit-add-mult"
+                  name="multiplier"
+                  autoComplete="off"
                   type="text"
                   inputMode="numeric"
                   value={unitMult}
                   onChange={(e) =>
                     setUnitMult(e.target.value.replace(/[^\d]/g, ""))
                   }
-                  placeholder="۱۰۰۰"
+                  placeholder="۱۰۰۰…"
                   className="h-11 rounded-xl tabular-nums"
                 />
               </div>
@@ -499,12 +591,25 @@ export function BuildingUnitsPanel({
                 ? ` · ${formatCurrency(chargePreview(Math.trunc(Number(unitMult)) || 1000), currency)}`
                 : ""}
             </p>
+            {formError && addOpen ? (
+              <p
+                className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                {formError}
+              </p>
+            ) : null}
             <div className="flex gap-2 pt-1">
               <Button
                 type="button"
                 variant="outline"
                 className="h-11 flex-1 rounded-xl"
-                onClick={() => setAddOpen(false)}
+                disabled={pending}
+                onClick={() => {
+                  setAddOpen(false);
+                  setFormError(null);
+                }}
               >
                 انصراف
               </Button>
@@ -513,7 +618,7 @@ export function BuildingUnitsPanel({
                 className="h-11 flex-[1.4] rounded-xl"
                 disabled={pending}
               >
-                {pending ? "…" : "افزودن"}
+                {pending ? "در حال افزودن…" : "افزودن"}
               </Button>
             </div>
           </form>
@@ -523,13 +628,17 @@ export function BuildingUnitsPanel({
       <Drawer
         open={Boolean(editUnit)}
         onOpenChange={(open) => {
-          if (!open) setEditUnit(null);
+          if (!open) {
+            setEditUnit(null);
+            setFormError(null);
+          }
         }}
+        repositionInputs={false}
       >
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+        <DrawerContent className="mt-0! flex h-auto max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
-              <DrawerTitle className="text-body font-bold text-on-hero">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                 ویرایش واحد {editUnit?.name}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
@@ -539,46 +648,67 @@ export function BuildingUnitsPanel({
           </div>
           <form
             onSubmit={onSaveEdit}
-            className="space-y-2.5 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
             <div className="space-y-1">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="unit-edit-name"
+                className="text-label text-muted-foreground"
+              >
                 نام / شماره
               </label>
               <Input
+                id="unit-edit-name"
+                name="unitName"
+                autoComplete="off"
+                spellCheck={false}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                placeholder="مثلاً ۱ یا شرقی…"
                 className="h-11 rounded-xl"
                 required
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">
+                <label
+                  htmlFor="unit-edit-area"
+                  className="text-label text-muted-foreground"
+                >
                   متراژ (م²)
                 </label>
                 <Input
+                  id="unit-edit-area"
+                  name="area"
+                  autoComplete="off"
                   type="text"
                   inputMode="numeric"
                   value={editArea}
                   onChange={(e) =>
                     setEditArea(e.target.value.replace(/[^\d]/g, ""))
                   }
-                  placeholder="اختیاری"
+                  placeholder="اختیاری…"
                   className="h-11 rounded-xl tabular-nums"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">
+                <label
+                  htmlFor="unit-edit-mult"
+                  className="text-label text-muted-foreground"
+                >
                   ضریب (هزارم)
                 </label>
                 <Input
+                  id="unit-edit-mult"
+                  name="multiplier"
+                  autoComplete="off"
                   type="text"
                   inputMode="numeric"
                   value={editMult}
                   onChange={(e) =>
                     setEditMult(e.target.value.replace(/[^\d]/g, ""))
                   }
+                  placeholder="۱۰۰۰…"
                   className="h-11 rounded-xl tabular-nums"
                   required
                 />
@@ -587,6 +717,8 @@ export function BuildingUnitsPanel({
 
             <button
               type="button"
+              role="switch"
+              aria-checked={editActive}
               onClick={() => setEditActive((v) => !v)}
               className={cn(
                 "flex h-11 w-full items-center justify-between rounded-xl border px-3 text-body-sm font-semibold transition-colors",
@@ -613,12 +745,26 @@ export function BuildingUnitsPanel({
               </p>
             ) : null}
 
+            {formError && editUnit ? (
+              <p
+                className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                {formError}
+              </p>
+            ) : null}
+
             <div className="flex gap-2 pt-1">
               <Button
                 type="button"
                 variant="outline"
                 className="h-11 flex-1 rounded-xl"
-                onClick={() => setEditUnit(null)}
+                disabled={pending}
+                onClick={() => {
+                  setEditUnit(null);
+                  setFormError(null);
+                }}
               >
                 انصراف
               </Button>
@@ -627,12 +773,37 @@ export function BuildingUnitsPanel({
                 className="h-11 flex-[1.4] rounded-xl"
                 disabled={pending}
               >
-                {pending ? "…" : "ذخیره"}
+                {pending ? "در حال ذخیره…" : "ذخیره"}
               </Button>
             </div>
           </form>
         </DrawerContent>
       </Drawer>
+
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        onOpenChange={(open) => {
+          if (!open && !pending) setConfirmAction(null);
+        }}
+        title={
+          confirmAction?.kind === "unlink"
+            ? `قطع اتصال واحد ${confirmAction.unit.name}`
+            : confirmAction
+              ? `تولید مجدد لینک واحد ${confirmAction.unit.name}`
+              : ""
+        }
+        description={
+          confirmAction?.kind === "unlink"
+            ? "ساکن فعلی از این واحد جدا می‌شود و باید دوباره با لینک دعوت وصل شود."
+            : "لینک قبلی باطل می‌شود و لینک جدید ساخته و در کلیپ‌بورد کپی می‌شود."
+        }
+        confirmLabel={
+          confirmAction?.kind === "unlink" ? "قطع اتصال" : "تولید لینک جدید"
+        }
+        destructive={confirmAction?.kind === "unlink"}
+        pending={pending}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   );
 }

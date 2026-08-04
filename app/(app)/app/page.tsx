@@ -100,42 +100,44 @@ export default async function AppHomePage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const session = await requireUser();
-  const { error } = await searchParams;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      phone: true,
-      name: true,
-      avatarUrl: true,
-      platformRole: true,
-    },
-  });
+  const [sp, user, memberships] = await Promise.all([
+    searchParams,
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        phone: true,
+        name: true,
+        avatarUrl: true,
+        platformRole: true,
+      },
+    }),
+    prisma.spaceMember.findMany({
+      where: {
+        userId: session.userId,
+        space: { archivedAt: null },
+      },
+      include: {
+        space: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            currency: true,
+            ownerId: true,
+            _count: { select: { members: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  const { error } = sp;
 
   if (!user) {
     redirect("/login");
   }
-
-  const memberships = await prisma.spaceMember.findMany({
-    where: {
-      userId: session.userId,
-      space: { archivedAt: null },
-    },
-    include: {
-      space: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          currency: true,
-          ownerId: true,
-          _count: { select: { members: true } },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
 
   const spaceIds = memberships.map((m) => m.space.id);
 

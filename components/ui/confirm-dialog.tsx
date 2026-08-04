@@ -45,7 +45,11 @@ export function ConfirmDialog({
           </DialogDescription>
         </DialogHeader>
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}
@@ -66,7 +70,7 @@ export function ConfirmDialog({
             disabled={pending}
             onClick={onConfirm}
           >
-            {pending ? "صبر کنید…" : confirmLabel}
+            {pending ? "در حال انجام…" : confirmLabel}
           </Button>
         </div>
       </DialogContent>

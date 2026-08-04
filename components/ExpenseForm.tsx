@@ -1021,7 +1021,7 @@ export function ExpenseForm({
                   >
                     <FormControl>
                       <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
-                        <SelectValue placeholder="دسته" />
+                        <SelectValue placeholder="دسته…" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -1157,7 +1157,7 @@ export function ExpenseForm({
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
-                      <SelectValue placeholder="انتخاب کنید" />
+                      <SelectValue placeholder="انتخاب کنید…" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

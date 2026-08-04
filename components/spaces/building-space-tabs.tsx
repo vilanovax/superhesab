@@ -3,10 +3,6 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
-import { ExpenseList } from "@/components/expenses/expense-list";
-import { BuildingBillsBreakdown } from "@/components/spaces/building-bills-breakdown";
-import { BuildingReportInsights } from "@/components/spaces/building-report-insights";
-import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
@@ -17,6 +13,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+
+const ExpenseList = dynamic(
+  () =>
+    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
+  { loading: () => <SpacePanelFallback rows={4} /> },
+);
 
 const PersonalReportChart = dynamic(
   () =>
@@ -45,6 +47,30 @@ const BuildingUnitsPanel = dynamic(
       (m) => m.BuildingUnitsPanel,
     ),
   { loading: () => <SpacePanelFallback rows={3} /> },
+);
+
+const BuildingBillsBreakdown = dynamic(
+  () =>
+    import("@/components/spaces/building-bills-breakdown").then(
+      (m) => m.BuildingBillsBreakdown,
+    ),
+  { loading: () => <SpacePanelFallback rows={2} /> },
+);
+
+const BuildingReportInsights = dynamic(
+  () =>
+    import("@/components/spaces/building-report-insights").then(
+      (m) => m.BuildingReportInsights,
+    ),
+  { loading: () => <SpacePanelFallback rows={2} /> },
+);
+
+const BuildingReportPeriodFilter = dynamic(
+  () =>
+    import("@/components/spaces/building-report-period-filter").then(
+      (m) => m.BuildingReportPeriodFilter,
+    ),
+  { loading: () => <div className="h-11 animate-pulse rounded-xl bg-muted/40" /> },
 );
 
 /** BUILDING — charge calendar / units / common-cost report. */

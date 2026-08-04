@@ -115,7 +115,7 @@ function SheetBody({
           <p className="text-micro font-medium tracking-[0.14em] text-on-hero/45">
             SUPERHESAB
           </p>
-          <h2 className="text-xl font-bold tracking-tight text-on-hero">
+          <h2 className="text-pretty text-xl font-bold tracking-tight text-on-hero">
             دفتر جدید
           </h2>
           <p className="max-w-[16rem] text-caption leading-relaxed text-on-hero/72">

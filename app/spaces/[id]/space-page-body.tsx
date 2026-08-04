@@ -189,93 +189,91 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
 
   return (
     <>
-      {(
-        <SpaceTabsGate
-          spaceId={space.id}
-          spaceName={space.name}
-          currentUserId={session.userId}
-          currentUserRole={myRole}
-          expenses={expenses}
-          expensesHasMore={expensesHasMore}
-          members={members}
-          inviteMembers={inviteMembers}
-          balances={balanceData.balances}
-          suggestions={balanceData.suggestions}
-          checklist={checklist}
-          currency={space.currency}
-          roundUpToThousand={space.roundUpToThousand}
-          spaceType={space.type}
-          showChecklist={showChecklist}
-          canMutate={canWrite}
-          personalReportData={personalReportData}
-          reportExpenseLines={reportExpenseLines}
-          familyMonthExpenses={monthRows
-            .filter((r) => r.transactionType === "EXPENSE")
-            .map((r) => ({
-              category: r.category,
-              categoryLabel: r.categoryLabel ?? null,
-              totalAmount: r.totalAmount,
-              paidById: r.paidById,
-            }))}
-          familyReportMembers={members.map((m) => ({
-            userId: m.userId,
-            name:
-              m.userId === session.userId
-                ? "من"
-                : m.name?.trim().split(/\s+/)[0] ||
-                  m.phone ||
-                  "عضو",
+      <SpaceTabsGate
+        spaceId={space.id}
+        spaceName={space.name}
+        currentUserId={session.userId}
+        currentUserRole={myRole}
+        expenses={expenses}
+        expensesHasMore={expensesHasMore}
+        members={members}
+        inviteMembers={inviteMembers}
+        balances={balanceData.balances}
+        suggestions={balanceData.suggestions}
+        checklist={checklist}
+        currency={space.currency}
+        roundUpToThousand={space.roundUpToThousand}
+        spaceType={space.type}
+        showChecklist={showChecklist}
+        canMutate={canWrite}
+        personalReportData={personalReportData}
+        reportExpenseLines={reportExpenseLines}
+        familyMonthExpenses={monthRows
+          .filter((r) => r.transactionType === "EXPENSE")
+          .map((r) => ({
+            category: r.category,
+            categoryLabel: r.categoryLabel ?? null,
+            totalAmount: r.totalAmount,
+            paidById: r.paidById,
           }))}
-          monthlyBudget={space.monthlyBudget}
-          debts={debts}
-          savingsPots={savingsPots}
-          internalLoans={internalLoans}
-          fundMembers={fundMembers}
-          currentFundMemberId={currentFundMemberId}
-          categoryBudgets={categoryBudgets}
-          buildingDashboard={buildingDashboard}
-          buildingCalendar={buildingCalendar}
-          buildingUnits={buildingUnits}
-          chargeProofs={chargeProofs}
-          isOwner={isOwner}
-          initialTab={activeTab}
-          loadedTabs={[activeTab]}
-          tabLoadContext={{
-            planYear: isBuildingShell ? planYear : undefined,
-            reportMonth: isBuildingShell ? reportMonth : null,
-          }}
-          reportPlanYear={isBuildingShell ? planYear : undefined}
-          reportMonth={isBuildingShell ? reportMonth : null}
-          reportPeriodLabel={
-            isBuildingShell
-              ? reportMonth != null
-                ? `هزینه مشاع ${monthLabelFa(reportMonth)} ${formatJalaliYear(planYear)}`
-                : `هزینه مشاع سال ${formatJalaliYear(planYear)}`
-              : undefined
-          }
-          reportTotalLabel={
-            isBuildingShell
-              ? reportMonth != null
-                ? "جمع ماه"
-                : "جمع سال"
-              : undefined
-          }
-          reportEmptyTitle={
-            isBuildingShell
-              ? reportMonth != null
-                ? `گزارش ${monthLabelFa(reportMonth)} خالی است`
-                : "گزارش سال خالی است"
-              : undefined
-          }
-          reportEmptyHint={
-            isBuildingShell
-              ? "با ثبت چند هزینه مشاع، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید."
-              : undefined
-          }
-        />
-      )}
+        familyReportMembers={members.map((m) => ({
+          userId: m.userId,
+          name:
+            m.userId === session.userId
+              ? "من"
+              : m.name?.trim().split(/\s+/)[0] ||
+                m.phone ||
+                "عضو",
+        }))}
+        monthlyBudget={space.monthlyBudget}
+        debts={debts}
+        savingsPots={savingsPots}
+        internalLoans={internalLoans}
+        fundMembers={fundMembers}
+        currentFundMemberId={currentFundMemberId}
+        categoryBudgets={categoryBudgets}
+        buildingDashboard={buildingDashboard}
+        buildingCalendar={buildingCalendar}
+        buildingUnits={buildingUnits}
+        chargeProofs={chargeProofs}
+        isOwner={isOwner}
+        initialTab={activeTab}
+        loadedTabs={[activeTab]}
+        tabLoadContext={{
+          planYear: isBuildingShell ? planYear : undefined,
+          reportMonth: isBuildingShell ? reportMonth : null,
+        }}
+        reportPlanYear={isBuildingShell ? planYear : undefined}
+        reportMonth={isBuildingShell ? reportMonth : null}
+        reportPeriodLabel={
+          isBuildingShell
+            ? reportMonth != null
+              ? `هزینه مشاع ${monthLabelFa(reportMonth)} ${formatJalaliYear(planYear)}`
+              : `هزینه مشاع سال ${formatJalaliYear(planYear)}`
+            : undefined
+        }
+        reportTotalLabel={
+          isBuildingShell
+            ? reportMonth != null
+              ? "جمع ماه"
+              : "جمع سال"
+            : undefined
+        }
+        reportEmptyTitle={
+          isBuildingShell
+            ? reportMonth != null
+              ? `گزارش ${monthLabelFa(reportMonth)} خالی است`
+              : "گزارش سال خالی است"
+            : undefined
+        }
+        reportEmptyHint={
+          isBuildingShell
+            ? "با ثبت چند هزینه مشاع، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید."
+            : undefined
+        }
+      />
 
-      {canWrite && !isFundShell ? (
+      {canWrite ? (
         <AddExpenseButton
           spaceId={space.id}
           currentUserId={session.userId}

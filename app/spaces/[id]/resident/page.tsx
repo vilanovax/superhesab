@@ -11,7 +11,6 @@ import { ResidentPortal } from "@/components/spaces/resident-portal";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
-import { prisma } from "@/lib/db/prisma";
 import { getTemplateDataset } from "@/lib/templates/registry";
 
 type ResidentPageProps = {
@@ -33,15 +32,20 @@ export default async function ResidentPortalPage({
     redirect(`/spaces/${id}`);
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id },
-    select: { type: true, name: true },
-  });
-  if (!space || space.type !== "BUILDING") {
+  const space = membership.space;
+  if (space.type !== "BUILDING") {
     notFound();
   }
 
-  const data = await getResidentPortalData(id);
+  const [data, suggestions, announcements, notifications, chargeProofs] =
+    await Promise.all([
+      getResidentPortalData(id),
+      listMyBuildingSuggestions(id),
+      listBuildingAnnouncements(id),
+      listMyBuildingNotifications(id),
+      listMyChargeProofs(id),
+    ]);
+
   if (!data) {
     return (
       <main
@@ -63,14 +67,6 @@ export default async function ResidentPortalPage({
       </main>
     );
   }
-
-  const [suggestions, announcements, notifications, chargeProofs] =
-    await Promise.all([
-      listMyBuildingSuggestions(id),
-      listBuildingAnnouncements(id),
-      listMyBuildingNotifications(id),
-      listMyChargeProofs(id),
-    ]);
 
   return (
     <main

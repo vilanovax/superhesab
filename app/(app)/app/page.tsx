@@ -11,7 +11,6 @@ import {
   spaceTypeAccent,
   spaceTypeTint,
 } from "@/components/spaces/space-type-icon";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
@@ -170,7 +169,6 @@ export default async function AppHomePage({
       listDisabledSpaceTypes(),
     ]);
 
-  const displayName = user.name?.trim() || user.phone;
   const spaceCount = memberships.length;
   const isEmpty = spaceCount === 0;
 
@@ -211,23 +209,8 @@ export default async function AppHomePage({
           : "pb-[calc(5.5rem+env(safe-area-inset-bottom))]",
       )}
     >
-      {/* Identity */}
-      <div className="mb-4 flex items-center gap-3">
-        <UserAvatar
-          phone={user.phone}
-          name={user.name}
-          avatarUrl={user.avatarUrl}
-          size={40}
-          className="size-10 ring-2 ring-white/90 shadow-sm"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-semibold tracking-tight text-foreground">
-            سلام، {displayName}
-          </p>
-          <p className="text-caption text-muted-foreground">
-            {isEmpty ? "یک دفتر انتخاب کن تا شروع کنیم" : `${spaceCount} دفتر فعال`}
-          </p>
-        </div>
+      {/* Account — profile menu only, start edge (right in RTL) */}
+      <div className="mb-4 flex items-center justify-start">
         <HomeUserMenu isPlatformAdmin={user.platformRole === "ADMIN"} />
       </div>
 

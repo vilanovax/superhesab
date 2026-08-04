@@ -59,7 +59,7 @@ function LogoutIcon({ className }: { className?: string }) {
   );
 }
 
-/** Header account menu — settings + logout. Anchored to the start-side trigger (left in RTL). */
+/** Header account menu — settings + logout. Trigger sits on the start edge (right in RTL). */
 export function HomeUserMenu({
   isPlatformAdmin = false,
 }: {
@@ -118,7 +118,7 @@ export function HomeUserMenu({
           id={menuId}
           role="menu"
           aria-label="حساب کاربری"
-          className="absolute end-0 top-[calc(100%+0.4rem)] z-50 min-w-[11.5rem] origin-top-left animate-fade-up overflow-hidden rounded-2xl border border-border/60 bg-card p-1 shadow-lg"
+          className="absolute start-0 top-[calc(100%+0.4rem)] z-50 min-w-[11.5rem] origin-top-right animate-fade-up overflow-hidden rounded-2xl border border-border/60 bg-card p-1 shadow-lg"
         >
           <Link
             role="menuitem"

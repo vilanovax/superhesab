@@ -18,6 +18,7 @@ import {
 } from "@/components/spaces/invite-members-button";
 import { Button } from "@/components/ui/button";
 import type { ExpenseCategory } from "@/lib/categorizer";
+import { formatCategoryWithTag } from "@/lib/building-bill-tags";
 import { CATEGORY_LABELS } from "@/lib/categorizer";
 import {
   Dialog,
@@ -129,6 +130,7 @@ function toInitial(expense: ExpenseListItem): ExpenseInitialValues {
     paidById: expense.paidById,
     date: expenseDayKey(expense.date),
     category: expense.category,
+    categoryLabel: expense.categoryLabel ?? null,
     transactionType: expense.transactionType ?? "EXPENSE",
     splitMode: expense.splitMode,
     splitAmounts: Object.fromEntries(
@@ -510,8 +512,14 @@ export function ExpenseList({
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           <span className="text-foreground/70">
-                            {expense.categoryLabel?.trim() ||
-                              CATEGORY_LABELS[expense.category]}
+                            {expense.category === "OTHER" ||
+                            expense.category === "OTHER_INCOME"
+                              ? expense.categoryLabel?.trim() ||
+                                CATEGORY_LABELS[expense.category]
+                              : formatCategoryWithTag(
+                                  CATEGORY_LABELS[expense.category],
+                                  expense.categoryLabel,
+                                )}
                           </span>
                           {" · "}
                           {features.incomeExpense

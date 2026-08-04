@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
+import { BuildingReportInsights } from "@/components/spaces/building-report-insights";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
@@ -198,6 +199,12 @@ export function BuildingSpaceTabs({
                 }
               />
             </div>
+            <BuildingReportInsights
+              categoryRows={deferred.personalReportData}
+              expenseLines={deferred.reportExpenseLines}
+              currency={currency}
+              periodLabel={reportPeriodLabel}
+            />
             <PersonalReportChart
               data={deferred.personalReportData}
               expenseLines={deferred.reportExpenseLines}

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
-  categoriesForType,
+  allowedCategoriesForSpace,
   guessCategoryFromTitle,
 } from "@/lib/categorizer";
 import { privateCategoriesHiddenFromViewer } from "@/lib/category-privacy";
@@ -275,7 +275,10 @@ export async function addExpense(
   );
   if (!resolved.ok) return resolved;
 
-  const allowedCategories = categoriesForType(transactionType);
+  const allowedCategories = allowedCategoriesForSpace({
+    buildingCharges: features.buildingCharges,
+    transactionType,
+  });
   if (
     input.category !== undefined &&
     !allowedCategories.includes(input.category)
@@ -299,11 +302,15 @@ export async function addExpense(
     transactionType === "INCOME" ? "OTHER_INCOME" : "OTHER";
   const hasManualCategory = input.category !== undefined;
   const categoryLocked = hasManualCategory || Boolean(customLabel);
-  let category = customLabel
-    ? fallbackBucket
-    : hasManualCategory
-      ? input.category!
-      : guessCategoryFromTitle(input.title, transactionType);
+  // Explicit category wins (e.g. BUILDING_BILLS + tag in categoryLabel).
+  // Freeform label alone still maps to OTHER / OTHER_INCOME.
+  let category = hasManualCategory
+    ? input.category!
+    : customLabel
+      ? fallbackBucket
+      : guessCategoryFromTitle(input.title, transactionType, {
+          building: features.buildingCharges,
+        });
 
   const guessedPrivacy = await assertCategoryNotHidden(
     input.spaceId,
@@ -422,7 +429,10 @@ export async function updateExpense(
   );
   if (!resolved.ok) return resolved;
 
-  const allowedCategories = categoriesForType(transactionType);
+  const allowedCategories = allowedCategoriesForSpace({
+    buildingCharges: features.buildingCharges,
+    transactionType,
+  });
   if (
     input.category !== undefined &&
     !allowedCategories.includes(input.category)
@@ -447,31 +457,42 @@ export async function updateExpense(
   let categoryLabel = existing.categoryLabel;
   let isCategoryLocked = existing.isCategoryLocked;
 
-  if (input.categoryLabel !== undefined) {
-    const nextLabel = input.categoryLabel?.trim() || null;
-    if (nextLabel) {
-      category = fallbackBucket;
-      categoryLabel = nextLabel;
-      isCategoryLocked = true;
-    } else if (input.categoryLabel === null || input.categoryLabel === "") {
+  if (input.category !== undefined) {
+    category = input.category;
+    isCategoryLocked = true;
+    if (input.category !== existing.category && input.categoryLabel === undefined) {
       categoryLabel = null;
     }
   }
 
+  if (input.categoryLabel !== undefined) {
+    const nextLabel = input.categoryLabel?.trim() || null;
+    categoryLabel = nextLabel;
+    if (nextLabel) {
+      isCategoryLocked = true;
+      // Custom freeform category only when no/OTHER bucket — keep BUILDING_* + tag.
+      if (
+        input.category === undefined &&
+        (category === "OTHER" || category === "OTHER_INCOME")
+      ) {
+        category = fallbackBucket;
+      } else if (
+        input.category === "OTHER" ||
+        input.category === "OTHER_INCOME"
+      ) {
+        category = input.category;
+      }
+    }
+  }
+
   if (
-    input.category !== undefined &&
-    input.category !== existing.category &&
-    !input.categoryLabel
-  ) {
-    category = input.category;
-    categoryLabel = null;
-    isCategoryLocked = true;
-  } else if (
     !isCategoryLocked &&
-    !input.categoryLabel &&
+    input.categoryLabel === undefined &&
     input.category === undefined
   ) {
-    category = guessCategoryFromTitle(input.title, transactionType);
+    category = guessCategoryFromTitle(input.title, transactionType, {
+      building: features.buildingCharges,
+    });
     categoryLabel = null;
   }
 

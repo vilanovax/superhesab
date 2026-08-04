@@ -331,6 +331,18 @@ export function categoriesForBuilding(): ExpenseCategory[] {
   return BUILDING_CATEGORIES;
 }
 
+/**
+ * Categories allowed for create/update validation.
+ * Building spaces use the shared-cost dictionary; others follow INCOME/EXPENSE.
+ */
+export function allowedCategoriesForSpace(opts: {
+  buildingCharges: boolean;
+  transactionType: TransactionType;
+}): ExpenseCategory[] {
+  if (opts.buildingCharges) return categoriesForBuilding();
+  return categoriesForType(opts.transactionType);
+}
+
 /** Normalize Persian titles for keyword matching. */
 export function normalizeCategoryTitle(title: string): string {
   return title

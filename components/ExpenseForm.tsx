@@ -63,7 +63,16 @@ import {
   type TransactionTypeForm,
 } from "@/lib/validations/expense";
 import { cn } from "@/lib/utils";
+import { BuildingBillTags } from "@/components/expenses/building-bill-tags";
 import { CategoryPickerSheet } from "@/components/expenses/category-picker-sheet";
+import {
+  DEFAULT_BILL_TAGS,
+  formatCategoryWithTag,
+  guessBillTagFromTitle,
+  rememberCustomBillTag,
+} from "@/lib/building-bill-tags";
+
+const DEFAULT_BILL_TAGS_SET = new Set<string>(DEFAULT_BILL_TAGS);
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
@@ -111,6 +120,8 @@ export type ExpenseInitialValues = {
   splitPercents?: Record<string, number>;
   splitMode?: SplitMode;
   category: ExpenseCategory;
+  /** Sub-tag under a builtin (e.g. قبوض → آب) or freeform custom name. */
+  categoryLabel?: string | null;
   transactionType?: TransactionTypeForm;
 };
 
@@ -235,6 +246,7 @@ function buildDefaultValues(
     splitMode,
     transactionType: initialExpense.transactionType ?? "EXPENSE",
     category: initialExpense.category,
+    categoryLabel: initialExpense.categoryLabel ?? null,
     splits: members.map((m) => {
       const selected = selectedIds.has(m.userId);
       const storedPercent = initialExpense.splitPercents?.[m.userId];
@@ -298,6 +310,11 @@ export function ExpenseForm({
   const [customCategoryLabel, setCustomCategoryLabel] = useState<string | null>(
     null,
   );
+  const [billTag, setBillTag] = useState<string | null>(() =>
+    initialExpense?.category === "BUILDING_BILLS"
+      ? (initialExpense.categoryLabel?.trim() || null)
+      : null,
+  );
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [debouncedTitle, setDebouncedTitle] = useState("");
   /** Trip split list — collapsed by default to keep the bottom sheet compact. */
@@ -323,6 +340,7 @@ export function ExpenseForm({
   );
   const splits = useWatch({ control: form.control, name: "splits" });
   const watchedDate = useWatch({ control: form.control, name: "date" });
+  const watchedCategory = useWatch({ control: form.control, name: "category" });
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -354,7 +372,9 @@ export function ExpenseForm({
     CATEGORY_LABELS[code];
   const chipLabel = customCategoryLabel
     ? customCategoryLabel
-    : categoryLabelFor(activeCategory);
+    : isBuilding && activeCategory === "BUILDING_BILLS" && billTag
+      ? formatCategoryWithTag(categoryLabelFor(activeCategory), billTag)
+      : categoryLabelFor(activeCategory);
   const chipEmoji = customCategoryLabel
     ? "🏷️"
     : CATEGORY_EMOJI[activeCategory];
@@ -374,25 +394,49 @@ export function ExpenseForm({
       );
       return;
     }
-    form.setValue("categoryLabel", null, {
-      shouldDirty: false,
-      shouldValidate: false,
-    });
     form.setValue("category", activeCategory, {
       shouldDirty: false,
       shouldValidate: false,
     });
+    if (isBuilding && activeCategory === "BUILDING_BILLS") {
+      form.setValue("categoryLabel", billTag, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    } else {
+      form.setValue("categoryLabel", null, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    }
+  }, [
+    activeCategory,
+    billTag,
+    customCategoryLabel,
+    form,
+    isBuilding,
+    isEdit,
+    transactionType,
+  ]);
+
+  /** Auto-suggest bill tag from title when under قبوض. */
+  useEffect(() => {
+    if (isEdit || !isBuilding || customCategoryLabel) return;
+    if (activeCategory !== "BUILDING_BILLS") return;
+    const guessed = guessBillTagFromTitle(debouncedTitle);
+    if (guessed) setBillTag(guessed);
   }, [
     activeCategory,
     customCategoryLabel,
-    form,
+    debouncedTitle,
+    isBuilding,
     isEdit,
-    transactionType,
   ]);
 
   useEffect(() => {
     setManualCategory(null);
     setCustomCategoryLabel(null);
+    setBillTag(null);
   }, [transactionType]);
 
   const selectedIndexes = useMemo(
@@ -530,10 +574,30 @@ export function ExpenseForm({
             : "OTHER";
       } else if (manualCategory) {
         base.category = manualCategory;
-        base.categoryLabel = null;
+        base.categoryLabel =
+          isBuilding && manualCategory === "BUILDING_BILLS" ? billTag : null;
       } else {
-        delete base.category;
-        base.categoryLabel = null;
+        base.category = activeCategory;
+        base.categoryLabel =
+          isBuilding && activeCategory === "BUILDING_BILLS" ? billTag : null;
+      }
+      if (
+        isBuilding &&
+        base.category === "BUILDING_BILLS" &&
+        billTag &&
+        !(DEFAULT_BILL_TAGS_SET.has(billTag))
+      ) {
+        rememberCustomBillTag(spaceId, billTag);
+      }
+    } else if (isBuilding) {
+      const cat = values.category ?? "OTHER";
+      if (cat === "BUILDING_BILLS") {
+        base.categoryLabel = billTag;
+        if (billTag && !DEFAULT_BILL_TAGS_SET.has(billTag)) {
+          rememberCustomBillTag(spaceId, billTag);
+        }
+      } else {
+        base.categoryLabel = values.categoryLabel ?? null;
       }
     }
 
@@ -819,6 +883,7 @@ export function ExpenseForm({
                   if (next.kind === "custom") {
                     setCustomCategoryLabel(next.label);
                     setManualCategory(null);
+                    setBillTag(null);
                     form.setValue("categoryLabel", next.label, {
                       shouldDirty: true,
                     });
@@ -833,13 +898,36 @@ export function ExpenseForm({
                   }
                   setCustomCategoryLabel(null);
                   setManualCategory(next.category);
-                  form.setValue("categoryLabel", null, { shouldDirty: true });
+                  if (next.category !== "BUILDING_BILLS") setBillTag(null);
+                  form.setValue(
+                    "categoryLabel",
+                    next.category === "BUILDING_BILLS" ? billTag : null,
+                    { shouldDirty: true },
+                  );
                   form.setValue("category", next.category, {
                     shouldDirty: true,
                   });
                 }}
               />
             </>
+          ) : null}
+
+          {isBuilding &&
+          !isEdit &&
+          !customCategoryLabel &&
+          activeCategory === "BUILDING_BILLS" ? (
+            <BuildingBillTags
+              spaceId={spaceId}
+              value={billTag}
+              onChange={(tag) => {
+                setBillTag(tag);
+                setManualCategory("BUILDING_BILLS");
+                form.setValue("category", "BUILDING_BILLS", {
+                  shouldDirty: true,
+                });
+                form.setValue("categoryLabel", tag, { shouldDirty: true });
+              }}
+            />
           ) : null}
 
           {isEdit ? (
@@ -853,7 +941,15 @@ export function ExpenseForm({
                   </FormLabel>
                   <Select
                     value={field.value ?? categoryOptions[0]}
-                    onValueChange={field.onChange}
+                    onValueChange={(next) => {
+                      field.onChange(next);
+                      if (next !== "BUILDING_BILLS") {
+                        setBillTag(null);
+                        form.setValue("categoryLabel", null, {
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
                   >
                     <FormControl>
                       <SelectTrigger className="h-11 rounded-xl border-border/70 bg-sheet-muted">
@@ -875,6 +971,19 @@ export function ExpenseForm({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+          ) : null}
+
+          {isBuilding &&
+          isEdit &&
+          watchedCategory === "BUILDING_BILLS" ? (
+            <BuildingBillTags
+              spaceId={spaceId}
+              value={billTag}
+              onChange={(tag) => {
+                setBillTag(tag);
+                form.setValue("categoryLabel", tag, { shouldDirty: true });
+              }}
             />
           ) : null}
 

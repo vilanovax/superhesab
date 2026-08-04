@@ -130,7 +130,7 @@ export function CategoryPrivacySettings({
                   )}
                   onClick={() => toggle(category, !mine)}
                 >
-                  {busy ? "…" : mine ? "خصوصی" : "مشترک"}
+                  {busy ? "در حال ذخیره…" : mine ? "خصوصی" : "مشترک"}
                 </Button>
               )}
             </li>

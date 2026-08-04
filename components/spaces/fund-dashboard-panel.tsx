@@ -364,7 +364,11 @@ export function FundDashboardPanel({
           )}
           {dashboard.cycleIntegrity &&
           dashboard.cycleIntegrity.duplicateWinnerPeriods.length > 0 ? (
-            <p className="mt-2 text-caption text-destructive" role="alert">
+            <p
+              className="mt-2 text-caption text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
               هشدار: نوبت تکراری در داده‌ها —{" "}
               {dashboard.cycleIntegrity.duplicateWinnerPeriods
                 .map((d) => `دوره‌های ${d.periods.join(" و ")}`)

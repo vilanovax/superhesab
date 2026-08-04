@@ -119,7 +119,15 @@ export function BuildingMonthHero({
               {collectPct}٪
             </p>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-on-hero/15">
+          <div
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-on-hero/15"
+            role="progressbar"
+            aria-valuenow={collectPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={`${collectPct}٪ پیشرفت وصول سال`}
+            aria-label="پیشرفت وصول سال"
+          >
             <div
               className={cn(
                 "h-full rounded-full transition-[width] duration-500 ease-out",

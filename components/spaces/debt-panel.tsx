@@ -674,7 +674,10 @@ function DebtCard({
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn("h-full rounded-full transition-all", barColor)}
+          className={cn(
+            "h-full rounded-full transition-[width] duration-300 ease-out",
+            barColor,
+          )}
           style={{ width: `${debt.progressPercent}%` }}
         />
       </div>

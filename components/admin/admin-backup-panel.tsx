@@ -212,7 +212,7 @@ export function AdminBackupPanel() {
                 disabled={pending || userPhone.trim().length < 8}
                 onClick={onExportUser}
               >
-                {pending ? "…" : "دانلود"}
+                {pending ? "در حال دانلود…" : "دانلود"}
               </Button>
             </div>
           </div>
@@ -239,7 +239,7 @@ export function AdminBackupPanel() {
                 disabled={pending || spaceIds.trim().length < 4}
                 onClick={onExportSpaces}
               >
-                {pending ? "…" : "دانلود"}
+                {pending ? "در حال دانلود…" : "دانلود"}
               </Button>
             </div>
           </div>

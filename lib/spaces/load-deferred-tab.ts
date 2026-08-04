@@ -136,7 +136,8 @@ export async function loadDeferredTabData(
     );
   }
 
-  if (tab === "expenses" && features.incomeExpense) {
+  /** Any template with an expenses tab — not only incomeExpense shells. */
+  if (tab === "expenses") {
     tasks.push(
       (async () => {
         const page = await queryExpenseLedgerPage({

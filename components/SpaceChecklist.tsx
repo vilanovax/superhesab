@@ -154,7 +154,7 @@ export function SpaceChecklist({
             disabled={pending}
           />
           <Button type="submit" className="h-12 shrink-0 px-5" disabled={pending}>
-            {pending ? "…" : "افزودن"}
+            {pending ? "در حال افزودن…" : "افزودن"}
           </Button>
         </form>
       ) : null}

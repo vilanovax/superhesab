@@ -37,7 +37,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-4 rounded-2xl border-border/60 p-5 sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-base font-bold tracking-tight">
+          <DialogTitle className="text-pretty text-base font-bold tracking-tight">
             {title}
           </DialogTitle>
           <DialogDescription className="text-body-sm leading-relaxed text-muted-foreground">

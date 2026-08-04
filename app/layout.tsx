@@ -5,9 +5,8 @@ import { DeferredPwaRuntime } from "@/components/pwa/deferred-pwa-runtime";
 import "./globals.css";
 
 /**
- * Vazir FD-WOL — Regular + Medium + Bold only.
- * Bold listed first so next/font preloads the LCP heading face.
- * Thin/Light removed from disk and from this list.
+ * Vazir FD-WOL — two files only for faster LCP.
+ * font-medium (500) → Regular; font-semibold (600) → Bold.
  */
 const vazir = localFont({
   src: [
@@ -22,18 +21,18 @@ const vazir = localFont({
       style: "normal",
     },
     {
+      path: "../public/fonts/Vazir-Bold-FD-WOL.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
       path: "../public/fonts/Vazir-FD-WOL.woff2",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../public/fonts/Vazir-Medium-FD-WOL.woff2",
+      path: "../public/fonts/Vazir-FD-WOL.woff2",
       weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/Vazir-Medium-FD-WOL.woff2",
-      weight: "600",
       style: "normal",
     },
   ],

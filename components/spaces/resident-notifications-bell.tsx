@@ -89,15 +89,15 @@ export function ResidentNotificationsBell({
   }
 
   function markAll() {
-    if (unread === 0) return;
-    setItems((prev) => prev.map((x) => ({ ...x, read: true })));
-    showToast("همه خوانده شد");
+    if (unread === 0 || pending) return;
     startTransition(async () => {
       const result = await markAllBuildingNotificationsRead(spaceId);
       if (!result.ok) {
-        showToast(result.error || "خطا", "error");
+        showToast(result.error || "خطا در علامت‌گذاری", "error");
         return;
       }
+      setItems((prev) => prev.map((x) => ({ ...x, read: true })));
+      showToast("همه خوانده شد");
       router.refresh();
     });
   }
@@ -112,22 +112,27 @@ export function ResidentNotificationsBell({
         aria-label={
           unread > 0 ? `اعلان‌ها · ${unread} خوانده‌نشده` : "اعلان‌ها"
         }
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={openInbox}
       >
         <BellIcon className="size-4" />
         {unread > 0 ? (
-          <span className="absolute -start-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] font-bold leading-none text-primary-foreground ring-2 ring-background">
+          <span
+            className="absolute -start-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] font-bold leading-none text-primary-foreground ring-2 ring-background"
+            aria-hidden
+          >
             {unread > 9 ? "۹+" : faDigits(unread)}
           </span>
         ) : null}
       </Button>
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+      <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
+        <DrawerContent className="mt-0! flex h-auto max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="flex flex-row items-start justify-between gap-2 space-y-0 p-0 text-start">
-              <div>
-                <DrawerTitle className="text-body font-bold text-on-hero">
+              <div className="min-w-0">
+                <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                   اعلان‌ها
                 </DrawerTitle>
                 <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
@@ -141,17 +146,17 @@ export function ResidentNotificationsBell({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg border-on-hero/25 bg-on-hero/10 text-caption text-on-hero hover:bg-on-hero/15"
+                  className="h-8 shrink-0 rounded-lg border-on-hero/25 bg-on-hero/10 text-caption text-on-hero hover:bg-on-hero/15"
                   disabled={pending}
                   onClick={markAll}
                 >
-                  خواندن همه
+                  {pending ? "در حال ذخیره…" : "خواندن همه"}
                 </Button>
               ) : null}
             </DrawerHeader>
           </div>
 
-          <div className="max-h-[60dvh] overflow-y-auto px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="min-h-0 max-h-[60dvh] flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {items.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
                 هنوز اعلانی نیست.
@@ -164,10 +169,10 @@ export function ResidentNotificationsBell({
                       type="button"
                       onClick={() => onSelect(n)}
                       className={cn(
-                        "w-full rounded-2xl border px-3.5 py-3 text-start transition-colors",
+                        "w-full rounded-2xl border px-3.5 py-3 text-start transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_5.5rem]",
                         n.read
-                          ? "border-border/45 bg-card"
-                          : "border-primary/25 bg-primary/5 ring-1 ring-primary/10",
+                          ? "border-border/45 bg-card hover:bg-muted/30"
+                          : "border-primary/25 bg-primary/5 ring-1 ring-primary/10 hover:bg-primary/8",
                       )}
                     >
                       <div className="flex items-center gap-1.5">
@@ -191,7 +196,7 @@ export function ResidentNotificationsBell({
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1.5 text-body-sm font-semibold text-foreground">
+                      <p className="mt-1.5 text-pretty text-body-sm font-semibold text-foreground">
                         {n.title}
                       </p>
                       <p className="mt-0.5 line-clamp-2 text-caption text-muted-foreground">

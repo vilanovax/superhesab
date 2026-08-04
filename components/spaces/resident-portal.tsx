@@ -31,6 +31,10 @@ import {
 } from "@/lib/categorizer";
 import { formatDateFaShort } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import {
+  parseResidentTab,
+  type ResidentTab,
+} from "@/lib/resident-tab";
 import { cn } from "@/lib/utils";
 
 type ResidentPortalProps = {
@@ -43,6 +47,25 @@ type ResidentPortalProps = {
 
 function faDigits(n: number): string {
   return String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]!);
+}
+
+function readResidentTab(): ResidentTab {
+  if (typeof window === "undefined") return "announcements";
+  return parseResidentTab(
+    new URL(window.location.href).searchParams.get("rtab"),
+  );
+}
+
+/** Deep-link resident portal tab (`?rtab=`). */
+function syncResidentTabQuery(tab: ResidentTab) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const prev = `${url.pathname}${url.search}`;
+  if (tab === "announcements") url.searchParams.delete("rtab");
+  else url.searchParams.set("rtab", tab);
+  const next = `${url.pathname}${url.search}`;
+  if (prev === next) return;
+  window.history.replaceState(null, "", next);
 }
 
 export function ResidentPortal({
@@ -60,7 +83,14 @@ export function ResidentPortal({
         ? "ریال"
         : data.currency;
 
-  const [tab, setTab] = useState("announcements");
+  const [tab, setTab] = useState<ResidentTab>(readResidentTab);
+
+  function selectTab(next: string) {
+    const mapped = next === "charges" ? "payments" : next;
+    const parsed = parseResidentTab(mapped);
+    setTab(parsed);
+    syncResidentTabQuery(parsed);
+  }
 
   const unreadAnnouncementIds = useMemo(
     () =>
@@ -97,14 +127,14 @@ export function ResidentPortal({
             <p className="text-caption text-on-hero/70">
               وضعیت شارژ · {formatJalaliYear(data.year)}
             </p>
-            <h1 className="mt-1 text-title font-bold text-on-hero">
+            <h1 className="mt-1 text-pretty text-title font-bold text-on-hero">
               واحد {data.unit.name}
             </h1>
           </div>
           <ResidentNotificationsBell
             spaceId={data.spaceId}
             notifications={notifications}
-            onOpenTab={(t) => setTab(t)}
+            onOpenTab={selectTab}
           />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -143,16 +173,15 @@ export function ResidentPortal({
       </header>
 
       <Tabs
-        defaultValue="announcements"
         value={tab}
-        onValueChange={setTab}
+        onValueChange={selectTab}
         className="w-full"
       >
         <TabsList className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="announcements" className="rounded-xl px-1">
             اعلان
             {unreadAnnouncements > 0 ? (
-              <span className="ms-0.5 text-micro text-primary">
+              <span className="ms-0.5 text-micro text-primary" aria-hidden>
                 {faDigits(unreadAnnouncements)}
               </span>
             ) : null}
@@ -160,7 +189,7 @@ export function ResidentPortal({
           <TabsTrigger value="payments" className="rounded-xl px-1">
             پرداخت
             {unreadPayments > 0 ? (
-              <span className="ms-0.5 text-micro text-primary">
+              <span className="ms-0.5 text-micro text-primary" aria-hidden>
                 {faDigits(unreadPayments)}
               </span>
             ) : null}
@@ -201,14 +230,14 @@ export function ResidentPortal({
                   <li
                     key={p.id}
                     className={cn(
-                      "rounded-2xl border bg-card px-3.5 py-3",
+                      "rounded-2xl border bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_4.25rem]",
                       isNew
                         ? "border-primary/30 ring-1 ring-primary/10"
                         : "border-border/50",
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           {isNew ? (
                             <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-micro font-semibold text-amber-800 dark:text-amber-200">
@@ -219,12 +248,12 @@ export function ResidentPortal({
                             {monthLabelFa(p.month)} {formatJalaliYear(p.year)}
                           </p>
                         </div>
-                        <p className="mt-0.5 text-caption text-muted-foreground">
+                        <p className="mt-0.5 truncate text-caption text-muted-foreground">
                           {formatDateFaShort(p.date)}
                           {p.note ? ` · ${p.note}` : ""}
                         </p>
                       </div>
-                      <div className="text-end">
+                      <div className="shrink-0 text-end">
                         <p className="tabular-nums text-body-sm font-bold text-foreground">
                           {formatCurrency(p.amount, data.currency)}
                         </p>
@@ -255,16 +284,18 @@ export function ResidentPortal({
                 return (
                   <li
                     key={e.id}
-                    className="rounded-2xl border border-border/50 bg-card px-3.5 py-3"
+                    className="rounded-2xl border border-border/50 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_4rem]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-body-sm font-semibold text-foreground">
+                        <p className="truncate text-pretty text-body-sm font-semibold text-foreground">
                           {e.title}
                         </p>
                         <p className="mt-0.5 text-caption text-muted-foreground">
-                          {CATEGORY_EMOJI[cat] ?? "📦"} {label} ·{" "}
-                          {formatDateFaShort(e.date)}
+                          <span aria-hidden>
+                            {CATEGORY_EMOJI[cat] ?? "📦"}{" "}
+                          </span>
+                          {label} · {formatDateFaShort(e.date)}
                         </p>
                       </div>
                       <p className="shrink-0 tabular-nums text-body-sm font-bold text-foreground">

@@ -56,16 +56,25 @@ export function ResidentPaymentProof({
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const months = Array.from({ length: Math.max(throughMonth, 0) }, (_, i) => i + 1);
+  const months = Array.from(
+    { length: Math.max(throughMonth, 0) },
+    (_, i) => i + 1,
+  );
 
   function onUpload(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
+    setError(null);
+
     if (!file) {
+      setError("فایل رسید را انتخاب کنید.");
       showToast("فایل رسید را انتخاب کنید", "error");
       return;
     }
     if (!ALLOWED.has(file.type)) {
+      setError("فقط jpg / png / webp / pdf مجاز است.");
       showToast("فقط jpg/png/webp/pdf", "error");
       return;
     }
@@ -87,6 +96,7 @@ export function ResidentPaymentProof({
         note: note.trim() || null,
       });
       if (!intent.ok) {
+        setError(intent.error);
         showToast(intent.error, "error");
         return;
       }
@@ -100,6 +110,7 @@ export function ResidentPaymentProof({
         body: selected,
       });
       if (!put.ok) {
+        setError("آپلود فایل ناموفق بود. دوباره تلاش کنید.");
         showToast("آپلود فایل ناموفق بود", "error");
         return;
       }
@@ -109,12 +120,14 @@ export function ResidentPaymentProof({
         proofId: intent.proofId,
       });
       if (!confirmed.ok) {
+        setError(confirmed.error);
         showToast(confirmed.error, "error");
         return;
       }
 
       setFile(null);
       setNote("");
+      setError(null);
       showToast("رسید ارسال شد");
       router.refresh();
     });
@@ -137,7 +150,9 @@ export function ResidentPaymentProof({
         onSubmit={onUpload}
         className="space-y-2.5 rounded-2xl border border-border/55 bg-card p-3.5"
       >
-        <p className="text-body-sm font-semibold text-foreground">ارسال رسید</p>
+        <h2 className="text-pretty text-body-sm font-semibold text-foreground">
+          ارسال رسید
+        </h2>
         <p className="text-caption text-muted-foreground">
           عکس یا PDF رسید پرداخت را برای تایید مدیر بفرستید.
         </p>
@@ -149,8 +164,16 @@ export function ResidentPaymentProof({
           <>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">ماه</label>
+                <label
+                  htmlFor="proof-month"
+                  className="text-label text-muted-foreground"
+                >
+                  ماه
+                </label>
                 <select
+                  id="proof-month"
+                  name="month"
+                  autoComplete="off"
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
                   className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-body-sm"
@@ -163,33 +186,71 @@ export function ResidentPaymentProof({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">مبلغ</label>
+                <label
+                  htmlFor="proof-amount"
+                  className="text-label text-muted-foreground"
+                >
+                  مبلغ
+                </label>
                 <MoneyInput
+                  id="proof-amount"
+                  name="amount"
                   value={amount}
                   onValueChange={setAmount}
                   className="h-11 rounded-xl font-semibold"
                 />
               </div>
             </div>
-            <Input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="h-11 rounded-xl text-caption file:me-2"
-            />
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="یادداشت اختیاری"
-              maxLength={200}
-              className="h-11 rounded-xl"
-            />
+            <div className="space-y-1">
+              <label
+                htmlFor="proof-file"
+                className="text-label text-muted-foreground"
+              >
+                فایل رسید
+              </label>
+              <Input
+                id="proof-file"
+                name="proofFile"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                aria-label="انتخاب فایل رسید (jpg، png، webp یا pdf)"
+                className="h-11 rounded-xl text-caption file:me-2"
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="proof-note"
+                className="text-label text-muted-foreground"
+              >
+                یادداشت
+              </label>
+              <Input
+                id="proof-note"
+                name="note"
+                autoComplete="off"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="اختیاری…"
+                maxLength={200}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            {error ? (
+              <p
+                className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                {error}
+              </p>
+            ) : null}
             <Button
               type="submit"
               className="h-11 w-full rounded-xl"
               disabled={pending || !file || months.length === 0}
             >
-              {pending ? "…" : "ارسال رسید"}
+              {pending ? "در حال ارسال…" : "ارسال رسید"}
             </Button>
           </>
         )}
@@ -201,7 +262,7 @@ export function ResidentPaymentProof({
             <li
               key={p.id}
               className={cn(
-                "rounded-2xl border bg-card px-3.5 py-3",
+                "rounded-2xl border bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_4.5rem]",
                 p.status === "PENDING"
                   ? "border-amber-500/30"
                   : p.status === "APPROVED"
@@ -210,7 +271,7 @@ export function ResidentPaymentProof({
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <p className="text-body-sm font-semibold text-foreground">
                     {monthLabelFa(p.month)} · {STATUS_FA[p.status]}
                   </p>
@@ -219,7 +280,7 @@ export function ResidentPaymentProof({
                     {formatDateFaShort(p.createdAt)}
                   </p>
                   {p.reviewNote ? (
-                    <p className="mt-1 text-caption text-muted-foreground">
+                    <p className="mt-1 wrap-break-word text-caption text-muted-foreground">
                       یادداشت مدیر: {p.reviewNote}
                     </p>
                   ) : null}
@@ -228,7 +289,7 @@ export function ResidentPaymentProof({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg text-caption"
+                  className="h-8 shrink-0 rounded-lg text-caption"
                   disabled={pending}
                   onClick={() => download(p.id)}
                 >

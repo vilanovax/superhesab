@@ -50,7 +50,7 @@ export default async function ResidentPortalPage({
       >
         <SpaceTheme type="BUILDING" />
         <div className="rounded-2xl border border-dashed border-border/60 bg-card px-5 py-10 text-center">
-          <h1 className="text-body font-bold text-foreground">
+          <h1 className="text-pretty text-body font-bold text-foreground">
             واحدی به حساب شما وصل نیست
           </h1>
           <p className="mt-2 text-body-sm text-muted-foreground">

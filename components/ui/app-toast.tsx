@@ -19,15 +19,19 @@ export function AppToast() {
 
   if (!toast) return null;
 
+  const isError = toast.tone === "error";
+
   return (
     <div
       className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[60] flex justify-center px-4"
-      role="status"
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      aria-atomic="true"
     >
       <p
         className={cn(
           "animate-fade-up rounded-full border px-4 py-2 text-label font-medium shadow-sm",
-          toast.tone === "error"
+          isError
             ? "border-destructive/25 bg-destructive-soft text-destructive"
             : "border-success/20 bg-success-soft text-success",
         )}

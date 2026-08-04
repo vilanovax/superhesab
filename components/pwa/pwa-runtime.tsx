@@ -149,6 +149,8 @@ export function PwaRuntime() {
         <div
           className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           role="status"
+          aria-live="polite"
+          aria-atomic="true"
         >
           <div className="pointer-events-auto mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-border/60 bg-card/95 px-3 py-2.5 shadow-lg backdrop-blur-md">
             <p className="min-w-0 flex-1 text-caption font-medium text-foreground">
@@ -235,7 +237,11 @@ export function PwaInstallCard({ className }: { className?: string }) {
           </p>
         </div>
         {installed ? (
-          <span className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success">
+          <span
+            className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success"
+            role="status"
+            aria-live="polite"
+          >
             نصب‌شده
           </span>
         ) : canInstall ? (
@@ -243,9 +249,10 @@ export function PwaInstallCard({ className }: { className?: string }) {
             type="button"
             className="h-9 shrink-0 rounded-xl px-3 text-caption"
             disabled={installing}
+            aria-busy={installing}
             onClick={install}
           >
-            {installing ? "…" : "نصب"}
+            {installing ? "در حال نصب…" : "نصب"}
           </Button>
         ) : null}
       </div>

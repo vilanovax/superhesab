@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useFormState, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addExpense, updateExpense } from "@/app/actions/expense";
 import { Button } from "@/components/ui/button";
@@ -132,6 +132,8 @@ type ExpenseFormProps = {
   currency?: SpaceCurrency;
   initialExpense?: ExpenseInitialValues;
   onSuccess?: () => void;
+  /** Notify parent when the draft has unsaved edits (for dismiss guards). */
+  onDirtyChange?: (dirty: boolean) => void;
   spaceType?: SpaceType;
   defaultTransactionType?: TransactionTypeForm;
   /** خانه: hide others' private categories from the picker. */
@@ -280,6 +282,7 @@ export function ExpenseForm({
   currency: _currency = "TOMAN",
   initialExpense,
   onSuccess,
+  onDirtyChange,
   spaceType = "TRIP",
   defaultTransactionType = "EXPENSE",
   hiddenCategories = [],
@@ -301,9 +304,10 @@ export function ExpenseForm({
   const showPaidByPicker =
     (!hideSplits || isHouseholdLedger) && !isBuilding;
   const initialDate = initialExpense?.date ?? todayIsoDateTehran();
-  const [changeDate, setChangeDate] = useState(
-    Boolean(initialExpense && initialDate !== todayIsoDateTehran()),
+  const initialChangeDate = Boolean(
+    initialExpense && initialDate !== todayIsoDateTehran(),
   );
+  const [changeDate, setChangeDate] = useState(initialChangeDate);
   const [manualCategory, setManualCategory] = useState<ExpenseCategory | null>(
     null,
   );
@@ -330,6 +334,28 @@ export function ExpenseForm({
       defaultTransactionType,
     ),
   });
+
+  const { isDirty: formDirty } = useFormState({ control: form.control });
+  const draftDirty =
+    formDirty ||
+    Boolean(manualCategory) ||
+    Boolean(customCategoryLabel) ||
+    changeDate !== initialChangeDate;
+  const blockDismiss = draftDirty || pending;
+
+  useEffect(() => {
+    onDirtyChange?.(blockDismiss);
+  }, [blockDismiss, onDirtyChange]);
+
+  useEffect(() => {
+    if (!blockDismiss) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [blockDismiss]);
 
   const splitMode = useWatch({ control: form.control, name: "splitMode" });
   const transactionType =
@@ -690,25 +716,6 @@ export function ExpenseForm({
                     : values.date || todayIsoDateTehran(),
               };
 
-    // Fast-close: drawer closes before the server round-trip.
-    onSuccess?.();
-    showToast(isEdit ? "ذخیره شد" : "ثبت شد");
-    if (!isEdit) {
-      form.reset(
-        buildDefaultValues(
-          spaceId,
-          currentUserId,
-          members,
-          undefined,
-          defaultTransactionType,
-        ),
-      );
-      setChangeDate(false);
-      setManualCategory(null);
-      setCustomCategoryLabel(null);
-      setDebouncedTitle("");
-    }
-
     startTransition(async () => {
       const result = isEdit
         ? await updateExpense(initialExpense!.expenseId, payload)
@@ -717,6 +724,25 @@ export function ExpenseForm({
         showToast(result.error || "خطا در ثبت اطلاعات", "error");
         return;
       }
+      showToast(isEdit ? "ذخیره شد" : "ثبت شد");
+      if (!isEdit) {
+        form.reset(
+          buildDefaultValues(
+            spaceId,
+            currentUserId,
+            members,
+            undefined,
+            defaultTransactionType,
+          ),
+        );
+        setChangeDate(false);
+        setManualCategory(null);
+        setCustomCategoryLabel(null);
+        setBillTag(null);
+        setDebouncedTitle("");
+      }
+      // Close only after a successful server write.
+      onSuccess?.();
       router.refresh();
     });
   }

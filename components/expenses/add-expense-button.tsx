@@ -20,6 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
@@ -161,7 +162,10 @@ export function AddExpenseButton({
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const draftTransactionType = useUiStore((s) => s.draftTransactionType);
   const [localOpen, setLocalOpen] = useState(false);
+  const [formBlocked, setFormBlocked] = useState(false);
   const isDesktop = useIsDesktop();
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formBlocked);
   const features = getTemplate(spaceType).features;
   const isBuilding = features.buildingCharges;
   const description = isBuilding
@@ -185,9 +189,15 @@ export function AddExpenseButton({
       : "ثبت هزینه";
 
   const open = expenseFormOpen || localOpen;
-  function setOpen(next: boolean) {
+
+  function applyOpen(next: boolean) {
     setLocalOpen(next);
     setExpenseFormOpen(next);
+    if (!next) setFormBlocked(false);
+  }
+
+  function setOpen(next: boolean) {
+    requestOpenChange(next, applyOpen);
   }
 
   const form = (
@@ -206,7 +216,8 @@ export function AddExpenseButton({
             : "EXPENSE"
       }
       hiddenCategories={hiddenCategories}
-      onSuccess={() => setOpen(false)}
+      onDirtyChange={setFormBlocked}
+      onSuccess={() => applyOpen(false)}
     />
   );
 
@@ -217,49 +228,55 @@ export function AddExpenseButton({
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
+      <>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Fab className={cn(open && "pointer-events-none opacity-0")}>
+              <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
+                +
+              </span>
+              {fabLabel}
+            </Fab>
+          </DialogTrigger>
+          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-dialog sm:max-w-md">
+            <ExpenseSheetBody
+              description={description}
+              variant="dialog"
+              title={sheetTitle}
+              compact={isBuilding}
+            >
+              {form}
+            </ExpenseSheetBody>
+          </DialogContent>
+        </Dialog>
+        {discardConfirm}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
+        <DrawerTrigger asChild>
           <Fab className={cn(open && "pointer-events-none opacity-0")}>
             <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
               +
             </span>
             {fabLabel}
           </Fab>
-        </DialogTrigger>
-        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-dialog sm:max-w-md">
+        </DrawerTrigger>
+        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
           <ExpenseSheetBody
             description={description}
-            variant="dialog"
+            variant="drawer"
             title={sheetTitle}
             compact={isBuilding}
           >
             {form}
           </ExpenseSheetBody>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  return (
-    <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
-      <DrawerTrigger asChild>
-        <Fab className={cn(open && "pointer-events-none opacity-0")}>
-          <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
-            +
-          </span>
-          {fabLabel}
-        </Fab>
-      </DrawerTrigger>
-      <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-        <ExpenseSheetBody
-          description={description}
-          variant="drawer"
-          title={sheetTitle}
-          compact={isBuilding}
-        >
-          {form}
-        </ExpenseSheetBody>
-      </DrawerContent>
-    </Drawer>
+        </DrawerContent>
+      </Drawer>
+      {discardConfirm}
+    </>
   );
 }

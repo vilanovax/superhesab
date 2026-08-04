@@ -35,6 +35,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
 import {
   expenseDayKey,
@@ -244,13 +245,21 @@ function EditSheet({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingDelete, startDelete] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [formBlocked, setFormBlocked] = useState(false);
+  const { requestOpenChange, discardConfirm } =
+    useUnsavedCloseGuard(formBlocked);
 
   useEffect(() => {
     if (!open) {
       setConfirmDelete(false);
       setDeleteError(null);
+      setFormBlocked(false);
     }
   }, [open]);
+
+  function handleOpenChange(next: boolean) {
+    requestOpenChange(next, onOpenChange);
+  }
 
   if (!expense) return null;
 
@@ -278,6 +287,7 @@ function EditSheet({
         currency={currency}
         spaceType={spaceType}
         initialExpense={toInitial(expense)}
+        onDirtyChange={setFormBlocked}
         onSuccess={() => {
           onOpenChange(false);
         }}
@@ -331,44 +341,54 @@ function EditSheet({
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 sm:max-w-md">
-          <div className="surface-hero px-5 pb-4 pt-5">
-            <DialogHeader className="space-y-1 text-start">
-              <DialogTitle className="text-xl font-bold text-on-hero">
-                ویرایش هزینه
-              </DialogTitle>
-              <DialogDescription className="text-sm text-on-hero/75">
-                مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto surface-sheet-canvas px-4 py-4 pb-8">
-            {form}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 sm:max-w-md">
+            <div className="surface-hero px-5 pb-4 pt-5">
+              <DialogHeader className="space-y-1 text-start">
+                <DialogTitle className="text-xl font-bold text-on-hero">
+                  ویرایش هزینه
+                </DialogTitle>
+                <DialogDescription className="text-sm text-on-hero/75">
+                  مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-8">
+              {form}
+            </div>
+          </DialogContent>
+        </Dialog>
+        {discardConfirm}
+      </>
     );
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-        <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
-          <DrawerHeader className="space-y-1 p-0 text-start">
-            <DrawerTitle className="text-xl font-bold text-on-hero">
-              ویرایش هزینه
-            </DrawerTitle>
-            <DrawerDescription className="text-sm text-on-hero/75">
-              مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
-            </DrawerDescription>
-          </DrawerHeader>
-        </div>
-        <div className="min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {form}
-        </div>
-      </DrawerContent>
-    </Drawer>
+    <>
+      <Drawer
+        open={open}
+        onOpenChange={handleOpenChange}
+        repositionInputs={false}
+      >
+        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
+            <DrawerHeader className="space-y-1 p-0 text-start">
+              <DrawerTitle className="text-xl font-bold text-on-hero">
+                ویرایش هزینه
+              </DrawerTitle>
+              <DrawerDescription className="text-sm text-on-hero/75">
+                مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+          <div className="min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            {form}
+          </div>
+        </DrawerContent>
+      </Drawer>
+      {discardConfirm}
+    </>
   );
 }
 

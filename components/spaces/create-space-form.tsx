@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import { createSpaceAndRedirect } from "@/app/actions/space";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,15 +172,15 @@ function placeholderFor(type: SpaceType): string {
   switch (type) {
     case "PERSONAL":
     case "FAMILY":
-      return "مثلاً خانه ما";
+      return "مثلاً خانه ما…";
     case "FUND":
-      return "مثلاً صندوق فامیل";
+      return "مثلاً صندوق فامیل…";
     case "BUILDING":
-      return "مثلاً برج آسمان";
+      return "مثلاً برج آسمان…";
     case "PARTNER":
       return "مثلاً حساب من و …";
     default:
-      return "مثلاً سفر شمال";
+      return "مثلاً سفر شمال…";
   }
 }
 
@@ -196,8 +197,9 @@ function TemplateCard({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={selected}
       onClick={onSelect}
-      aria-pressed={selected}
       className={cn(
         "relative flex w-full flex-col items-start gap-2.5 rounded-2xl border px-3 py-3 text-start",
         "transition-[transform,background-color,border-color,box-shadow,color] duration-150 ease-out",
@@ -232,7 +234,7 @@ function TemplateCard({
       </span>
       <span
         className={cn(
-          "absolute end-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-all duration-150",
+          "absolute end-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-[transform,opacity,background-color,color] duration-150",
           selected
             ? "scale-100 bg-on-hero/20 text-on-hero opacity-100"
             : "scale-90 opacity-0",
@@ -242,6 +244,19 @@ function TemplateCard({
         <CheckIcon className="size-3" />
       </span>
     </button>
+  );
+}
+
+function CreateSpaceSubmit({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className="h-12 w-full rounded-2xl text-base font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
+    >
+      {pending ? "در حال ساخت…" : `ساخت «${label}»`}
+    </Button>
   );
 }
 
@@ -269,6 +284,20 @@ export function CreateSpaceForm({
   const [type, setType] = useState<SpaceType>(safeInitial);
   const selected =
     available.find((t) => t.value === type) ?? available[0] ?? ALL_TEMPLATES[0];
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (compact) return;
+    if (typeof window === "undefined") return;
+    // Desktop-only autofocus — avoid keyboard jump on mobile.
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    nameRef.current?.focus();
+  }, [compact]);
+
+  useEffect(() => {
+    if (!error) return;
+    queueMicrotask(() => nameRef.current?.focus());
+  }, [error]);
 
   return (
     <form
@@ -284,19 +313,23 @@ export function CreateSpaceForm({
             نام دفتر
           </label>
           <Input
+            ref={nameRef}
             id="name"
             name="name"
+            autoComplete="organization"
             required
             minLength={2}
             placeholder={placeholderFor(type)}
             className="h-12 rounded-2xl border-border/60 bg-card text-base shadow-none focus-visible:border-primary/40"
-            autoFocus={!compact}
           />
         </div>
 
         <div className="space-y-3">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="text-caption font-medium text-muted-foreground">
+            <p
+              id="space-template-label"
+              className="text-caption font-medium text-muted-foreground"
+            >
               قالب
             </p>
             <p className="text-micro text-muted-foreground/80">
@@ -306,34 +339,17 @@ export function CreateSpaceForm({
 
           <input type="hidden" name="type" value={type} />
 
-          <div className="space-y-2">
-            <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
-              روزمره
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {everyday.map((t) => (
-                <TemplateCard
-                  key={t.value}
-                  option={t}
-                  selected={type === t.value}
-                  onSelect={() => setType(t.value)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {group.length > 0 ? (
+          <div
+            role="radiogroup"
+            aria-labelledby="space-template-label"
+            className="space-y-2"
+          >
             <div className="space-y-2">
               <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
-                گروهی
+                روزمره
               </p>
-              <div
-                className={cn(
-                  "grid gap-2",
-                  group.length >= 3 ? "grid-cols-3" : "grid-cols-2",
-                )}
-              >
-                {group.map((t) => (
+              <div className="grid grid-cols-2 gap-2">
+                {everyday.map((t) => (
                   <TemplateCard
                     key={t.value}
                     option={t}
@@ -343,11 +359,38 @@ export function CreateSpaceForm({
                 ))}
               </div>
             </div>
-          ) : null}
+
+            {group.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-micro font-semibold tracking-wide text-muted-foreground/70">
+                  گروهی
+                </p>
+                <div
+                  className={cn(
+                    "grid gap-2",
+                    group.length >= 3 ? "grid-cols-3" : "grid-cols-2",
+                  )}
+                >
+                  {group.map((t) => (
+                    <TemplateCard
+                      key={t.value}
+                      option={t}
+                      selected={type === t.value}
+                      onSelect={() => setType(t.value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}
@@ -361,12 +404,7 @@ export function CreateSpaceForm({
             {CURRENCY_LABELS[preferredCurrency as SpaceCurrency]}
           </span>
         </p>
-        <Button
-          type="submit"
-          className="h-12 w-full rounded-2xl text-base font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
-        >
-          ساخت «{selected.label}»
-        </Button>
+        <CreateSpaceSubmit label={selected.label} />
       </div>
     </form>
   );

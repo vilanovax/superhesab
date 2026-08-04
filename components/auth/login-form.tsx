@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loginWithPassword, requestOtp, verifyOtp } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,10 @@ function safeCallbackUrl(raw: string | undefined | null): string {
   return raw;
 }
 
+function focusEl(el: HTMLInputElement | null) {
+  queueMicrotask(() => el?.focus());
+}
+
 export function LoginForm({
   callbackUrl,
 }: {
@@ -34,13 +38,24 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const phoneOtpRef = useRef<HTMLInputElement>(null);
+  const phonePasswordRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+
   function onRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!phone.trim()) {
+      setError("شماره موبایل را وارد کنید.");
+      focusEl(phoneOtpRef.current);
+      return;
+    }
     startTransition(async () => {
       const result = await requestOtp(phone);
       if (!result.ok) {
         setError(result.error);
+        focusEl(phoneOtpRef.current);
         return;
       }
       setStep("otp");
@@ -50,10 +65,21 @@ export function LoginForm({
   function onLoginPassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!phone.trim()) {
+      setError("شماره موبایل را وارد کنید.");
+      focusEl(phonePasswordRef.current);
+      return;
+    }
+    if (password.length < PASSWORD_MIN_LEN) {
+      setError(`رمز عبور حداقل ${PASSWORD_MIN_LEN} کاراکتر باشد.`);
+      focusEl(passwordRef.current);
+      return;
+    }
     startTransition(async () => {
       const result = await loginWithPassword(phone, password);
       if (!result.ok) {
         setError(result.error);
+        focusEl(passwordRef.current);
         return;
       }
       router.replace(redirectTo);
@@ -64,10 +90,16 @@ export function LoginForm({
   function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (otp.length < 6) {
+      setError("کد ۶ رقمی را کامل وارد کنید.");
+      focusEl(otpRef.current);
+      return;
+    }
     startTransition(async () => {
       const result = await verifyOtp(phone, otp);
       if (!result.ok) {
         setError(result.error);
+        focusEl(otpRef.current);
         return;
       }
       router.replace(redirectTo);
@@ -130,7 +162,7 @@ export function LoginForm({
                       setPassword("");
                     }}
                     className={cn(
-                      "h-10 rounded-lg text-sm font-semibold transition-all",
+                      "h-10 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow] duration-150",
                       active
                         ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
@@ -147,12 +179,15 @@ export function LoginForm({
                 <div className="space-y-2">
                   <Label htmlFor="phone">موبایل</Label>
                   <Input
+                    ref={phoneOtpRef}
                     id="phone"
+                    name="phone"
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
+                    spellCheck={false}
                     dir="ltr"
-                    placeholder="09123456789"
+                    placeholder="09123456789…"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="h-12 rounded-xl text-base"
@@ -163,6 +198,7 @@ export function LoginForm({
                   <p
                     className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
                     role="alert"
+                    aria-live="assertive"
                   >
                     {error}
                   </p>
@@ -180,12 +216,15 @@ export function LoginForm({
                 <div className="space-y-2">
                   <Label htmlFor="phone-password">موبایل</Label>
                   <Input
+                    ref={phonePasswordRef}
                     id="phone-password"
+                    name="phone"
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
+                    spellCheck={false}
                     dir="ltr"
-                    placeholder="09123456789"
+                    placeholder="09123456789…"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="h-12 rounded-xl text-base"
@@ -195,11 +234,14 @@ export function LoginForm({
                 <div className="space-y-2">
                   <Label htmlFor="login-password">رمز عبور</Label>
                   <Input
+                    ref={passwordRef}
                     id="login-password"
+                    name="password"
                     type="password"
                     autoComplete="current-password"
+                    spellCheck={false}
                     dir="ltr"
-                    placeholder="••••••"
+                    placeholder="••••••…"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-12 rounded-xl text-base"
@@ -211,6 +253,7 @@ export function LoginForm({
                   <p
                     className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
                     role="alert"
+                    aria-live="assertive"
                   >
                     {error}
                   </p>
@@ -218,7 +261,7 @@ export function LoginForm({
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-xl text-base font-semibold"
-                  disabled={pending || password.length < PASSWORD_MIN_LEN}
+                  disabled={pending}
                 >
                   {pending ? "در حال ورود…" : "ورود با رمز"}
                 </Button>
@@ -230,12 +273,15 @@ export function LoginForm({
             <div className="space-y-2">
               <Label htmlFor="otp">کد تأیید</Label>
               <Input
+                ref={otpRef}
                 id="otp"
+                name="otp"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                spellCheck={false}
                 dir="ltr"
-                placeholder="111111"
+                placeholder="111111…"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
@@ -253,6 +299,7 @@ export function LoginForm({
               <p
                 className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
                 role="alert"
+                aria-live="assertive"
               >
                 {error}
               </p>
@@ -260,7 +307,7 @@ export function LoginForm({
             <Button
               type="submit"
               className="h-12 w-full rounded-xl text-base font-semibold"
-              disabled={pending || otp.length < 6}
+              disabled={pending}
             >
               {pending ? "در حال ورود…" : "تأیید و ورود"}
             </Button>

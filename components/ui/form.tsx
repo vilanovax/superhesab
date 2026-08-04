@@ -122,6 +122,8 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   return (
     <p
       id={formMessageId}
+      role="alert"
+      aria-live="polite"
       className={cn("text-sm text-destructive", className)}
       {...props}
     >

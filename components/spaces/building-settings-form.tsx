@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { updateSpaceSettings } from "@/app/actions/space";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,10 @@ type BuildingSettingsFormProps = {
   error?: string;
 };
 
+function focusEl(el: HTMLElement | null) {
+  queueMicrotask(() => el?.focus());
+}
+
 /**
  * Single form for building space: identity + fiscal year + monthly base charge.
  */
@@ -51,6 +55,10 @@ export function BuildingSettingsForm({
   const [baseCharge, setBaseCharge] = useState(initialBase);
   const [error, setError] = useState<string | null>(initialError ?? null);
 
+  const nameRef = useRef<HTMLInputElement>(null);
+  const yearRef = useRef<HTMLInputElement>(null);
+  const baseRef = useRef<HTMLInputElement>(null);
+
   const unitLabel = currencyLabel(currency);
   const yearNum = Math.trunc(Number(year.replace(/\D/g, ""))) || planYear;
 
@@ -58,6 +66,17 @@ export function BuildingSettingsForm({
     e.preventDefault();
     if (disabled) return;
     setError(null);
+
+    if (name.trim().length < 2) {
+      setError("نام ساختمان حداقل ۲ کاراکتر باشد.");
+      focusEl(nameRef.current);
+      return;
+    }
+    if (!year.replace(/\D/g, "")) {
+      setError("سال مالی را وارد کنید.");
+      focusEl(yearRef.current);
+      return;
+    }
 
     startTransition(async () => {
       const result = await updateSpaceSettings({
@@ -71,6 +90,7 @@ export function BuildingSettingsForm({
       if (!result.ok) {
         setError(result.error);
         showToast(result.error, "error");
+        focusEl(nameRef.current);
         return;
       }
       showToast("تنظیمات ذخیره شد");
@@ -84,7 +104,10 @@ export function BuildingSettingsForm({
       <div className="space-y-1.5">
         <Label htmlFor="building-name">نام ساختمان</Label>
         <Input
+          ref={nameRef}
           id="building-name"
+          name="name"
+          autoComplete="organization"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -98,6 +121,7 @@ export function BuildingSettingsForm({
         <Label htmlFor="building-currency">واحد پول</Label>
         <select
           id="building-currency"
+          name="currency"
           value={currency}
           disabled={disabled || pending}
           onChange={(e) => setCurrency(e.target.value as SpaceCurrency)}
@@ -115,9 +139,13 @@ export function BuildingSettingsForm({
         <div className="space-y-1.5">
           <Label htmlFor="building-year">سال مالی</Label>
           <Input
+            ref={yearRef}
             id="building-year"
+            name="planYear"
             type="text"
             inputMode="numeric"
+            autoComplete="off"
+            spellCheck={false}
             value={year}
             onChange={(e) => setYear(e.target.value.replace(/[^\d]/g, ""))}
             disabled={disabled || pending}
@@ -131,7 +159,9 @@ export function BuildingSettingsForm({
         <div className="space-y-1.5">
           <Label htmlFor="building-base">پایه ماهانه</Label>
           <MoneyInput
+            ref={baseRef}
             id="building-base"
+            name="baseCharge"
             value={baseCharge}
             onValueChange={setBaseCharge}
             disabled={disabled || pending}
@@ -163,7 +193,11 @@ export function BuildingSettingsForm({
       </p>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="text-sm text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}
@@ -176,9 +210,9 @@ export function BuildingSettingsForm({
         <Button
           type="submit"
           className="h-12 w-full rounded-xl"
-          disabled={pending || name.trim().length < 2}
+          disabled={pending}
         >
-          {pending ? "…" : "ذخیره تنظیمات"}
+          {pending ? "در حال ذخیره…" : "ذخیره تنظیمات"}
         </Button>
       )}
     </form>

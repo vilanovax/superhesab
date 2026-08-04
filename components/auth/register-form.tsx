@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   requestRegisterOtp,
@@ -19,6 +19,10 @@ function safeCallbackUrl(raw: string | undefined | null): string {
   return raw;
 }
 
+function focusEl(el: HTMLInputElement | null) {
+  queueMicrotask(() => el?.focus());
+}
+
 export function RegisterForm({
   callbackUrl,
 }: {
@@ -33,13 +37,28 @@ export function RegisterForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+
   function onRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (name.trim().length < 2) {
+      setError("نام نمایشی حداقل ۲ کاراکتر باشد.");
+      focusEl(nameRef.current);
+      return;
+    }
+    if (!phone.trim()) {
+      setError("شماره موبایل را وارد کنید.");
+      focusEl(phoneRef.current);
+      return;
+    }
     startTransition(async () => {
       const result = await requestRegisterOtp({ name, phone });
       if (!result.ok) {
         setError(result.error);
+        focusEl(phoneRef.current);
         return;
       }
       setStep("otp");
@@ -49,10 +68,16 @@ export function RegisterForm({
   function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (otp.length < 6) {
+      setError("کد ۶ رقمی را کامل وارد کنید.");
+      focusEl(otpRef.current);
+      return;
+    }
     startTransition(async () => {
       const result = await verifyRegisterOtp({ name, phone, otp });
       if (!result.ok) {
         setError(result.error);
+        focusEl(otpRef.current);
         return;
       }
       router.replace(redirectTo);
@@ -90,10 +115,12 @@ export function RegisterForm({
             <div className="space-y-2">
               <Label htmlFor="register-name">نام نمایشی</Label>
               <Input
+                ref={nameRef}
                 id="register-name"
+                name="name"
                 type="text"
                 autoComplete="name"
-                placeholder="مثلاً علی"
+                placeholder="مثلاً علی…"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="h-12 rounded-xl text-base"
@@ -105,12 +132,15 @@ export function RegisterForm({
             <div className="space-y-2">
               <Label htmlFor="register-phone">موبایل</Label>
               <Input
+                ref={phoneRef}
                 id="register-phone"
+                name="phone"
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
+                spellCheck={false}
                 dir="ltr"
-                placeholder="09123456789"
+                placeholder="09123456789…"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="h-12 rounded-xl text-base"
@@ -121,6 +151,7 @@ export function RegisterForm({
               <p
                 className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
                 role="alert"
+                aria-live="assertive"
               >
                 {error}
               </p>
@@ -144,12 +175,15 @@ export function RegisterForm({
             <div className="space-y-2">
               <Label htmlFor="register-otp">کد تأیید</Label>
               <Input
+                ref={otpRef}
                 id="register-otp"
+                name="otp"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                spellCheck={false}
                 dir="ltr"
-                placeholder="111111"
+                placeholder="111111…"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
@@ -167,6 +201,7 @@ export function RegisterForm({
               <p
                 className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
                 role="alert"
+                aria-live="assertive"
               >
                 {error}
               </p>
@@ -174,7 +209,7 @@ export function RegisterForm({
             <Button
               type="submit"
               className="h-12 w-full rounded-xl text-base font-semibold"
-              disabled={pending || otp.length < 6}
+              disabled={pending}
             >
               {pending ? "در حال ثبت‌نام…" : "تأیید و ساخت حساب"}
             </Button>

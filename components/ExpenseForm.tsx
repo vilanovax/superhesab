@@ -745,7 +745,37 @@ export function ExpenseForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          if (errors.splits) setSplitsOpen(true);
+          const topFields = [
+            "title",
+            "totalAmount",
+            "paidById",
+            "date",
+            "category",
+            "transactionType",
+            "splitMode",
+          ] as const;
+          for (const name of topFields) {
+            if (errors[name]) {
+              form.setFocus(name);
+              return;
+            }
+          }
+          const splitErrors = errors.splits;
+          if (Array.isArray(splitErrors)) {
+            for (let i = 0; i < splitErrors.length; i++) {
+              const row = splitErrors[i];
+              if (!row || typeof row !== "object") continue;
+              for (const key of ["amount", "percent", "share", "selected"] as const) {
+                if (key in row && row[key]) {
+                  form.setFocus(`splits.${i}.${key}`);
+                  return;
+                }
+              }
+            }
+          }
+        })}
         className="flex flex-col gap-3"
       >
         {showIncomeExpense ? (
@@ -754,7 +784,11 @@ export function ExpenseForm({
             name="transactionType"
             render={({ field }) => (
               <FormItem className="space-y-0">
-                <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border/55 bg-card p-1 shadow-sm">
+                <div
+                  className="grid grid-cols-2 gap-1 rounded-2xl border border-border/55 bg-card p-1 shadow-sm"
+                  role="radiogroup"
+                  aria-label="نوع تراکنش"
+                >
                   {(
                     [
                       {
@@ -774,6 +808,8 @@ export function ExpenseForm({
                       <button
                         key={opt.value}
                         type="button"
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() => {
                           field.onChange(opt.value);
                           setManualCategory(null);
@@ -787,7 +823,7 @@ export function ExpenseForm({
                           }
                         }}
                         className={cn(
-                          "flex flex-col items-center rounded-xl px-2 py-2.5 transition-all",
+                          "flex flex-col items-center rounded-xl px-2 py-2.5 transition-[color,background-color,box-shadow,transform] duration-150",
                           selected && opt.value === "EXPENSE"
                             ? "bg-destructive text-destructive-foreground shadow-sm"
                             : selected && opt.value === "INCOME"
@@ -822,12 +858,13 @@ export function ExpenseForm({
                 </FormLabel>
                 <FormControl>
                   <Input
+                    autoComplete="off"
                     placeholder={
                       isBuilding
-                        ? "مثلاً قبض برق مشاع یا تعمیر آسانسور"
+                        ? "مثلاً قبض برق مشاع یا تعمیر آسانسور…"
                         : showIncomeExpense && transactionType === "INCOME"
-                          ? "مثلاً حقوق فروردین"
-                          : "مثلاً ناهار"
+                          ? "مثلاً حقوق فروردین…"
+                          : "مثلاً ناهار…"
                     }
                     className="h-11 rounded-xl border-border/70 bg-sheet-muted"
                     {...field}
@@ -843,8 +880,13 @@ export function ExpenseForm({
               <button
                 type="button"
                 onClick={() => setCategoryDrawerOpen(true)}
+                aria-label={
+                  isManualPick
+                    ? `دسته‌بندی: ${chipLabel}. تغییر دسته`
+                    : `پیشنهاد دسته: ${chipLabel}. تغییر دسته`
+                }
                 className={cn(
-                  "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-caption font-semibold transition-all",
+                  "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-caption font-semibold transition-[color,background-color,box-shadow,transform] duration-150",
                   "ring-1 ring-inset active:scale-[0.98]",
                   isManualPick
                     ? "bg-success-soft text-success ring-success/25"
@@ -1008,9 +1050,10 @@ export function ExpenseForm({
                     <Input
                       type="number"
                       inputMode="numeric"
+                      autoComplete="off"
                       min={0}
                       step={1}
-                      placeholder="۲۵۰۰۰۰"
+                      placeholder="۲۵۰۰۰۰…"
                       className="h-12 rounded-xl border-border/70 bg-sheet-muted text-lg font-bold tabular-nums"
                       name={field.name}
                       ref={field.ref}
@@ -1114,7 +1157,11 @@ export function ExpenseForm({
                 <FormLabel className="text-label text-muted-foreground">
                   تسهیم
                 </FormLabel>
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted/80 p-1">
+                <div
+                  className="grid grid-cols-3 gap-1 rounded-xl bg-muted/80 p-1"
+                  role="radiogroup"
+                  aria-label="روش تسهیم"
+                >
                   {(
                     [
                       { value: "EQUAL", label: "مساوی" },
@@ -1125,6 +1172,8 @@ export function ExpenseForm({
                     <button
                       key={opt.value}
                       type="button"
+                      role="radio"
+                      aria-checked={field.value === opt.value}
                       onClick={() => {
                         field.onChange(opt.value);
                         if (opt.value === "PERCENT") {
@@ -1368,11 +1417,13 @@ export function ExpenseForm({
                               <Input
                                 type="number"
                                 inputMode="numeric"
+                                autoComplete="off"
                                 min={0}
                                 max={100}
                                 step={1}
                                 className="h-10 w-24 rounded-xl border-border/70 bg-sheet-muted text-sm font-semibold"
-                                placeholder="٪"
+                                placeholder="٪…"
+                                aria-label={`درصد سهم ${personLabel(member, currentUserId)}`}
                                 name={field.name}
                                 ref={field.ref}
                                 onBlur={field.onBlur}
@@ -1406,10 +1457,12 @@ export function ExpenseForm({
                                 <Input
                                   type="number"
                                   inputMode="numeric"
+                                  autoComplete="off"
                                   min={0}
                                   step={1}
                                   className="h-10 rounded-xl border-border/70 bg-sheet-muted text-sm font-semibold"
-                                  placeholder="سهم"
+                                  placeholder="سهم…"
+                                  aria-label={`مبلغ سهم ${personLabel(member, currentUserId)}`}
                                   name={field.name}
                                   ref={field.ref}
                                   onBlur={field.onBlur}
@@ -1479,17 +1532,29 @@ export function ExpenseForm({
         ) : null}
 
         {form.formState.errors.root?.message ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {form.formState.errors.root.message}
           </p>
         ) : null}
         {form.formState.errors.splits?.message ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {form.formState.errors.splits.message}
           </p>
         ) : null}
         {typeof form.formState.errors.splits?.root?.message === "string" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {form.formState.errors.splits.root.message}
           </p>
         ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   createBuildingSuggestion,
   type BuildingSuggestionDTO,
@@ -31,17 +31,25 @@ export function ResidentSuggestionsPanel({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!formOpen) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const el = document.getElementById("resident-suggestion-title");
+    if (el instanceof HTMLInputElement) el.focus();
+  }, [formOpen]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
+    setFormError(null);
     const t = title.trim();
     const b = body.trim();
-    if (t.length < 3 || b.length < 5) return;
-
-    setFormOpen(false);
-    setTitle("");
-    setBody("");
-    showToast("پیشنهاد ثبت شد");
+    if (t.length < 3 || b.length < 5) {
+      setFormError("عنوان حداقل ۳ و توضیح حداقل ۵ کاراکتر.");
+      return;
+    }
 
     startTransition(async () => {
       const result = await createBuildingSuggestion({
@@ -50,9 +58,16 @@ export function ResidentSuggestionsPanel({
         body: b,
       });
       if (!result.ok) {
-        showToast(result.error || "خطا در ثبت اطلاعات", "error");
+        const msg = result.error || "خطا در ثبت اطلاعات";
+        setFormError(msg);
+        showToast(msg, "error");
         return;
       }
+      setFormOpen(false);
+      setTitle("");
+      setBody("");
+      setFormError(null);
+      showToast("پیشنهاد ثبت شد");
       router.refresh();
     });
   }
@@ -63,7 +78,10 @@ export function ResidentSuggestionsPanel({
         <Button
           type="button"
           className="h-11 w-full rounded-xl text-body-sm font-semibold"
-          onClick={() => setFormOpen(true)}
+          onClick={() => {
+            setFormError(null);
+            setFormOpen(true);
+          }}
         >
           ثبت پیشنهاد یا درخواست
         </Button>
@@ -72,28 +90,65 @@ export function ResidentSuggestionsPanel({
           onSubmit={onSubmit}
           className="space-y-2.5 rounded-2xl border border-border/55 bg-card p-3.5"
         >
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="عنوان (مثلاً آسانسور صدا می‌دهد)"
-            maxLength={80}
-            className="h-11 rounded-xl"
-            autoFocus
-          />
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="توضیح کوتاه برای مدیر ساختمان…"
-            maxLength={800}
-            rows={4}
-            className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <div className="space-y-1">
+            <label
+              htmlFor="resident-suggestion-title"
+              className="text-label text-muted-foreground"
+            >
+              عنوان
+            </label>
+            <Input
+              id="resident-suggestion-title"
+              name="suggestionTitle"
+              autoComplete="off"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="مثلاً آسانسور صدا می‌دهد…"
+              maxLength={80}
+              className="h-11 rounded-xl"
+              required
+              minLength={3}
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="resident-suggestion-body"
+              className="text-label text-muted-foreground"
+            >
+              توضیح
+            </label>
+            <textarea
+              id="resident-suggestion-body"
+              name="suggestionBody"
+              autoComplete="off"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="توضیح کوتاه برای مدیر ساختمان…"
+              maxLength={800}
+              rows={4}
+              required
+              minLength={5}
+              className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          {formError ? (
+            <p
+              className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
+              {formError}
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
               className="h-10 flex-1 rounded-xl"
-              onClick={() => setFormOpen(false)}
+              onClick={() => {
+                setFormOpen(false);
+                setFormError(null);
+              }}
               disabled={pending}
             >
               انصراف
@@ -101,9 +156,11 @@ export function ResidentSuggestionsPanel({
             <Button
               type="submit"
               className="h-10 flex-1 rounded-xl"
-              disabled={pending || title.trim().length < 3 || body.trim().length < 5}
+              disabled={
+                pending || title.trim().length < 3 || body.trim().length < 5
+              }
             >
-              ارسال
+              {pending ? "در حال ارسال…" : "ارسال"}
             </Button>
           </div>
         </form>
@@ -118,15 +175,15 @@ export function ResidentSuggestionsPanel({
           {suggestions.map((s) => (
             <li
               key={s.id}
-              className="rounded-2xl border border-border/50 bg-card px-3.5 py-3"
+              className="rounded-2xl border border-border/50 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_6rem]"
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-body-sm font-semibold text-foreground">
+                <h3 className="min-w-0 text-pretty text-body-sm font-semibold text-foreground">
                   {s.title}
-                </p>
+                </h3>
                 <SuggestionStatusPill status={s.status} />
               </div>
-              <p className="mt-1.5 whitespace-pre-wrap text-caption text-muted-foreground">
+              <p className="mt-1.5 whitespace-pre-wrap wrap-break-word text-caption text-muted-foreground">
                 {s.body}
               </p>
               {s.managerNote ? (

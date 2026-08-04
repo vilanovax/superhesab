@@ -47,6 +47,7 @@ export function BuildingSuggestionsInbox({
   const [selected, setSelected] = useState<BuildingSuggestionDTO | null>(null);
   const [note, setNote] = useState("");
   const [filter, setFilter] = useState<"all" | "open">("open");
+  const [error, setError] = useState<string | null>(null);
 
   const openCount = suggestions.filter(
     (s) => s.status === "OPEN" || s.status === "IN_PROGRESS",
@@ -62,13 +63,13 @@ export function BuildingSuggestionsInbox({
   function openItem(s: BuildingSuggestionDTO) {
     setSelected(s);
     setNote(s.managerNote ?? "");
+    setError(null);
   }
 
   function setStatus(status: SuggestionStatusValue) {
-    if (!selected || !canMutate) return;
+    if (!selected || !canMutate || pending) return;
     const id = selected.id;
-    setSelected(null);
-    showToast("وضعیت به‌روز شد");
+    setError(null);
 
     startTransition(async () => {
       const result = await updateBuildingSuggestionStatus({
@@ -78,9 +79,13 @@ export function BuildingSuggestionsInbox({
         managerNote: note.trim() || null,
       });
       if (!result.ok) {
-        showToast(result.error || "خطا در ثبت اطلاعات", "error");
+        const msg = result.error || "خطا در ثبت اطلاعات";
+        setError(msg);
+        showToast(msg, "error");
         return;
       }
+      setSelected(null);
+      showToast("وضعیت به‌روز شد");
       router.refresh();
     });
   }
@@ -93,7 +98,11 @@ export function BuildingSuggestionsInbox({
             ? `${openCount} مورد باز یا در حال پیگیری`
             : "مورد بازی نیست"}
         </p>
-        <div className="flex gap-1 rounded-xl bg-muted/70 p-0.5">
+        <div
+          role="radiogroup"
+          aria-label="فیلتر پیشنهادات"
+          className="flex gap-1 rounded-xl bg-muted/70 p-0.5"
+        >
           {(
             [
               { id: "open" as const, label: "باز" },
@@ -103,12 +112,14 @@ export function BuildingSuggestionsInbox({
             <button
               key={opt.id}
               type="button"
+              role="radio"
+              aria-checked={filter === opt.id}
               onClick={() => setFilter(opt.id)}
               className={cn(
                 "rounded-lg px-2.5 py-1 text-caption font-semibold transition-colors",
                 filter === opt.id
                   ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground",
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {opt.label}
@@ -130,11 +141,11 @@ export function BuildingSuggestionsInbox({
               <button
                 type="button"
                 onClick={() => openItem(s)}
-                className="w-full rounded-2xl border border-border/50 bg-card px-3.5 py-3 text-start transition-colors hover:bg-muted/30"
+                className="w-full rounded-2xl border border-border/50 bg-card px-3.5 py-3 text-start transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_5.5rem] hover:bg-muted/30"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-body-sm font-semibold text-foreground">
+                    <p className="truncate text-pretty text-body-sm font-semibold text-foreground">
                       {s.title}
                     </p>
                     <p className="mt-0.5 text-caption text-muted-foreground">
@@ -157,7 +168,11 @@ export function BuildingSuggestionsInbox({
       <Drawer
         open={Boolean(selected)}
         onOpenChange={(open) => {
-          if (!open) setSelected(null);
+          if (!open) {
+            if (pending) return;
+            setSelected(null);
+            setError(null);
+          }
         }}
         repositionInputs={false}
       >
@@ -166,7 +181,7 @@ export function BuildingSuggestionsInbox({
             <>
               <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
                 <DrawerHeader className="space-y-0 p-0 text-start">
-                  <DrawerTitle className="text-body font-bold text-on-hero">
+                  <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                     {selected.title}
                   </DrawerTitle>
                   <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
@@ -175,8 +190,8 @@ export function BuildingSuggestionsInbox({
                   </DrawerDescription>
                 </DrawerHeader>
               </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-                <p className="whitespace-pre-wrap text-body-sm text-foreground">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                <p className="whitespace-pre-wrap wrap-break-word text-body-sm text-foreground">
                   {selected.body}
                 </p>
                 <p className="text-micro text-muted-foreground">
@@ -185,11 +200,17 @@ export function BuildingSuggestionsInbox({
                 </p>
                 {canMutate ? (
                   <>
-                    <label className="block space-y-1.5">
-                      <span className="text-caption font-medium text-muted-foreground">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="suggestion-manager-note"
+                        className="text-caption font-medium text-muted-foreground"
+                      >
                         یادداشت مدیر (اختیاری)
-                      </span>
+                      </label>
                       <textarea
+                        id="suggestion-manager-note"
+                        name="managerNote"
+                        autoComplete="off"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         maxLength={300}
@@ -197,8 +218,21 @@ export function BuildingSuggestionsInbox({
                         className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         placeholder="پاسخ کوتاه برای ساکن…"
                       />
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    </div>
+                    {error ? (
+                      <p
+                        className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                        role="alert"
+                        aria-live="assertive"
+                      >
+                        {error}
+                      </p>
+                    ) : null}
+                    <div
+                      role="group"
+                      aria-label="وضعیت پیشنهاد"
+                      className="grid grid-cols-2 gap-2"
+                    >
                       {STATUS_ORDER.map((st) => (
                         <Button
                           key={st}
@@ -208,12 +242,21 @@ export function BuildingSuggestionsInbox({
                           }
                           className="h-10 rounded-xl text-caption"
                           disabled={pending}
+                          aria-pressed={selected.status === st}
                           onClick={() => setStatus(st)}
                         >
                           {SUGGESTION_STATUS_LABELS[st]}
                         </Button>
                       ))}
                     </div>
+                    {pending ? (
+                      <p
+                        className="text-center text-caption text-muted-foreground"
+                        aria-live="polite"
+                      >
+                        در حال ذخیره…
+                      </p>
+                    ) : null}
                   </>
                 ) : null}
               </div>

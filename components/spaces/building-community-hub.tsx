@@ -9,6 +9,8 @@ import { BuildingAnnouncementsBoard } from "@/components/spaces/building-announc
 import { BuildingSuggestionsInbox } from "@/components/spaces/building-suggestions-inbox";
 import { cn } from "@/lib/utils";
 
+type BoardView = "announcements" | "suggestions";
+
 type BuildingCommunityHubProps = {
   spaceId: string;
   suggestions: BuildingSuggestionDTO[];
@@ -20,6 +22,26 @@ function faDigits(n: number): string {
   return String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]!);
 }
 
+function readBoardView(): BoardView {
+  if (typeof window === "undefined") return "announcements";
+  return new URL(window.location.href).searchParams.get("board") ===
+    "suggestions"
+    ? "suggestions"
+    : "announcements";
+}
+
+/** Deep-link hub sub-view (`?board=suggestions`; omit for announcements). */
+function syncBoardQuery(view: BoardView) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const prev = `${url.pathname}${url.search}`;
+  if (view === "announcements") url.searchParams.delete("board");
+  else url.searchParams.set("board", "suggestions");
+  const next = `${url.pathname}${url.search}`;
+  if (prev === next) return;
+  window.history.replaceState(null, "", next);
+}
+
 /**
  * Manager tab: announcements board + suggestions inbox (phase 24 + 26).
  */
@@ -29,13 +51,16 @@ export function BuildingCommunityHub({
   announcements,
   canMutate,
 }: BuildingCommunityHubProps) {
-  const [view, setView] = useState<"announcements" | "suggestions">(
-    "announcements",
-  );
+  const [view, setView] = useState<BoardView>(readBoardView);
   const openSuggestions = suggestions.filter(
     (s) => s.status === "OPEN" || s.status === "IN_PROGRESS",
   ).length;
   const activeAnnouncements = announcements.filter((a) => !a.archived).length;
+
+  function selectView(next: BoardView) {
+    setView(next);
+    syncBoardQuery(next);
+  }
 
   return (
     <div className="space-y-3">
@@ -47,10 +72,12 @@ export function BuildingCommunityHub({
         <button
           type="button"
           role="tab"
+          id="board-tab-announcements"
+          aria-controls="board-panel-announcements"
           aria-selected={view === "announcements"}
-          onClick={() => setView("announcements")}
+          onClick={() => selectView("announcements")}
           className={cn(
-            "relative h-10 rounded-xl text-caption font-semibold transition-all",
+            "relative h-10 rounded-xl text-caption font-semibold transition-[background-color,color,box-shadow]",
             view === "announcements"
               ? "bg-card text-foreground shadow-sm ring-1 ring-border/50"
               : "text-muted-foreground hover:text-foreground",
@@ -73,10 +100,12 @@ export function BuildingCommunityHub({
         <button
           type="button"
           role="tab"
+          id="board-tab-suggestions"
+          aria-controls="board-panel-suggestions"
           aria-selected={view === "suggestions"}
-          onClick={() => setView("suggestions")}
+          onClick={() => selectView("suggestions")}
           className={cn(
-            "relative h-10 rounded-xl text-caption font-semibold transition-all",
+            "relative h-10 rounded-xl text-caption font-semibold transition-[background-color,color,box-shadow]",
             view === "suggestions"
               ? "bg-card text-foreground shadow-sm ring-1 ring-border/50"
               : "text-muted-foreground hover:text-foreground",
@@ -99,17 +128,29 @@ export function BuildingCommunityHub({
       </div>
 
       {view === "announcements" ? (
-        <BuildingAnnouncementsBoard
-          spaceId={spaceId}
-          announcements={announcements}
-          canMutate={canMutate}
-        />
+        <div
+          id="board-panel-announcements"
+          role="tabpanel"
+          aria-labelledby="board-tab-announcements"
+        >
+          <BuildingAnnouncementsBoard
+            spaceId={spaceId}
+            announcements={announcements}
+            canMutate={canMutate}
+          />
+        </div>
       ) : (
-        <BuildingSuggestionsInbox
-          spaceId={spaceId}
-          suggestions={suggestions}
-          canMutate={canMutate}
-        />
+        <div
+          id="board-panel-suggestions"
+          role="tabpanel"
+          aria-labelledby="board-tab-suggestions"
+        >
+          <BuildingSuggestionsInbox
+            spaceId={spaceId}
+            suggestions={suggestions}
+            canMutate={canMutate}
+          />
+        </div>
       )}
     </div>
   );

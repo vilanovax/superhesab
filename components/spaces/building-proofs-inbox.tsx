@@ -48,6 +48,7 @@ export function BuildingProofsInbox({
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
   const [filter, setFilter] = useState<"pending" | "all">("pending");
+  const [error, setError] = useState<string | null>(null);
 
   const pendingCount = proofs.filter((p) => p.status === "PENDING").length;
   const visible =
@@ -59,13 +60,19 @@ export function BuildingProofsInbox({
     setSelected(p);
     setAmount(p.amount);
     setNote("");
+    setError(null);
+  }
+
+  function closeReview() {
+    if (pending) return;
+    setSelected(null);
+    setError(null);
   }
 
   function review(status: "APPROVED" | "REJECTED") {
-    if (!selected) return;
+    if (!selected || pending) return;
     const id = selected.id;
-    setSelected(null);
-    showToast(status === "APPROVED" ? "رسید تایید شد" : "رسید رد شد");
+    setError(null);
     startTransition(async () => {
       const result = await reviewChargeProof({
         spaceId,
@@ -76,9 +83,13 @@ export function BuildingProofsInbox({
         paymentStatus: status === "APPROVED" ? "PAID" : undefined,
       });
       if (!result.ok) {
-        showToast(result.error || "خطا", "error");
+        const msg = result.error || "خطا در بررسی رسید";
+        setError(msg);
+        showToast(msg, "error");
         return;
       }
+      setSelected(null);
+      showToast(status === "APPROVED" ? "رسید تایید شد" : "رسید رد شد");
       router.refresh();
     });
   }
@@ -99,15 +110,21 @@ export function BuildingProofsInbox({
   return (
     <div className="space-y-2 rounded-2xl border border-border/50 bg-card px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-body-sm font-semibold text-foreground">رسیدها</h3>
+        <div className="min-w-0">
+          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
+            رسیدها
+          </h3>
           <p className="text-caption text-muted-foreground">
             {pendingCount > 0
               ? `${pendingCount} در انتظار بررسی`
               : "رسید در انتظاری نیست"}
           </p>
         </div>
-        <div className="flex gap-1 rounded-xl bg-muted/70 p-0.5">
+        <div
+          role="radiogroup"
+          aria-label="فیلتر رسیدها"
+          className="flex gap-1 rounded-xl bg-muted/70 p-0.5"
+        >
           {(
             [
               { id: "pending" as const, label: "باز" },
@@ -117,12 +134,14 @@ export function BuildingProofsInbox({
             <button
               key={t.id}
               type="button"
+              role="radio"
+              aria-checked={filter === t.id}
               onClick={() => setFilter(t.id)}
               className={cn(
-                "h-8 rounded-lg px-2.5 text-caption font-semibold",
+                "h-8 rounded-lg px-2.5 text-caption font-semibold transition-colors",
                 filter === t.id
                   ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground",
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
@@ -140,7 +159,7 @@ export function BuildingProofsInbox({
           {visible.map((p) => (
             <li
               key={p.id}
-              className="flex items-center gap-2 rounded-xl border border-border/40 px-2.5 py-2"
+              className="flex items-center gap-2 rounded-xl border border-border/40 px-2.5 py-2 [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-caption font-semibold text-foreground">
@@ -166,6 +185,7 @@ export function BuildingProofsInbox({
                   type="button"
                   size="sm"
                   className="h-8 shrink-0 rounded-lg text-caption"
+                  disabled={pending}
                   onClick={() => openReview(p)}
                 >
                   بررسی
@@ -179,13 +199,14 @@ export function BuildingProofsInbox({
       <Drawer
         open={Boolean(selected)}
         onOpenChange={(o) => {
-          if (!o) setSelected(null);
+          if (!o) closeReview();
         }}
+        repositionInputs={false}
       >
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+        <DrawerContent className="mt-0! flex h-auto max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
-              <DrawerTitle className="text-body font-bold text-on-hero">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                 بررسی رسید · واحد {selected?.unitName}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
@@ -195,27 +216,50 @@ export function BuildingProofsInbox({
               </DrawerDescription>
             </DrawerHeader>
           </div>
-          <div className="space-y-2.5 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <div className="space-y-1">
-              <label className="text-label text-muted-foreground">
+              <label
+                htmlFor="proof-review-amount"
+                className="text-label text-muted-foreground"
+              >
                 مبلغ تایید ({CHARGE_STATUS_LABELS.PAID})
               </label>
               <MoneyInput
+                id="proof-review-amount"
+                name="amount"
                 value={amount}
                 onValueChange={setAmount}
                 className="h-11 rounded-xl font-semibold"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-label text-muted-foreground">یادداشت</label>
+              <label
+                htmlFor="proof-review-note"
+                className="text-label text-muted-foreground"
+              >
+                یادداشت
+              </label>
               <textarea
+                id="proof-review-note"
+                name="reviewNote"
+                autoComplete="off"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 maxLength={300}
+                placeholder="اختیاری…"
                 className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2 text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
+            {error ? (
+              <p
+                className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                {error}
+              </p>
+            ) : null}
             <div className="flex gap-2 pt-1">
               <Button
                 type="button"
@@ -224,7 +268,7 @@ export function BuildingProofsInbox({
                 disabled={pending}
                 onClick={() => review("REJECTED")}
               >
-                رد
+                {pending ? "در حال ذخیره…" : "رد"}
               </Button>
               <Button
                 type="button"
@@ -232,7 +276,7 @@ export function BuildingProofsInbox({
                 disabled={pending}
                 onClick={() => review("APPROVED")}
               >
-                تایید و پرداخت‌شده
+                {pending ? "در حال ذخیره…" : "تایید و پرداخت‌شده"}
               </Button>
             </div>
           </div>

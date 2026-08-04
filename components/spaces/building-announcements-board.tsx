@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import {
   createBuildingAnnouncement,
   updateBuildingAnnouncement,
@@ -125,6 +125,7 @@ function AnnouncementEditor({
   onSubmit,
   pending,
   submitLabel,
+  error,
 }: {
   draft: Draft;
   onChange: (next: Draft) => void;
@@ -132,33 +133,68 @@ function AnnouncementEditor({
   onSubmit: (e: React.FormEvent) => void;
   pending: boolean;
   submitLabel: string;
+  error?: string | null;
 }) {
+  const uid = useId();
+  const titleId = `${uid}-title`;
+  const bodyId = `${uid}-body`;
+  const pinId = `${uid}-pin`;
   const canSubmit =
     draft.title.trim().length >= 3 && draft.body.trim().length >= 5;
+
+  useEffect(() => {
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const el = document.getElementById(titleId);
+    if (el instanceof HTMLInputElement) el.focus();
+  }, [titleId]);
 
   return (
     <form
       onSubmit={onSubmit}
       className="space-y-2.5 rounded-2xl border border-primary/20 bg-card p-3.5 shadow-sm ring-1 ring-primary/10"
     >
-      <Input
-        value={draft.title}
-        onChange={(e) => onChange({ ...draft, title: e.target.value })}
-        placeholder="عنوان اعلان"
-        maxLength={100}
-        className="h-11 rounded-xl"
-        autoFocus
-      />
-      <textarea
-        value={draft.body}
-        onChange={(e) => onChange({ ...draft, body: e.target.value })}
-        placeholder="متن اعلان برای همه ساکنین…"
-        maxLength={2000}
-        rows={4}
-        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-      <label className="flex items-center gap-2 text-caption text-muted-foreground">
+      <div className="space-y-1">
+        <label htmlFor={titleId} className="text-label text-muted-foreground">
+          عنوان
+        </label>
+        <Input
+          id={titleId}
+          name="announcementTitle"
+          autoComplete="off"
+          value={draft.title}
+          onChange={(e) => onChange({ ...draft, title: e.target.value })}
+          placeholder="مثلاً قطعی آب فردا…"
+          maxLength={100}
+          className="h-11 rounded-xl"
+          required
+          minLength={3}
+        />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor={bodyId} className="text-label text-muted-foreground">
+          متن
+        </label>
+        <textarea
+          id={bodyId}
+          name="announcementBody"
+          autoComplete="off"
+          value={draft.body}
+          onChange={(e) => onChange({ ...draft, body: e.target.value })}
+          placeholder="متن اعلان برای همه ساکنین…"
+          maxLength={2000}
+          rows={4}
+          required
+          minLength={5}
+          className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      <label
+        htmlFor={pinId}
+        className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground"
+      >
         <input
+          id={pinId}
+          name="pinned"
           type="checkbox"
           checked={draft.pinned}
           onChange={(e) => onChange({ ...draft, pinned: e.target.checked })}
@@ -166,6 +202,15 @@ function AnnouncementEditor({
         />
         سنجاق در بالای برد
       </label>
+      {error ? (
+        <p
+          className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <Button
           type="button"
@@ -181,7 +226,7 @@ function AnnouncementEditor({
           className="h-10 flex-1 rounded-xl"
           disabled={pending || !canSubmit}
         >
-          {submitLabel}
+          {pending ? "در حال ذخیره…" : submitLabel}
         </Button>
       </div>
     </form>
@@ -203,6 +248,7 @@ export function BuildingAnnouncementsBoard({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY_DRAFT);
   const [showArchived, setShowArchived] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const activeCount = announcements.filter((a) => !a.archived).length;
   const archivedCount = announcements.filter((a) => a.archived).length;
@@ -215,12 +261,14 @@ export function BuildingAnnouncementsBoard({
 
   function openCompose() {
     setEditingId(null);
+    setFormError(null);
     setCreateDraft(EMPTY_DRAFT);
     setComposing(true);
   }
 
   function startEdit(a: BuildingAnnouncementDTO) {
     setComposing(false);
+    setFormError(null);
     setEditingId(a.id);
     setEditDraft({
       title: a.title,
@@ -232,19 +280,21 @@ export function BuildingAnnouncementsBoard({
   function cancelEdit() {
     setEditingId(null);
     setEditDraft(EMPTY_DRAFT);
+    setFormError(null);
   }
 
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
+    setFormError(null);
     const title = createDraft.title.trim();
     const body = createDraft.body.trim();
-    if (title.length < 3 || body.length < 5) return;
+    if (title.length < 3 || body.length < 5) {
+      setFormError("عنوان حداقل ۳ و متن حداقل ۵ کاراکتر.");
+      return;
+    }
 
     const pinned = createDraft.pinned;
-    setComposing(false);
-    setCreateDraft(EMPTY_DRAFT);
-    showToast("اعلان منتشر شد");
-
     startTransition(async () => {
       const result = await createBuildingAnnouncement({
         spaceId,
@@ -253,25 +303,32 @@ export function BuildingAnnouncementsBoard({
         pinned,
       });
       if (!result.ok) {
-        showToast(result.error || "خطا در ثبت اطلاعات", "error");
+        const msg = result.error || "خطا در ثبت اطلاعات";
+        setFormError(msg);
+        showToast(msg, "error");
         return;
       }
+      setComposing(false);
+      setCreateDraft(EMPTY_DRAFT);
+      setFormError(null);
+      showToast("اعلان منتشر شد");
       router.refresh();
     });
   }
 
   function onSaveEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editingId) return;
+    if (!editingId || pending) return;
+    setFormError(null);
     const title = editDraft.title.trim();
     const body = editDraft.body.trim();
-    if (title.length < 3 || body.length < 5) return;
+    if (title.length < 3 || body.length < 5) {
+      setFormError("عنوان حداقل ۳ و متن حداقل ۵ کاراکتر.");
+      return;
+    }
 
     const id = editingId;
     const pinned = editDraft.pinned;
-    cancelEdit();
-    showToast("اعلان ویرایش شد");
-
     startTransition(async () => {
       const result = await updateBuildingAnnouncement({
         spaceId,
@@ -281,15 +338,19 @@ export function BuildingAnnouncementsBoard({
         pinned,
       });
       if (!result.ok) {
-        showToast(result.error || "خطا در ثبت اطلاعات", "error");
+        const msg = result.error || "خطا در ثبت اطلاعات";
+        setFormError(msg);
+        showToast(msg, "error");
         return;
       }
+      cancelEdit();
+      showToast("اعلان ویرایش شد");
       router.refresh();
     });
   }
 
   function togglePin(a: BuildingAnnouncementDTO) {
-    showToast(a.pinned ? "از سنجاق برداشته شد" : "سنجاق شد");
+    if (pending) return;
     startTransition(async () => {
       const result = await updateBuildingAnnouncement({
         spaceId,
@@ -300,13 +361,14 @@ export function BuildingAnnouncementsBoard({
         showToast(result.error || "خطا در ثبت اطلاعات", "error");
         return;
       }
+      showToast(a.pinned ? "از سنجاق برداشته شد" : "سنجاق شد");
       router.refresh();
     });
   }
 
   function toggleArchive(a: BuildingAnnouncementDTO) {
+    if (pending) return;
     if (editingId === a.id) cancelEdit();
-    showToast(a.archived ? "اعلان بازگردانی شد" : "اعلان بایگانی شد");
     startTransition(async () => {
       const result = await updateBuildingAnnouncement({
         spaceId,
@@ -317,6 +379,7 @@ export function BuildingAnnouncementsBoard({
         showToast(result.error || "خطا در ثبت اطلاعات", "error");
         return;
       }
+      showToast(a.archived ? "اعلان بازگردانی شد" : "اعلان بایگانی شد");
       router.refresh();
     });
   }
@@ -374,10 +437,12 @@ export function BuildingAnnouncementsBoard({
           onCancel={() => {
             setComposing(false);
             setCreateDraft(EMPTY_DRAFT);
+            setFormError(null);
           }}
           onSubmit={onCreate}
           pending={pending}
           submitLabel="انتشار"
+          error={formError}
         />
       ) : null}
 
@@ -420,13 +485,14 @@ export function BuildingAnnouncementsBoard({
                   onSubmit={onSaveEdit}
                   pending={pending}
                   submitLabel="ذخیره"
+                  error={formError}
                 />
               </li>
             ) : (
               <li
                 key={a.id}
                 className={cn(
-                  "rounded-2xl border bg-card px-3.5 py-3 transition-shadow",
+                  "rounded-2xl border bg-card px-3.5 py-3 transition-shadow [content-visibility:auto] [contain-intrinsic-size:auto_7rem]",
                   a.pinned
                     ? "border-primary/30 shadow-sm ring-1 ring-primary/12"
                     : "border-border/50",
@@ -452,9 +518,9 @@ export function BuildingAnnouncementsBoard({
                           بایگانی
                         </span>
                       ) : null}
-                      <p className="text-body-sm font-semibold leading-snug text-foreground">
+                      <h3 className="text-pretty text-body-sm font-semibold leading-snug text-foreground">
                         {a.title}
-                      </p>
+                      </h3>
                     </div>
                     <p className="mt-1.5 whitespace-pre-wrap text-caption leading-relaxed text-muted-foreground">
                       {a.body}

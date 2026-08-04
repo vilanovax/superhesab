@@ -66,7 +66,9 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
 
       <header className="surface-hero animate-fade-up rounded-2xl px-4 py-4">
         <p className="text-caption font-medium text-on-hero/70">{space.name}</p>
-        <h1 className="mt-0.5 text-xl font-bold text-on-hero">برد ساختمان</h1>
+        <h1 className="mt-0.5 text-pretty text-xl font-bold text-on-hero">
+          برد ساختمان
+        </h1>
         <p className="mt-1 text-caption text-on-hero/75">
           اعلان‌ها برای ساکنین و صندوق پیشنهادات
         </p>

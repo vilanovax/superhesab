@@ -94,6 +94,11 @@ export function FamilySpaceTabs({
       checklist: [],
       chargeProofs: [],
       categoryBudgets: budgetsProp ?? {},
+      expenses,
+      expensesHasMore,
+      buildingDashboard: null,
+      buildingCalendar: null,
+      buildingUnits: [],
     },
   });
 

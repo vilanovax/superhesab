@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
 import { BuildingBillsBreakdown } from "@/components/spaces/building-bills-breakdown";
@@ -16,6 +17,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+
 const PersonalReportChart = dynamic(
   () =>
     import("@/components/PersonalReportChart").then(
@@ -84,24 +86,57 @@ export function BuildingSpaceTabs({
       ? initialTab
       : "charges";
 
-  const { tab, deferred, tabBusy, onTabChange } = useDeferredSpaceTabs({
-    spaceId,
+  const { tab, deferred, loaded, tabBusy, onTabChange, hydrateChargeProofs } =
+    useDeferredSpaceTabs({
+      spaceId,
+      defaultTab,
+      loadedTabs,
+      reportPlanYear,
+      reportMonth,
+      tabLoadContext,
+      initial: {
+        personalReportData: reportProp,
+        reportExpenseLines: reportLinesProp,
+        debts: [],
+        savingsPots: [],
+        internalLoans: [],
+        checklist: [],
+        chargeProofs: proofsProp,
+        categoryBudgets: budgetsProp ?? {},
+        expenses: defaultTab === "expenses" ? expenses : [],
+        expensesHasMore: defaultTab === "expenses" ? expensesHasMore : false,
+        buildingDashboard,
+        buildingCalendar,
+        buildingUnits,
+      },
+    });
+
+  /** Proofs stay off the RSC critical path — hydrate after first paint. */
+  useEffect(() => {
+    if (!canMutate) return;
+    if (tab !== "charges" && defaultTab !== "charges") return;
+    if (deferred.chargeProofs.length > 0 || proofsProp.length > 0) return;
+    void hydrateChargeProofs();
+  }, [
+    canMutate,
     defaultTab,
-    loadedTabs,
-    reportPlanYear,
-    reportMonth,
-    tabLoadContext,
-    initial: {
-      personalReportData: reportProp,
-      reportExpenseLines: reportLinesProp,
-      debts: [],
-      savingsPots: [],
-      internalLoans: [],
-      checklist: [],
-      chargeProofs: proofsProp,
-      categoryBudgets: budgetsProp ?? {},
-    },
-  });
+    deferred.chargeProofs.length,
+    hydrateChargeProofs,
+    proofsProp.length,
+    tab,
+  ]);
+
+  const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
+  const liveExpensesHasMore = loaded.has("expenses")
+    ? deferred.expensesHasMore
+    : expensesHasMore;
+  const liveDashboard =
+    deferred.buildingDashboard ?? buildingDashboard;
+  const liveCalendar = deferred.buildingCalendar ?? buildingCalendar;
+  const liveUnits =
+    deferred.buildingUnits.length > 0
+      ? deferred.buildingUnits
+      : buildingUnits;
 
   return (
     <Tabs
@@ -125,35 +160,39 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
-        <ExpenseList
-          spaceId={spaceId}
-          spaceName={spaceName}
-          currentUserId={currentUserId}
-          currentUserRole={currentUserRole}
-          members={members}
-          inviteMembers={inviteMembers}
-          expenses={expenses}
-          expensesHasMore={expensesHasMore}
-          currency={currency}
-          spaceType={spaceType}
-          canMutate={canMutate}
-        />
+        {tabBusy && tab === "expenses" ? (
+          <SpacePanelFallback rows={4} />
+        ) : (
+          <ExpenseList
+            spaceId={spaceId}
+            spaceName={spaceName}
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            members={members}
+            inviteMembers={inviteMembers}
+            expenses={liveExpenses}
+            expensesHasMore={liveExpensesHasMore}
+            currency={currency}
+            spaceType={spaceType}
+            canMutate={canMutate}
+          />
+        )}
       </TabsContent>
       <TabsContent value="charges" className="mt-3">
         {tabBusy && tab === "charges" ? (
           <SpacePanelFallback rows={5} />
-        ) : buildingDashboard ? (
+        ) : liveDashboard ? (
           <BuildingChargesPanel
             spaceId={spaceId}
             settingsHref={`/spaces/${spaceId}/settings`}
             unitsHref={`/spaces/${spaceId}?tab=units`}
-            dashboard={buildingDashboard}
-            calendar={buildingCalendar}
+            dashboard={liveDashboard}
+            calendar={liveCalendar}
             currency={currency}
             canMutate={canMutate}
             isOwner={isOwner}
             chargeProofs={deferred.chargeProofs}
-            buildingUnits={buildingUnits}
+            buildingUnits={liveUnits}
           />
         ) : (
           <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
@@ -162,13 +201,17 @@ export function BuildingSpaceTabs({
         )}
       </TabsContent>
       <TabsContent value="units" className="mt-3">
-        <BuildingUnitsPanel
-          spaceId={spaceId}
-          currency={currency}
-          units={buildingUnits}
-          baseCharge={buildingDashboard?.plan?.baseCharge ?? 0}
-          canManage={isOwner}
-        />
+        {tabBusy && tab === "units" ? (
+          <SpacePanelFallback rows={3} />
+        ) : (
+          <BuildingUnitsPanel
+            spaceId={spaceId}
+            currency={currency}
+            units={liveUnits}
+            baseCharge={liveDashboard?.plan?.baseCharge ?? 0}
+            canManage={isOwner}
+          />
+        )}
       </TabsContent>
       <TabsContent value="report" className="mt-3">
         {tabBusy && tab === "report" ? (

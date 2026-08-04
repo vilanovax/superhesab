@@ -1,7 +1,10 @@
 import "server-only";
 
 import { listSpaceDebts } from "@/app/actions/debt";
-import { listChargeProofsForManager } from "@/app/actions/building";
+import {
+  getBuildingManagerView,
+  listChargeProofsForManager,
+} from "@/app/actions/building";
 import { getChecklist } from "@/app/actions/checklist";
 import { listInternalLoans } from "@/app/actions/internalLoan";
 import { listSavingsPots } from "@/app/actions/savingsPot";
@@ -13,9 +16,14 @@ import {
   getExpenseLinesForMonth,
   getExpenseLinesInRange,
 } from "@/lib/reports-server";
+import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
 import type { TemplateFeatures } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
-import type { DeferredTabPayload, SpaceTabId } from "@/lib/spaces/space-tab-data";
+import {
+  EMPTY_DEFERRED_TAB,
+  type DeferredTabPayload,
+  type SpaceTabId,
+} from "@/lib/spaces/space-tab-data";
 
 export type LoadDeferredTabArgs = {
   spaceId: string;
@@ -25,6 +33,11 @@ export type LoadDeferredTabArgs = {
   reportRange: { start: Date; end: Date } | null;
   hiddenCategories: ExpenseCategory[];
   features: TemplateFeatures;
+  /**
+   * When false, skip charge proofs on the charges tab (client loads after paint).
+   * Default true for client tab switches.
+   */
+  includeChargeProofs?: boolean;
 };
 
 /** Heavy per-tab reads — used by the space page and by loadSpaceTabData. */
@@ -39,18 +52,10 @@ export async function loadDeferredTabData(
     planYear,
     reportRange,
     hiddenCategories,
+    includeChargeProofs = true,
   } = args;
 
-  const out: DeferredTabPayload = {
-    personalReportData: [],
-    reportExpenseLines: [],
-    debts: [],
-    savingsPots: [],
-    internalLoans: [],
-    checklist: [],
-    chargeProofs: [],
-    categoryBudgets: {},
-  };
+  const out: DeferredTabPayload = { ...EMPTY_DEFERRED_TAB };
   const canManage = role === "OWNER" || role === "EDITOR";
   const tasks: Promise<void>[] = [];
 
@@ -131,10 +136,38 @@ export async function loadDeferredTabData(
     );
   }
 
-  if (tab === "charges" && features.buildingCharges && canManage) {
+  if (tab === "expenses" && features.incomeExpense) {
     tasks.push(
       (async () => {
-        out.chargeProofs = await listChargeProofsForManager(spaceId, planYear);
+        const page = await queryExpenseLedgerPage({
+          spaceId,
+          hiddenCategories,
+        });
+        out.expenses = page.expenses;
+        out.expensesHasMore = page.hasMore;
+      })(),
+    );
+  }
+
+  if (
+    (tab === "charges" || tab === "units") &&
+    features.buildingCharges
+  ) {
+    tasks.push(
+      (async () => {
+        const view = await getBuildingManagerView(spaceId, planYear);
+        if (!view) return;
+        out.buildingDashboard = view.dashboard;
+        out.buildingUnits = view.units;
+        if (tab === "charges") {
+          out.buildingCalendar = view.calendar;
+          if (includeChargeProofs && canManage) {
+            out.chargeProofs = await listChargeProofsForManager(
+              spaceId,
+              planYear,
+            );
+          }
+        }
       })(),
     );
   }

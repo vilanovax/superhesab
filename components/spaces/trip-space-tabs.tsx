@@ -58,6 +58,11 @@ export function TripSpaceTabs({
       checklist: checklistProp,
       chargeProofs: [],
       categoryBudgets: {},
+      expenses,
+      expensesHasMore,
+      buildingDashboard: null,
+      buildingCalendar: null,
+      buildingUnits: [],
     },
   });
 

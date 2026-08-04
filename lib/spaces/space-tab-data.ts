@@ -49,6 +49,13 @@ export type DeferredTabPayload = {
   checklist: import("@/app/actions/checklist").ChecklistItemDTO[];
   chargeProofs: import("@/app/actions/building").ChargePaymentProofDTO[];
   categoryBudgets: Partial<Record<ExpenseCategory, number>>;
+  /** BUILDING tab-aware: first ledger page when expenses tab is fetched. */
+  expenses: import("@/components/expenses/expense-list").ExpenseListItem[];
+  expensesHasMore: boolean;
+  /** BUILDING tab-aware: charge bundle when charges/units tab is fetched. */
+  buildingDashboard: import("@/app/actions/building").BuildingDashboardDTO | null;
+  buildingCalendar: import("@/app/actions/building").AnnualChargeCalendarDTO | null;
+  buildingUnits: import("@/app/actions/building").BuildingUnitRow[];
 };
 
 export const EMPTY_DEFERRED_TAB: DeferredTabPayload = {
@@ -60,4 +67,9 @@ export const EMPTY_DEFERRED_TAB: DeferredTabPayload = {
   checklist: [],
   chargeProofs: [],
   categoryBudgets: {},
+  expenses: [],
+  expensesHasMore: false,
+  buildingDashboard: null,
+  buildingCalendar: null,
+  buildingUnits: [],
 };

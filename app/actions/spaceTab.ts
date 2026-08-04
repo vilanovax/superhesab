@@ -90,3 +90,41 @@ export async function loadSpaceTabData(input: {
 
   return { ok: true, tab, data };
 }
+
+/** Lightweight proofs fetch after charges paint (BUILDING Phase A). */
+export async function loadSpaceChargeProofs(input: {
+  spaceId: string;
+  year?: number;
+}): Promise<
+  | {
+      ok: true;
+      proofs: import("@/app/actions/building").ChargePaymentProofDTO[];
+    }
+  | { ok: false; error: string }
+> {
+  const { listChargeProofsForManager } = await import(
+    "@/app/actions/building"
+  );
+  const session = await requireUser();
+  const membership = await requireSpaceMember(input.spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+  if (membership.role !== "OWNER" && membership.role !== "EDITOR") {
+    return { ok: true, proofs: [] };
+  }
+  const features = getTemplate(membership.space.type).features;
+  if (!features.buildingCharges) {
+    return { ok: true, proofs: [] };
+  }
+  const planYear =
+    input.year && input.year >= 1390 && input.year <= 1500
+      ? input.year
+      : membership.space.defaultPlanYear &&
+          membership.space.defaultPlanYear >= 1390 &&
+          membership.space.defaultPlanYear <= 1500
+        ? membership.space.defaultPlanYear
+        : tehranCivilYear();
+  const proofs = await listChargeProofsForManager(input.spaceId, planYear);
+  return { ok: true, proofs };
+}

@@ -6,19 +6,28 @@ import {
   useEffect,
   useState,
 } from "react";
-import { loadSpaceTabData } from "@/app/actions/spaceTab";
+import {
+  loadSpaceChargeProofs,
+  loadSpaceTabData,
+} from "@/app/actions/spaceTab";
 import type {
   DeferredTabPayload,
   SpaceTabId,
 } from "@/lib/spaces/space-tab-data";
 
-/** Tabs that pull extra server data beyond the space chrome payload. */
+/**
+ * Tabs that pull extra server data beyond the space chrome payload.
+ * BUILDING: expenses / charges / units are also deferred so the default
+ * charges tab does not pay for the ledger or vice versa.
+ */
 export const DEFERRED_TABS = new Set<SpaceTabId>([
   "report",
   "debts",
   "funds",
   "checklist",
   "charges",
+  "expenses",
+  "units",
 ]);
 
 export function syncTabQuery(tab: string) {
@@ -27,6 +36,41 @@ export function syncTabQuery(tab: string) {
   if (url.searchParams.get("tab") === tab) return;
   url.searchParams.set("tab", tab);
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
+function mergeDeferred(
+  prev: DeferredTabPayload,
+  next: SpaceTabId,
+  data: DeferredTabPayload,
+): DeferredTabPayload {
+  return {
+    personalReportData:
+      next === "report" ? data.personalReportData : prev.personalReportData,
+    reportExpenseLines:
+      next === "report" ? data.reportExpenseLines : prev.reportExpenseLines,
+    categoryBudgets:
+      next === "report" ? data.categoryBudgets : prev.categoryBudgets,
+    debts: next === "debts" ? data.debts : prev.debts,
+    savingsPots: next === "funds" ? data.savingsPots : prev.savingsPots,
+    internalLoans:
+      next === "funds" ? data.internalLoans : prev.internalLoans,
+    checklist: next === "checklist" ? data.checklist : prev.checklist,
+    chargeProofs:
+      next === "charges" ? data.chargeProofs : prev.chargeProofs,
+    expenses: next === "expenses" ? data.expenses : prev.expenses,
+    expensesHasMore:
+      next === "expenses" ? data.expensesHasMore : prev.expensesHasMore,
+    buildingDashboard:
+      next === "charges" || next === "units"
+        ? data.buildingDashboard
+        : prev.buildingDashboard,
+    buildingCalendar:
+      next === "charges" ? data.buildingCalendar : prev.buildingCalendar,
+    buildingUnits:
+      next === "charges" || next === "units"
+        ? data.buildingUnits
+        : prev.buildingUnits,
+  };
 }
 
 export function useDeferredSpaceTabs(args: {
@@ -75,33 +119,7 @@ export function useDeferredSpaceTabs(args: {
           reportMonth: tabLoadContext?.reportMonth ?? reportMonth,
         });
         if (result.ok) {
-          setDeferred((prev) => ({
-            personalReportData:
-              next === "report"
-                ? result.data.personalReportData
-                : prev.personalReportData,
-            reportExpenseLines:
-              next === "report"
-                ? result.data.reportExpenseLines
-                : prev.reportExpenseLines,
-            categoryBudgets:
-              next === "report"
-                ? result.data.categoryBudgets
-                : prev.categoryBudgets,
-            debts: next === "debts" ? result.data.debts : prev.debts,
-            savingsPots:
-              next === "funds" ? result.data.savingsPots : prev.savingsPots,
-            internalLoans:
-              next === "funds"
-                ? result.data.internalLoans
-                : prev.internalLoans,
-            checklist:
-              next === "checklist" ? result.data.checklist : prev.checklist,
-            chargeProofs:
-              next === "charges"
-                ? result.data.chargeProofs
-                : prev.chargeProofs,
-          }));
+          setDeferred((prev) => mergeDeferred(prev, next, result.data));
           setLoaded((prev) => new Set(prev).add(next));
         }
         setPendingTab((cur) => (cur === next ? null : cur));
@@ -124,10 +142,31 @@ export function useDeferredSpaceTabs(args: {
     ensureTabData(next);
   };
 
+  /** Patch charge proofs after paint without blocking first charges paint. */
+  const hydrateChargeProofs = useCallback(async () => {
+    if (deferred.chargeProofs.length > 0) return;
+    const result = await loadSpaceChargeProofs({
+      spaceId,
+      year: tabLoadContext?.planYear ?? reportPlanYear,
+    });
+    if (!result.ok) return;
+    setDeferred((prev) => ({
+      ...prev,
+      chargeProofs: result.proofs,
+    }));
+  }, [
+    deferred.chargeProofs.length,
+    reportPlanYear,
+    spaceId,
+    tabLoadContext?.planYear,
+  ]);
+
   return {
     tab,
     deferred,
+    loaded,
     tabBusy: pendingTab !== null && pendingTab === tab,
     onTabChange,
+    hydrateChargeProofs,
   };
 }

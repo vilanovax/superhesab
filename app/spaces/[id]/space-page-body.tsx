@@ -18,10 +18,9 @@ import {
   loadSpaceWithMembers,
   type SpacePageCtx,
 } from "@/lib/spaces/space-page-ctx";
-
 /**
  * Streams after hero — expense list, deferred tabs, fund panel, FAB.
- * Shared loaders hit React.cache from the hero sibling when already warm.
+ * BUILDING: only the active tab’s heavy payload is awaited (Phase A).
  */
 export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const {
@@ -46,49 +45,83 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const isFundShell = Boolean(features.fundRotating);
   const showChecklist = features.checklist;
 
-  const [space, expensesPage, balanceData, monthRows, buildingView, fundDashboard, fundProofs, deferredTab] =
-    await Promise.all([
-      loadSpaceWithMembers(id),
-      loadSpaceExpensesPage(id, hiddenCategoriesKey),
-      features.settlements
-        ? loadCachedBalances(id)
-        : Promise.resolve(emptyBalances),
-      features.incomeExpense || features.budget
-        ? loadMonthRows(
-            id,
-            monthRange.start.getTime(),
-            monthRange.end.getTime(),
-            hiddenCategoriesKey,
-          )
-        : Promise.resolve([]),
-      features.buildingCharges
-        ? loadCachedBuildingView(id, planYear)
-        : Promise.resolve(null),
-      features.fundRotating
-        ? loadCachedFundDashboard(id, fundPeriod)
-        : Promise.resolve(null),
-      features.fundRotating &&
-      (membership.role === "OWNER" || membership.role === "EDITOR")
-        ? loadFundProofs(id)
-        : Promise.resolve([]),
-      loadDeferredTabData({
-        spaceId: id,
-        tab: activeTab,
-        features,
-        role: membership.role,
-        planYear,
-        reportRange,
-        hiddenCategories,
-      }),
-    ]);
+  /** BUILDING tab-aware gates — other templates keep prior eager loads. */
+  const needExpenses =
+    !isBuildingShell || activeTab === "expenses";
+  const needBuildingView =
+    isBuildingShell &&
+    (activeTab === "charges" || activeTab === "units");
+  const needMonthRows =
+    !isBuildingShell &&
+    (features.incomeExpense || features.budget);
+  const skipChargeProofsOnRsc =
+    isBuildingShell && activeTab === "charges";
+
+  const [
+    space,
+    expensesPage,
+    balanceData,
+    monthRows,
+    buildingView,
+    fundDashboard,
+    fundProofs,
+    deferredTab,
+  ] = await Promise.all([
+    loadSpaceWithMembers(id),
+    needExpenses
+      ? loadSpaceExpensesPage(id, hiddenCategoriesKey)
+      : Promise.resolve({ expenses: [], hasMore: false }),
+    features.settlements
+      ? loadCachedBalances(id)
+      : Promise.resolve(emptyBalances),
+    needMonthRows
+      ? loadMonthRows(
+          id,
+          monthRange.start.getTime(),
+          monthRange.end.getTime(),
+          hiddenCategoriesKey,
+        )
+      : Promise.resolve([]),
+    needBuildingView
+      ? loadCachedBuildingView(id, planYear)
+      : Promise.resolve(null),
+    features.fundRotating
+      ? loadCachedFundDashboard(id, fundPeriod)
+      : Promise.resolve(null),
+    features.fundRotating &&
+    (membership.role === "OWNER" || membership.role === "EDITOR")
+      ? loadFundProofs(id)
+      : Promise.resolve([]),
+    loadDeferredTabData({
+      spaceId: id,
+      tab: activeTab,
+      features,
+      role: membership.role,
+      planYear,
+      reportRange,
+      hiddenCategories,
+      includeChargeProofs: !skipChargeProofsOnRsc,
+    }),
+  ]);
 
   if (!space) notFound();
 
-  const expenses = expensesPage.expenses;
-  const expensesHasMore = expensesPage.hasMore;
-  const buildingDashboard = buildingView?.dashboard ?? null;
-  const buildingCalendar = buildingView?.calendar ?? null;
-  const buildingUnits = buildingView?.units ?? [];
+  const expenses = needExpenses
+    ? expensesPage.expenses
+    : deferredTab.expenses;
+  const expensesHasMore = needExpenses
+    ? expensesPage.hasMore
+    : deferredTab.expensesHasMore;
+
+  const buildingDashboard =
+    buildingView?.dashboard ?? deferredTab.buildingDashboard ?? null;
+  const buildingCalendar =
+    buildingView?.calendar ?? deferredTab.buildingCalendar ?? null;
+  const buildingUnits =
+    buildingView?.units?.length
+      ? buildingView.units
+      : deferredTab.buildingUnits;
+
   const {
     personalReportData,
     reportExpenseLines,

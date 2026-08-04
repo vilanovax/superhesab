@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CategoryIcon } from "@/components/expenses/category-icon";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
 import { CATEGORY_LABELS } from "@/lib/categorizer";
-import { formatDateFaShort, type SpaceCurrency } from "@/lib/format";
+import {
+  currencyLabel,
+  formatDateFaShort,
+  formatMoney,
+  type SpaceCurrency,
+} from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import type { ReportExpenseLine } from "@/lib/reports";
 import { cn } from "@/lib/utils";
@@ -28,14 +34,19 @@ type BuildingAllExpensesDrawerProps = {
 
 function categoryLine(line: ReportExpenseLine): string {
   if (line.category === "OTHER" || line.category === "OTHER_INCOME") {
-    return (
-      line.categoryLabel?.trim() || CATEGORY_LABELS[line.category]
-    );
+    return line.categoryLabel?.trim() || CATEGORY_LABELS[line.category];
   }
   return formatCategoryWithTag(
     CATEGORY_LABELS[line.category],
     line.categoryLabel,
   );
+}
+
+function sortHint(key: SortKey, dir: SortDir): string {
+  if (key === "amount") {
+    return dir === "desc" ? "گران‌ترین اول" : "ارزان‌ترین اول";
+  }
+  return dir === "desc" ? "جدیدترین اول" : "قدیمی‌ترین اول";
 }
 
 /**
@@ -51,20 +62,29 @@ export function BuildingAllExpensesDrawer({
   const [sortKey, setSortKey] = useState<SortKey>("amount");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  useEffect(() => {
+    if (!open) return;
+    setSortKey("amount");
+    setSortDir("desc");
+  }, [open]);
+
   const sorted = useMemo(() => {
     const rows = [...expenseLines];
-    const dir = sortDir === "desc" ? -1 : 1;
     rows.sort((a, b) => {
       if (sortKey === "amount") {
-        if (a.totalAmount === b.totalAmount) {
-          return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
-        }
-        return a.totalAmount < b.totalAmount ? dir : -dir;
+        const byAmount =
+          sortDir === "desc"
+            ? b.totalAmount - a.totalAmount
+            : a.totalAmount - b.totalAmount;
+        if (byAmount !== 0) return byAmount;
+        return b.date.localeCompare(a.date);
       }
-      if (a.date === b.date) {
-        return a.totalAmount < b.totalAmount ? 1 : -1;
-      }
-      return a.date < b.date ? dir : -dir;
+      const byDate =
+        sortDir === "desc"
+          ? b.date.localeCompare(a.date)
+          : a.date.localeCompare(b.date);
+      if (byDate !== 0) return byDate;
+      return b.totalAmount - a.totalAmount;
     });
     return rows;
   }, [expenseLines, sortKey, sortDir]);
@@ -78,109 +98,188 @@ export function BuildingAllExpensesDrawer({
     setSortDir("desc");
   }
 
-  const total = expenseLines.reduce((s, e) => s + e.totalAmount, 0);
+  const total = useMemo(
+    () => expenseLines.reduce((s, e) => s + e.totalAmount, 0),
+    [expenseLines],
+  );
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="mt-0! flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
-        <div className="shrink-0 border-b border-border/40 px-4 pb-3 pt-1">
+    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <DrawerContent className="mt-0! flex max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
+        {/* Hero header */}
+        <div className="surface-hero shrink-0 px-4 pb-3 pt-1">
           <DrawerHeader className="space-y-1 p-0 text-start">
-            <DrawerTitle className="text-body font-bold text-foreground">
+            <DrawerTitle className="text-title font-bold tracking-tight text-on-hero">
               همه هزینه‌ها
             </DrawerTitle>
-            <DrawerDescription className="text-caption text-muted-foreground">
-              {periodLabel ? `${periodLabel} · ` : ""}
-              {expenseLines.length} مورد · {formatCurrency(total, currency)}
+            <DrawerDescription className="text-caption text-on-hero/70">
+              {periodLabel ? `${periodLabel} · ` : null}
+              {formatMoney(expenseLines.length)} مورد
             </DrawerDescription>
           </DrawerHeader>
-
-          <div
-            role="group"
-            aria-label="مرتب‌سازی"
-            className="mt-3 flex items-center gap-1.5"
-          >
-            <SortChip
-              label="مبلغ"
-              active={sortKey === "amount"}
-              dir={sortKey === "amount" ? sortDir : null}
-              onClick={() => pickSort("amount")}
-            />
-            <SortChip
-              label="تاریخ"
-              active={sortKey === "date"}
-              dir={sortKey === "date" ? sortDir : null}
-              onClick={() => pickSort("date")}
-            />
-            <p className="ms-auto text-micro text-muted-foreground">
-              {sortKey === "amount"
-                ? sortDir === "desc"
-                  ? "گران‌ترین اول"
-                  : "ارزان‌ترین اول"
-                : sortDir === "desc"
-                  ? "جدیدترین اول"
-                  : "قدیمی‌ترین اول"}
+          <div className="mt-3 flex items-end justify-between gap-3 rounded-2xl bg-on-hero/10 px-3 py-2.5">
+            <div>
+              <p className="text-micro font-medium text-on-hero/65">جمع بازه</p>
+              <p className="mt-0.5 text-body font-bold tabular-nums text-on-hero">
+                {formatCurrency(total, currency)}
+              </p>
+            </div>
+            <p className="pb-0.5 text-micro font-semibold text-on-hero/75">
+              {sortHint(sortKey, sortDir)}
             </p>
           </div>
         </div>
 
-        <ul className="min-h-0 flex-1 divide-y divide-border/35 overflow-y-auto overscroll-contain px-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {sorted.map((line, index) => (
-            <li
-              key={line.id}
-              className="flex items-center gap-2.5 px-3 py-2.5"
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-[10px] font-bold tabular-nums text-muted-foreground">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-body-sm font-semibold text-foreground">
-                  {line.title}
-                </p>
-                <p className="truncate text-micro text-muted-foreground">
-                  {categoryLine(line)} · {formatDateFaShort(line.date)}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-lg bg-secondary/70 px-2 py-1 text-caption font-bold tabular-nums text-secondary-foreground">
-                {formatCurrency(line.totalAmount, currency)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* Sort control */}
+        <div className="shrink-0 border-b border-border/40 bg-card px-3 py-2.5">
+          <div
+            role="group"
+            aria-label="مرتب‌سازی"
+            className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1"
+          >
+            <SortTab
+              label="مبلغ"
+              hint={
+                sortKey === "amount"
+                  ? sortDir === "desc"
+                    ? "زیاد ← کم"
+                    : "کم ← زیاد"
+                  : "سورت بر اساس مبلغ"
+              }
+              active={sortKey === "amount"}
+              dir={sortKey === "amount" ? sortDir : null}
+              onClick={() => pickSort("amount")}
+            />
+            <SortTab
+              label="تاریخ"
+              hint={
+                sortKey === "date"
+                  ? sortDir === "desc"
+                    ? "جدید ← قدیم"
+                    : "قدیم ← جدید"
+                  : "سورت بر اساس تاریخ"
+              }
+              active={sortKey === "date"}
+              dir={sortKey === "date" ? sortDir : null}
+              onClick={() => pickSort("date")}
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        {sorted.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+            <p className="text-body-sm font-semibold text-foreground">
+              هزینه‌ای در این بازه نیست
+            </p>
+            <p className="mt-1 text-caption text-muted-foreground">
+              با ثبت هزینه مشاع، اینجا پر می‌شود.
+            </p>
+          </div>
+        ) : (
+          <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-3 py-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            {sorted.map((line, index) => {
+              const highlight =
+                sortKey === "amount" && sortDir === "desc" && index < 3;
+              return (
+                <li
+                  key={line.id}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors",
+                    highlight
+                      ? "border-primary/20 bg-primary/5"
+                      : "border-border/40 bg-card",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-xl text-micro font-bold tabular-nums",
+                      highlight
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/80 text-muted-foreground",
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <CategoryIcon
+                    category={line.category}
+                    className="size-9 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-semibold text-foreground">
+                      {line.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-micro text-muted-foreground">
+                      {categoryLine(line)}
+                      <span className="mx-1 opacity-40">·</span>
+                      {formatDateFaShort(line.date)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <p
+                      className={cn(
+                        "text-caption font-bold tabular-nums",
+                        highlight ? "text-primary" : "text-foreground",
+                      )}
+                    >
+                      {formatMoney(line.totalAmount)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {currencyLabel(currency)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </DrawerContent>
     </Drawer>
   );
 }
 
-function SortChip({
+function SortTab({
   label,
+  hint,
   active,
   dir,
   onClick,
 }: {
   label: string;
+  hint: string;
   active: boolean;
   dir: SortDir | null;
   onClick: () => void;
 }) {
-  const arrow =
-    dir === "desc" ? "↓" : dir === "asc" ? "↑" : "";
   return (
     <button
       type="button"
       onClick={onClick}
+      title={hint}
+      aria-pressed={active}
       className={cn(
-        "inline-flex h-8 items-center gap-1 rounded-xl px-3 text-caption font-semibold transition-colors active:scale-[0.98]",
+        "flex h-11 flex-col items-center justify-center rounded-xl transition-all active:scale-[0.98]",
         active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted/80 text-muted-foreground hover:text-foreground",
+          ? "bg-card text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
-      {label}
-      {arrow ? (
-        <span className="text-micro opacity-90" aria-hidden>
-          {arrow}
-        </span>
-      ) : null}
+      <span className="flex items-center gap-1 text-caption font-bold">
+        {label}
+        {dir ? (
+          <span className="text-micro font-semibold text-primary" aria-hidden>
+            {dir === "desc" ? "↓" : "↑"}
+          </span>
+        ) : null}
+      </span>
+      <span
+        className={cn(
+          "text-[10px]",
+          active ? "text-muted-foreground" : "text-muted-foreground/70",
+        )}
+      >
+        {active ? hint : "بزن برای سورت"}
+      </span>
     </button>
   );
 }

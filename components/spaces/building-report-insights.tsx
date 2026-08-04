@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { BuildingAllExpensesDrawer } from "@/components/spaces/building-all-expenses-drawer";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
-import { CATEGORY_LABELS } from "@/lib/categorizer";
+import { CATEGORY_EMOJI, CATEGORY_LABELS } from "@/lib/categorizer";
 import {
   currencyLabel,
   formatDateFaShort,
@@ -84,46 +84,96 @@ export function BuildingReportInsights({
   return (
     <div className="space-y-2 animate-fade-up" aria-label="خلاصه آماری گزارش">
       {showSummary ? (
-        <section className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <p className="text-caption font-semibold text-foreground">
-              خلاصه بازه
-            </p>
+        <section
+          className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm"
+          aria-label="خلاصه بازه"
+        >
+          <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
+            <p className="text-caption font-bold text-foreground">خلاصه بازه</p>
             {periodLabel ? (
-              <p className="truncate text-micro text-muted-foreground">
+              <span className="truncate rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-foreground/70">
                 {periodLabel}
-              </p>
+              </span>
             ) : null}
           </div>
 
-          <div className="grid grid-cols-3 gap-1 px-2 pb-2">
-            <Kpi
-              label="جمع"
-              value={formatMoney(stats.total)}
-              hint={unit}
-              emphasize
-            />
-            <Kpi label="تعداد" value={String(stats.count)} hint="تراکنش" />
-            <Kpi
-              label="میانگین"
-              value={formatMoney(stats.average)}
-              hint={unit}
-            />
+          {/* Hero total — primary scan target */}
+          <div className="mx-2.5 mt-2.5 rounded-2xl bg-linear-to-br from-primary/12 via-primary/6 to-transparent px-3.5 py-3 ring-1 ring-primary/15">
+            <p className="text-micro font-semibold text-primary/90">
+              جمع مشاع
+            </p>
+            <p className="mt-0.5 text-[1.35rem] font-bold leading-none tracking-tight tabular-nums text-foreground">
+              {formatMoney(stats.total)}
+            </p>
+            <p className="mt-1 text-micro font-medium text-muted-foreground">
+              {unit}
+            </p>
           </div>
 
-          {stats.topCategory ? (
-            <div className="mx-2 mb-2 flex items-center gap-2 rounded-xl bg-primary/6 px-2.5 py-1.5">
-              <span className="shrink-0 text-micro font-medium text-primary">
-                بالاترین
-              </span>
-              <span className="min-w-0 flex-1 truncate text-caption font-semibold text-foreground">
-                {stats.topCategory.label}
-              </span>
-              <span className="shrink-0 text-micro font-bold tabular-nums text-foreground">
-                {stats.topCategoryPct}٪
-              </span>
+          {/* Secondary metrics */}
+          <div className="mt-2 grid grid-cols-2 gap-1.5 px-2.5">
+            <div className="rounded-xl bg-muted/50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-foreground/55">
+                تعداد تراکنش
+              </p>
+              <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
+                {formatMoney(stats.count)}
+              </p>
             </div>
-          ) : null}
+            <div className="rounded-xl bg-muted/50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-foreground/55">
+                میانگین هر هزینه
+              </p>
+              <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
+                {formatMoney(stats.average)}
+              </p>
+              <p className="text-[10px] text-foreground/45">{unit}</p>
+            </div>
+          </div>
+
+          {/* Top category with share bar — clarifies the % relationship */}
+          {stats.topCategory ? (
+            <div className="m-2.5 mt-2 rounded-2xl border border-border/40 bg-muted/30 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-muted-foreground">
+                    بالاترین دسته
+                  </p>
+                  <p className="mt-0.5 truncate text-caption font-bold text-foreground">
+                    <span aria-hidden className="me-1">
+                      {CATEGORY_EMOJI[stats.topCategory.category] ?? "📦"}
+                    </span>
+                    {stats.topCategory.label}
+                  </p>
+                </div>
+                <div className="shrink-0 text-end">
+                  <p className="text-caption font-bold tabular-nums text-primary">
+                    {stats.topCategoryPct}٪
+                  </p>
+                  <p className="text-[10px] tabular-nums text-muted-foreground">
+                    {formatCurrency(stats.topCategory.amount, currency)}
+                  </p>
+                </div>
+              </div>
+              <div
+                className="mt-2 h-2 overflow-hidden rounded-full bg-border/70"
+                role="progressbar"
+                aria-valuenow={stats.topCategoryPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`سهم ${stats.topCategory.label} از جمع مشاع`}
+              >
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                  style={{
+                    width: `${Math.min(100, Math.max(2, stats.topCategoryPct))}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="h-2.5" />
+          )}
         </section>
       ) : null}
 
@@ -226,34 +276,3 @@ export function BuildingReportInsights({
   );
 }
 
-function Kpi({
-  label,
-  value,
-  hint,
-  emphasize = false,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  emphasize?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl px-1.5 py-2 text-center",
-        emphasize ? "bg-primary/6" : "bg-muted/40",
-      )}
-    >
-      <p className="text-[10px] font-semibold text-foreground/50">{label}</p>
-      <p
-        className={cn(
-          "mt-0.5 text-[12px] font-bold leading-tight tabular-nums tracking-tight",
-          emphasize ? "text-primary" : "text-foreground",
-        )}
-      >
-        {value}
-      </p>
-      <p className="mt-0.5 text-[9px] text-foreground/40">{hint}</p>
-    </div>
-  );
-}

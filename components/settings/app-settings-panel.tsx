@@ -252,13 +252,16 @@ export function AppSettingsPanel({
             </div>
 
             <div className="space-y-1.5">
-              <p className="text-caption font-semibold text-foreground">
+              <p
+                id="settings-theme-label"
+                className="text-caption font-semibold text-foreground"
+              >
                 حالت نمایش
               </p>
               <div
                 className="grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1"
-                role="group"
-                aria-label="حالت نمایش"
+                role="radiogroup"
+                aria-labelledby="settings-theme-label"
               >
                 {THEME_OPTIONS.map((opt) => {
                   const selected = theme === opt.value;
@@ -266,7 +269,8 @@ export function AppSettingsPanel({
                     <button
                       key={opt.value}
                       type="button"
-                      aria-pressed={selected}
+                      role="radio"
+                      aria-checked={selected}
                       onClick={() => {
                         setTheme(opt.value);
                         applyDocumentTheme(opt.value);
@@ -291,18 +295,28 @@ export function AppSettingsPanel({
             </div>
 
             <div className="space-y-1.5">
-              <p className="text-caption font-semibold text-foreground">
+              <p
+                id="settings-accent-label"
+                className="text-caption font-semibold text-foreground"
+              >
                 رنگ برند
               </p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div
+                className="grid grid-cols-4 gap-1.5"
+                role="radiogroup"
+                aria-labelledby="settings-accent-label"
+                aria-label="رنگ برند"
+              >
                 {ACCENT_OPTIONS.map((opt) => {
                   const selected = accent === opt.value;
                   return (
                     <button
                       key={opt.value}
                       type="button"
+                      role="radio"
+                      aria-checked={selected}
                       title={`${opt.label} — ${opt.hint}`}
-                      aria-pressed={selected}
+                      aria-label={`${opt.label} — ${opt.hint}`}
                       onClick={() => {
                         setAccent(opt.value);
                         applyDocumentAccent(opt.value);
@@ -361,7 +375,7 @@ export function AppSettingsPanel({
               </div>
               <div
                 className="flex flex-wrap gap-1.5"
-                role="group"
+                role="radiogroup"
                 aria-label="واحد پول پیش‌فرض"
               >
                 {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map(
@@ -371,7 +385,8 @@ export function AppSettingsPanel({
                       <button
                         key={code}
                         type="button"
-                        aria-pressed={selected}
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() => onPickCurrency(code)}
                         className={cn(
                           "rounded-xl px-3 py-1.5 text-caption font-semibold transition-[color,background-color] duration-150",

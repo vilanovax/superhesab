@@ -46,6 +46,37 @@ import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
+type ChargesView = "month" | "calendar";
+
+function readChargesView(): ChargesView {
+  if (typeof window === "undefined") return "calendar";
+  return new URL(window.location.href).searchParams.get("cview") === "month"
+    ? "month"
+    : "calendar";
+}
+
+function readChargesMonth(fallback: number): number {
+  if (typeof window === "undefined") return fallback;
+  const n = Number(
+    new URL(window.location.href).searchParams.get("cmonth"),
+  );
+  if (Number.isInteger(n) && n >= 1 && n <= 12) return n;
+  return fallback;
+}
+
+/** Deep-link month/view on the charges tab (`?cview=&cmonth=`). */
+function syncChargesQuery(view: ChargesView, month: number) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const prev = `${url.pathname}${url.search}`;
+  if (view === "calendar") url.searchParams.delete("cview");
+  else url.searchParams.set("cview", "month");
+  url.searchParams.set("cmonth", String(month));
+  const next = `${url.pathname}${url.search}`;
+  if (prev === next) return;
+  window.history.replaceState(null, "", next);
+}
+
 const JalaliDatePicker = dynamic(
   () =>
     import("@/components/ui/jalali-date-picker").then(
@@ -86,11 +117,20 @@ export function BuildingChargesPanel({
 }: BuildingChargesPanelProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
-  const [view, setView] = useState<"month" | "calendar">("calendar");
-  const [month, setMonth] = useState(
-    Math.max(1, dashboard.throughMonth || 1),
-  );
+  const defaultMonth = Math.max(1, dashboard.throughMonth || 1);
+  const [view, setView] = useState<ChargesView>(readChargesView);
+  const [month, setMonth] = useState(() => readChargesMonth(defaultMonth));
   const [debtorsOpen, setDebtorsOpen] = useState(false);
+
+  function selectView(next: ChargesView) {
+    setView(next);
+    syncChargesQuery(next, month);
+  }
+
+  function selectMonth(next: number) {
+    setMonth(next);
+    syncChargesQuery(view, next);
+  }
   const [payUnit, setPayUnit] = useState<UnitDTO | null>(null);
   const [amount, setAmount] = useState(0);
   const [status, setStatus] = useState<ChargeStatusValue>("PAID");
@@ -168,6 +208,7 @@ export function BuildingChargesPanel({
   }) {
     setDetailUnit(null);
     setMonth(args.month);
+    syncChargesQuery(view, args.month);
     const dash = dashboard.units.find((u) => u.id === args.unitId);
     setPayUnit({
       id: args.unitId,
@@ -340,8 +381,10 @@ export function BuildingChargesPanel({
         <button
           type="button"
           role="tab"
+          id="charges-tab-calendar"
+          aria-controls="charges-panel-calendar"
           aria-selected={view === "calendar"}
-          onClick={() => setView("calendar")}
+          onClick={() => selectView("calendar")}
           className={cn(
             "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors active:scale-[0.99]",
             view === "calendar"
@@ -354,8 +397,10 @@ export function BuildingChargesPanel({
         <button
           type="button"
           role="tab"
+          id="charges-tab-month"
+          aria-controls="charges-panel-month"
           aria-selected={view === "month"}
-          onClick={() => setView("month")}
+          onClick={() => selectView("month")}
           className={cn(
             "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors active:scale-[0.99]",
             view === "month"
@@ -368,7 +413,12 @@ export function BuildingChargesPanel({
       </div>
 
       {view === "calendar" ? (
-        <div className="rounded-2xl border border-border/40 bg-card px-3.5 py-3.5 shadow-sm">
+        <div
+          id="charges-panel-calendar"
+          role="tabpanel"
+          aria-labelledby="charges-tab-calendar"
+          className="rounded-2xl border border-border/40 bg-card px-3.5 py-3.5 shadow-sm"
+        >
           <div className="mb-2 flex justify-end">
             <BuildingExportButtons
               spaceId={spaceId}
@@ -391,7 +441,12 @@ export function BuildingChargesPanel({
           )}
         </div>
       ) : (
-        <div className="space-y-3 pb-16">
+        <div
+          id="charges-panel-month"
+          role="tabpanel"
+          aria-labelledby="charges-tab-month"
+          className="space-y-3 pb-16"
+        >
           {/* Month hero + export */}
           <section className="overflow-hidden rounded-2xl border border-border/40 bg-card shadow-sm">
             <div className="flex items-start justify-between gap-2 px-3.5 pt-3.5">
@@ -462,7 +517,7 @@ export function BuildingChargesPanel({
 
           {/* Month chips */}
           <div
-            role="group"
+            role="radiogroup"
             aria-label="انتخاب ماه"
             className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none"
           >
@@ -473,7 +528,9 @@ export function BuildingChargesPanel({
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMonth(m)}
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => selectMonth(m)}
                   className={cn(
                     "relative shrink-0 rounded-full px-3 py-1.5 text-caption font-semibold transition-transform active:scale-95",
                     on
@@ -498,6 +555,8 @@ export function BuildingChargesPanel({
             <div className="overflow-hidden rounded-2xl border border-destructive/20 bg-destructive-soft/40">
               <button
                 type="button"
+                aria-expanded={debtorsOpen}
+                aria-controls="building-debtors-panel"
                 onClick={() => setDebtorsOpen((o) => !o)}
                 className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-start transition-colors active:bg-destructive/5"
               >
@@ -508,35 +567,37 @@ export function BuildingChargesPanel({
                   {debtorsOpen ? "بستن" : "جزئیات"}
                 </span>
               </button>
-              {debtorsOpen ? (
-                <ul className="space-y-0 border-t border-destructive/15 px-3.5 pb-2.5 pt-1.5">
-                  {dashboard.debtors.map((u) => (
-                    <li
-                      key={u.id}
-                      className="flex items-center justify-between gap-2 py-1.5 text-caption"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openUnitDetail(u.id)}
-                        className="text-destructive/90 underline-offset-2 hover:underline"
+              <div id="building-debtors-panel">
+                {debtorsOpen ? (
+                  <ul className="space-y-0 border-t border-destructive/15 px-3.5 pb-2.5 pt-1.5">
+                    {dashboard.debtors.map((u) => (
+                      <li
+                        key={u.id}
+                        className="flex items-center justify-between gap-2 py-1.5 text-caption"
                       >
-                        واحد {u.name}
-                      </button>
-                      <span className="tabular-nums font-semibold text-destructive">
-                        {formatMoney(u.arrears)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="border-t border-destructive/10 px-3.5 py-1.5 text-micro text-destructive/65">
-                  جمع معوق{" "}
-                  <span className="font-semibold tabular-nums">
-                    {formatMoney(totals.arrearsTotal)}
-                  </span>{" "}
-                  {unitLabel}
-                </p>
-              )}
+                        <button
+                          type="button"
+                          onClick={() => openUnitDetail(u.id)}
+                          className="text-destructive/90 underline-offset-2 hover:underline"
+                        >
+                          واحد {u.name}
+                        </button>
+                        <span className="tabular-nums font-semibold text-destructive">
+                          {formatMoney(u.arrears)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="border-t border-destructive/10 px-3.5 py-1.5 text-micro text-destructive/65">
+                    جمع معوق{" "}
+                    <span className="font-semibold tabular-nums">
+                      {formatMoney(totals.arrearsTotal)}
+                    </span>{" "}
+                    {unitLabel}
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <p className="rounded-xl bg-success-soft/55 px-3 py-2 text-center text-caption font-medium text-success">
@@ -544,7 +605,7 @@ export function BuildingChargesPanel({
             </p>
           )}
 
-          {/* Unit action queue */}
+          {/* Unit action queue — content-visibility skips offscreen paint */}
           <ul className="space-y-2">
             {monthUnits.map((unit) => {
               const payment = paymentByUnit.get(unit.id);
@@ -555,7 +616,7 @@ export function BuildingChargesPanel({
                 <li
                   key={unit.id}
                   className={cn(
-                    "rounded-2xl border bg-card p-3 shadow-sm transition-transform active:scale-[0.995]",
+                    "rounded-2xl border bg-card p-3 shadow-sm transition-transform [content-visibility:auto] [contain-intrinsic-size:auto_5.75rem] active:scale-[0.995]",
                     settled
                       ? "border-border/35 opacity-[0.92]"
                       : unit.arrears > 0
@@ -667,9 +728,9 @@ export function BuildingChargesPanel({
             onSubmit={onSavePayment}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 py-3">
+            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3">
               <div
-                role="group"
+                role="radiogroup"
                 aria-label="وضعیت پرداخت"
                 className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
@@ -679,6 +740,8 @@ export function BuildingChargesPanel({
                   <button
                     key={s}
                     type="button"
+                    role="radio"
+                    aria-checked={status === s}
                     onClick={() => {
                       setStatus(s);
                       if (s === "PAID" && payUnit && amount <= 0) {
@@ -700,7 +763,10 @@ export function BuildingChargesPanel({
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-label text-muted-foreground">
+                  <label
+                    htmlFor="charge-payment-amount"
+                    className="text-label text-muted-foreground"
+                  >
                     مبلغ ({unitLabel})
                   </label>
                   {payUnit &&
@@ -716,6 +782,9 @@ export function BuildingChargesPanel({
                   ) : null}
                 </div>
                 <MoneyInput
+                  id="charge-payment-amount"
+                  name="amount"
+                  autoComplete="off"
                   value={amount}
                   onValueChange={setAmount}
                   className="h-11 rounded-xl text-base font-bold"
@@ -723,8 +792,14 @@ export function BuildingChargesPanel({
               </div>
 
               <div className="space-y-1">
-                <label className="text-label text-muted-foreground">تاریخ</label>
+                <label
+                  htmlFor="charge-payment-date"
+                  className="text-label text-muted-foreground"
+                >
+                  تاریخ
+                </label>
                 <JalaliDatePicker
+                  id="charge-payment-date"
                   value={date}
                   onChange={setDate}
                   variant="compact"
@@ -734,7 +809,10 @@ export function BuildingChargesPanel({
               {noteOpen ? (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="text-label text-muted-foreground">
+                    <label
+                      htmlFor="charge-payment-note"
+                      className="text-label text-muted-foreground"
+                    >
                       یادداشت
                     </label>
                     <button
@@ -749,12 +827,14 @@ export function BuildingChargesPanel({
                     </button>
                   </div>
                   <Input
+                    id="charge-payment-note"
+                    name="note"
+                    autoComplete="off"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="اختیاری"
+                    placeholder="اختیاری…"
                     className="h-10 rounded-xl"
                     maxLength={200}
-                    autoFocus
                   />
                 </div>
               ) : (
@@ -773,6 +853,7 @@ export function BuildingChargesPanel({
                 <p
                   className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
                   role="alert"
+                  aria-live="assertive"
                 >
                   {error}
                 </p>
@@ -792,7 +873,7 @@ export function BuildingChargesPanel({
                   className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
                   disabled={pending}
                 >
-                  {pending ? "…" : "ذخیره"}
+                  {pending ? "در حال ذخیره…" : "ذخیره"}
                 </Button>
               </div>
             </div>

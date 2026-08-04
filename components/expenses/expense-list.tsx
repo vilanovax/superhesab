@@ -331,7 +331,11 @@ function EditSheet({
           </div>
         )}
         {deleteError ? (
-          <p className="mt-2 text-xs text-destructive" role="alert">
+          <p
+            className="mt-2 text-xs text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {deleteError}
           </p>
         ) : null}
@@ -343,8 +347,8 @@ function EditSheet({
     return (
       <>
         <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 sm:max-w-md">
-            <div className="surface-hero px-5 pb-4 pt-5">
+          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden overscroll-contain border-border/60 bg-background p-0 sm:max-w-md">
+            <div className="surface-hero shrink-0 px-5 pb-4 pt-5">
               <DialogHeader className="space-y-1 text-start">
                 <DialogTitle className="text-xl font-bold text-on-hero">
                   ویرایش هزینه
@@ -371,7 +375,7 @@ function EditSheet({
         onOpenChange={handleOpenChange}
         repositionInputs={false}
       >
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
+        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
             <DrawerHeader className="space-y-1 p-0 text-start">
               <DrawerTitle className="text-xl font-bold text-on-hero">
@@ -502,16 +506,23 @@ export function ExpenseList({
     <>
       <div className="animate-fade-up space-y-5">
         {dayGroups.map((group, groupIndex) => (
-          <section key={group.key} className="space-y-2">
+          <section
+            key={group.key}
+            className="space-y-2"
+            aria-labelledby={`expense-day-${group.key}`}
+          >
             <div
               className={cn(
                 "flex items-center gap-2.5 px-0.5",
                 groupIndex > 0 && "pt-1",
               )}
             >
-              <p className="shrink-0 text-label font-semibold text-muted-foreground">
+              <h2
+                id={`expense-day-${group.key}`}
+                className="shrink-0 scroll-mt-20 text-label font-semibold text-muted-foreground"
+              >
                 {group.label}
-              </p>
+              </h2>
               <div
                 aria-hidden
                 className="h-px flex-1 bg-border/55"
@@ -590,7 +601,7 @@ export function ExpenseList({
                 return (
                   <li
                     key={expense.id}
-                    className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 transition-colors hover:border-primary/25"
+                    className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_4.75rem] hover:border-primary/25"
                     style={{ animationDelay: `${delay}ms` }}
                   >
                     <span
@@ -625,7 +636,11 @@ export function ExpenseList({
       {hasMore ? (
         <div className="mt-4 space-y-2 pb-2">
           {loadError ? (
-            <p className="text-center text-caption text-destructive" role="alert">
+            <p
+              className="text-center text-caption text-destructive"
+              role="alert"
+              aria-live="polite"
+            >
               {loadError}
             </p>
           ) : null}

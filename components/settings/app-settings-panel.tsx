@@ -20,15 +20,15 @@ import {
   type AppTheme,
   useAppSettingsStore,
 } from "@/lib/stores/settings-store";
+import type { SettingsTab } from "@/lib/settings-tab";
 import { cn } from "@/lib/utils";
 
 type AppSettingsPanelProps = {
   initialName: string;
   phone: string;
   hasPassword: boolean;
+  initialTab?: SettingsTab;
 };
-
-type SettingsTab = "look" | "account" | "data";
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: "look", label: "ظاهر", hint: "تم و رنگ" },
@@ -59,10 +59,29 @@ const THEME_OPTIONS: {
   },
 ];
 
+function syncSettingsTabQuery(tab: SettingsTab) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (tab === "look") {
+    if (!url.searchParams.has("tab")) return;
+    url.searchParams.delete("tab");
+  } else {
+    if (url.searchParams.get("tab") === tab) return;
+    url.searchParams.set("tab", tab);
+  }
+  const qs = url.searchParams.toString();
+  window.history.replaceState(
+    null,
+    "",
+    qs ? `${url.pathname}?${qs}` : url.pathname,
+  );
+}
+
 export function AppSettingsPanel({
   initialName,
   phone,
   hasPassword,
+  initialTab = "look",
 }: AppSettingsPanelProps) {
   const router = useRouter();
   const theme = useAppSettingsStore((s) => s.theme);
@@ -74,7 +93,7 @@ export function AppSettingsPanel({
     (s) => s.setPreferredCurrency,
   );
 
-  const [tab, setTab] = useState<SettingsTab>("look");
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [name, setName] = useState(initialName);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +110,10 @@ export function AppSettingsPanel({
     setName(initialName);
   }, [initialName]);
 
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
   const activeAccent =
     ACCENT_OPTIONS.find((o) => o.value === accent) ?? ACCENT_OPTIONS[0]!;
   const themeLabel =
@@ -100,6 +123,18 @@ export function AppSettingsPanel({
     newPassword.length >= PASSWORD_MIN_LEN &&
     confirmPassword.length >= PASSWORD_MIN_LEN &&
     (!hasPassword || currentPassword.length > 0);
+
+  const activeTabId = `settings-tab-${tab}`;
+  const activePanelId = `settings-panel-${tab}`;
+
+  function selectTab(next: SettingsTab) {
+    setTab(next);
+    setMessage(null);
+    setError(null);
+    setPasswordMessage(null);
+    setPasswordError(null);
+    syncSettingsTabQuery(next);
+  }
 
   function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -163,12 +198,11 @@ export function AppSettingsPanel({
               key={item.id}
               type="button"
               role="tab"
+              id={`settings-tab-${item.id}`}
+              aria-controls={`settings-panel-${item.id}`}
               aria-selected={active}
-              onClick={() => {
-                setTab(item.id);
-                setMessage(null);
-                setError(null);
-              }}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectTab(item.id)}
               className={cn(
                 "flex h-11 flex-col items-center justify-center rounded-xl px-1 transition-colors",
                 active
@@ -192,7 +226,13 @@ export function AppSettingsPanel({
         })}
       </nav>
 
-      <div key={tab} className="animate-fade-up space-y-2.5" role="tabpanel">
+      <div
+        key={tab}
+        id={activePanelId}
+        role="tabpanel"
+        aria-labelledby={activeTabId}
+        className="animate-fade-up space-y-2.5"
+      >
         {tab === "look" ? (
           <section className="space-y-3 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
             <div className="flex items-center gap-2.5 rounded-xl bg-primary px-3 py-2.5 text-primary-foreground">
@@ -268,7 +308,7 @@ export function AppSettingsPanel({
                         applyDocumentAccent(opt.value);
                       }}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all",
+                        "flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-[color,background-color,border-color,box-shadow] duration-150",
                         selected
                           ? "border-primary bg-primary/8 ring-2 ring-primary/25"
                           : "border-border/45 hover:bg-muted/40",
@@ -306,7 +346,11 @@ export function AppSettingsPanel({
                   </p>
                 </div>
                 {currencySaved ? (
-                  <span className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success">
+                  <span
+                    className="shrink-0 rounded-lg bg-success-soft px-2 py-1 text-micro font-semibold text-success"
+                    role="status"
+                    aria-live="polite"
+                  >
                     ذخیره شد
                   </span>
                 ) : (
@@ -315,7 +359,11 @@ export function AppSettingsPanel({
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="واحد پول پیش‌فرض"
+              >
                 {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map(
                   (code) => {
                     const selected = preferredCurrency === code;
@@ -323,9 +371,10 @@ export function AppSettingsPanel({
                       <button
                         key={code}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => onPickCurrency(code)}
                         className={cn(
-                          "rounded-xl px-3 py-1.5 text-caption font-semibold transition-all",
+                          "rounded-xl px-3 py-1.5 text-caption font-semibold transition-[color,background-color] duration-150",
                           selected
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted/70 text-muted-foreground hover:text-foreground",
@@ -363,9 +412,10 @@ export function AppSettingsPanel({
                   </Label>
                   <Input
                     id="displayName"
+                    name="displayName"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="مثلاً علی"
+                    placeholder="مثلاً علی…"
                     className="h-11 rounded-xl"
                     autoComplete="name"
                   />
@@ -416,8 +466,10 @@ export function AppSettingsPanel({
                     </Label>
                     <Input
                       id="currentPassword"
+                      name="currentPassword"
                       type="password"
                       autoComplete="current-password"
+                      spellCheck={false}
                       dir="ltr"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -433,14 +485,16 @@ export function AppSettingsPanel({
                   </Label>
                   <Input
                     id="newPassword"
+                    name="newPassword"
                     type="password"
                     autoComplete="new-password"
+                    spellCheck={false}
                     dir="ltr"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="h-11 rounded-xl"
                     minLength={PASSWORD_MIN_LEN}
-                    placeholder={`حداقل ${PASSWORD_MIN_LEN} کاراکتر`}
+                    placeholder={`حداقل ${PASSWORD_MIN_LEN} کاراکتر…`}
                     required
                   />
                 </div>
@@ -451,8 +505,10 @@ export function AppSettingsPanel({
                   </Label>
                   <Input
                     id="confirmPassword"
+                    name="confirmPassword"
                     type="password"
                     autoComplete="new-password"
+                    spellCheck={false}
                     dir="ltr"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -470,7 +526,8 @@ export function AppSettingsPanel({
                         ? "bg-destructive-soft text-destructive"
                         : "bg-success-soft text-success",
                     )}
-                    role="status"
+                    role={passwordError ? "alert" : "status"}
+                    aria-live={passwordError ? "assertive" : "polite"}
                   >
                     {passwordError ?? passwordMessage}
                   </p>
@@ -528,7 +585,8 @@ export function AppSettingsPanel({
                 ? "bg-destructive-soft text-destructive"
                 : "bg-success-soft text-success",
             )}
-            role="status"
+            role={error ? "alert" : "status"}
+            aria-live={error ? "assertive" : "polite"}
           >
             {error ?? message}
           </p>
@@ -537,9 +595,9 @@ export function AppSettingsPanel({
 
       <footer className="border-t border-border/40 pt-2.5 text-center">
         <p className="text-micro text-muted-foreground">
-          سوپرحساب
+          <span translate="no">سوپرحساب</span>
           <span className="mx-1 text-border">·</span>
-          <span dir="ltr" className="tabular-nums">
+          <span dir="ltr" className="tabular-nums" translate="no">
             ver {APP_VERSION}
           </span>
         </p>

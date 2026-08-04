@@ -13,6 +13,7 @@ type JalaliDatePickerProps = {
   value: string;
   onChange: (isoYmd: string) => void;
   className?: string;
+  id?: string;
   /**
    * `inline` — always-open calendar (expense forms).
    * `compact` — closed by default; tap label to expand (drawers).
@@ -44,6 +45,7 @@ export function JalaliDatePicker({
   value,
   onChange,
   className,
+  id,
   variant = "inline",
 }: JalaliDatePickerProps) {
   const selected = value ? toPersianDateObject(value) : undefined;
@@ -73,6 +75,7 @@ export function JalaliDatePicker({
       {variant === "compact" ? (
         <button
           type="button"
+          id={id}
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={cn(

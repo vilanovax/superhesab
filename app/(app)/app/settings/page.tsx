@@ -3,10 +3,18 @@ import { AppSettingsPanel } from "@/components/settings/app-settings-panel";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import { parseSettingsTab } from "@/lib/settings-tab";
 import { redirect } from "next/navigation";
 
-export default async function AppSettingsPage() {
+type AppSettingsPageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function AppSettingsPage({
+  searchParams,
+}: AppSettingsPageProps) {
   const session = await requireUser();
+  const { tab: tabParam } = await searchParams;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: { name: true, phone: true, passwordHash: true },
@@ -19,6 +27,7 @@ export default async function AppSettingsPage() {
   const displayName = user.name?.trim() || user.phone;
   const initial = (user.name?.trim()?.[0] || "ش").toUpperCase();
   const hasPassword = Boolean(user.passwordHash);
+  const initialTab = parseSettingsTab(tabParam);
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5">
@@ -46,13 +55,13 @@ export default async function AppSettingsPage() {
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-body font-bold tracking-tight text-on-hero">
+            <h1 className="truncate text-pretty text-body font-bold tracking-tight text-on-hero">
               تنظیمات
             </h1>
             <p className="truncate text-caption text-on-hero/70">
               {displayName}
               <span className="mx-1 opacity-40">·</span>
-              سوپرحساب
+              <span translate="no">سوپرحساب</span>
             </p>
           </div>
         </div>
@@ -62,6 +71,7 @@ export default async function AppSettingsPage() {
         initialName={user.name ?? ""}
         phone={user.phone}
         hasPassword={hasPassword}
+        initialTab={initialTab}
       />
     </main>
   );

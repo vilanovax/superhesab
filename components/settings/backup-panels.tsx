@@ -8,6 +8,7 @@ import {
   restoreBackupFile,
 } from "@/app/actions/backup";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 function downloadJson(data: unknown, filename: string) {
@@ -26,17 +27,22 @@ type AccountBackupPanelProps = {
   className?: string;
 };
 
+type AccountPending = "export" | "restore" | null;
+
 /** App settings — account export + restore from file */
 export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingKind, setPendingKind] = useState<AccountPending>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmRestore, setConfirmRestore] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function onExport() {
     setError(null);
     setMessage(null);
+    setPendingKind("export");
     startTransition(async () => {
       try {
         const data = await exportAccountBackup();
@@ -49,11 +55,14 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
         );
       } catch {
         setError("خروجی بک‌آپ ناموفق بود.");
+      } finally {
+        setPendingKind(null);
       }
     });
   }
 
-  function onPickFile() {
+  function onConfirmRestore() {
+    setConfirmRestore(false);
     fileRef.current?.click();
   }
 
@@ -64,6 +73,7 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
 
     setError(null);
     setMessage(null);
+    setPendingKind("restore");
     startTransition(async () => {
       try {
         const text = await file.text();
@@ -78,13 +88,20 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
           result.data.warnings.length > 0
             ? ` · توجه: ${result.data.warnings[0]}`
             : "";
-        setMessage(`${result.data.spaces.length} دفتر بازیابی شد: ${names}${warn}`);
+        setMessage(
+          `${result.data.spaces.length} دفتر بازیابی شد: ${names}${warn}`,
+        );
         router.refresh();
       } catch {
         setError("خواندن فایل ناموفق بود. JSON معتبر انتخاب کنید.");
+      } finally {
+        setPendingKind(null);
       }
     });
   }
+
+  const exportBusy = pending && pendingKind === "export";
+  const restoreBusy = pending && pendingKind === "restore";
 
   return (
     <div className={cn("space-y-2.5", className)}>
@@ -101,15 +118,19 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
             disabled={pending}
             onClick={onExport}
           >
-            {pending ? "…" : "دانلود"}
+            {exportBusy ? "در حال دانلود…" : "دانلود"}
           </Button>
           <Button
             type="button"
             className="h-10 w-full rounded-xl text-caption"
             disabled={pending}
-            onClick={onPickFile}
+            onClick={() => {
+              setError(null);
+              setMessage(null);
+              setConfirmRestore(true);
+            }}
           >
-            بازیابی
+            {restoreBusy ? "در حال بازیابی…" : "بازیابی"}
           </Button>
         </div>
         <input
@@ -117,19 +138,38 @@ export function AccountBackupPanel({ className }: AccountBackupPanelProps) {
           type="file"
           accept="application/json,.json"
           className="hidden"
+          aria-label="انتخاب فایل بک‌آپ JSON"
           onChange={onFileChange}
         />
         {message ? (
-          <p className="mt-2 text-caption text-success" role="status">
+          <p
+            className="mt-2 text-caption text-success"
+            role="status"
+            aria-live="polite"
+          >
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="mt-2 text-caption text-destructive" role="alert">
+          <p
+            className="mt-2 text-caption text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}
       </section>
+
+      <ConfirmDialog
+        open={confirmRestore}
+        onOpenChange={setConfirmRestore}
+        title="بازیابی از فایل بک‌آپ"
+        description="دفترهای داخل فایل به‌صورت دفتر جدید ساخته می‌شوند و جایگزین دفترهای فعلی نمی‌شوند. ادامه می‌دهید؟"
+        confirmLabel="انتخاب فایل"
+        cancelLabel="انصراف"
+        onConfirm={onConfirmRestore}
+      />
     </div>
   );
 }
@@ -179,15 +219,23 @@ export function SpaceBackupButton({
         disabled={pending}
         onClick={onExport}
       >
-        {pending ? "…" : "دانلود بک‌آپ دفتر"}
+        {pending ? "در حال دانلود…" : "دانلود بک‌آپ دفتر"}
       </Button>
       {message ? (
-        <p className="mt-2 text-caption text-success" role="status">
+        <p
+          className="mt-2 text-caption text-success"
+          role="status"
+          aria-live="polite"
+        >
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="mt-2 text-caption text-destructive" role="alert">
+        <p
+          className="mt-2 text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}

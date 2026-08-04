@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
+import { BuildingBillsBreakdown } from "@/components/spaces/building-bills-breakdown";
 import { BuildingReportInsights } from "@/components/spaces/building-report-insights";
 import { BuildingReportPeriodFilter } from "@/components/spaces/building-report-period-filter";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
@@ -174,7 +175,7 @@ export function BuildingSpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            <div className="mb-3 flex items-start gap-2">
+            <div className="mb-2.5 flex items-start gap-2">
               {reportPlanYear != null ? (
                 <div className="min-w-0 flex-1">
                   <BuildingReportPeriodFilter
@@ -199,22 +200,37 @@ export function BuildingSpaceTabs({
                 }
               />
             </div>
-            <BuildingReportInsights
-              categoryRows={deferred.personalReportData}
-              expenseLines={deferred.reportExpenseLines}
-              currency={currency}
-              periodLabel={reportPeriodLabel}
-            />
-            <PersonalReportChart
-              data={deferred.personalReportData}
-              expenseLines={deferred.reportExpenseLines}
-              currency={currency}
-              categoryBudgets={deferred.categoryBudgets}
-              periodLabel={reportPeriodLabel}
-              emptyTitle={reportEmptyTitle}
-              emptyHint={reportEmptyHint}
-              totalCenterLabel={reportTotalLabel}
-            />
+            <div className="space-y-2.5 pb-16">
+              <BuildingReportInsights
+                section="summary"
+                categoryRows={deferred.personalReportData}
+                expenseLines={deferred.reportExpenseLines}
+                currency={currency}
+                periodLabel={reportPeriodLabel}
+              />
+              <BuildingBillsBreakdown
+                expenseLines={deferred.reportExpenseLines}
+                currency={currency}
+              />
+              <PersonalReportChart
+                data={deferred.personalReportData}
+                expenseLines={deferred.reportExpenseLines}
+                currency={currency}
+                categoryBudgets={deferred.categoryBudgets}
+                periodLabel={reportPeriodLabel}
+                emptyTitle={reportEmptyTitle}
+                emptyHint={reportEmptyHint}
+                totalCenterLabel={reportTotalLabel}
+                dense
+              />
+              <BuildingReportInsights
+                section="rankings"
+                categoryRows={deferred.personalReportData}
+                expenseLines={deferred.reportExpenseLines}
+                currency={currency}
+                periodLabel={reportPeriodLabel}
+              />
+            </div>
           </>
         )}
       </TabsContent>

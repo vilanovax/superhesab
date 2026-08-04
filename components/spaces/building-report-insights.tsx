@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { BuildingAllExpensesDrawer } from "@/components/spaces/building-all-expenses-drawer";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
 import { CATEGORY_LABELS } from "@/lib/categorizer";
 import {
@@ -18,20 +19,31 @@ type BuildingReportInsightsProps = {
   expenseLines: ReportExpenseLine[];
   currency: SpaceCurrency;
   periodLabel?: string;
+  /**
+   * summary — KPIs (above chart)
+   * rankings — top expenses (below chart)
+   */
+  section?: "summary" | "rankings" | "all";
 };
 
-type BillTagRow = { tag: string; amount: number; count: number };
+const TOP_PREVIEW = 3;
+const TOP_MAX = 5;
 
 /**
- * Compact stats strip for BUILDING report tab — period KPIs, top category,
- * top expenses, and قبوض tag breakdown when present.
+ * Dense building-report stats — split so the donut can sit between
+ * summary KPIs and the rankings list without a wall of cards.
+ * قبوض live in `BuildingBillsBreakdown`.
  */
 export function BuildingReportInsights({
   categoryRows,
   expenseLines,
   currency,
   periodLabel,
+  section = "all",
 }: BuildingReportInsightsProps) {
+  const [topsOpen, setTopsOpen] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
+
   const stats = useMemo(() => {
     const total = expenseLines.reduce((s, e) => s + e.totalAmount, 0);
     const count = expenseLines.length;
@@ -47,20 +59,7 @@ export function BuildingReportInsights({
 
     const topExpenses = [...expenseLines]
       .sort((a, b) => b.totalAmount - a.totalAmount)
-      .slice(0, 5);
-
-    const billMap = new Map<string, BillTagRow>();
-    for (const line of expenseLines) {
-      if (line.category !== "BUILDING_BILLS") continue;
-      const tag = line.categoryLabel?.trim() || "سایر قبوض";
-      const prev = billMap.get(tag) ?? { tag, amount: 0, count: 0 };
-      prev.amount += line.totalAmount;
-      prev.count += 1;
-      billMap.set(tag, prev);
-    }
-    const billTags = [...billMap.values()].sort(
-      (a, b) => b.amount - a.amount,
-    );
+      .slice(0, TOP_MAX);
 
     return {
       total,
@@ -69,156 +68,161 @@ export function BuildingReportInsights({
       topCategory,
       topCategoryPct,
       topExpenses,
-      billTags,
     };
   }, [categoryRows, expenseLines]);
 
   if (stats.count === 0 || stats.total <= 0) return null;
 
   const unit = currencyLabel(currency);
+  const showSummary = section === "summary" || section === "all";
+  const showRankings = section === "rankings" || section === "all";
+  const visibleTops = topsOpen
+    ? stats.topExpenses
+    : stats.topExpenses.slice(0, TOP_PREVIEW);
+  const hasMoreTops = stats.topExpenses.length > TOP_PREVIEW;
 
   return (
-    <section
-      className="mb-3 space-y-2.5 animate-fade-up"
-      aria-label="خلاصه آماری گزارش"
-    >
-      {/* Period KPIs */}
-      <div className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
-        <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3.5 py-2.5">
-          <p className="text-body-sm font-semibold text-foreground">
-            خلاصه بازه
-          </p>
-          {periodLabel ? (
-            <p className="text-micro text-muted-foreground">{periodLabel}</p>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-3 gap-px bg-border/40">
-          <Kpi
-            label="جمع مشاع"
-            value={formatMoney(stats.total)}
-            hint={unit}
-          />
-          <Kpi
-            label="تعداد"
-            value={String(stats.count)}
-            hint="تراکنش"
-            tone="default"
-          />
-          <Kpi
-            label="میانگین"
-            value={formatMoney(stats.average)}
-            hint={unit}
-          />
-        </div>
-        {stats.topCategory ? (
-          <p className="border-t border-border/40 px-3.5 py-2 text-caption text-muted-foreground">
-            بالاترین دسته:{" "}
-            <span className="font-semibold text-foreground">
-              {stats.topCategory.label}
-            </span>
-            <span className="tabular-nums text-foreground/80">
-              {" "}
-              · {stats.topCategoryPct}٪ ·{" "}
-              {formatCurrency(stats.topCategory.amount, currency)}
-            </span>
-          </p>
-        ) : null}
-      </div>
-
-      {/* Top expenses */}
-      <div className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
-        <div className="border-b border-border/40 px-3.5 py-2.5">
-          <p className="text-body-sm font-semibold text-foreground">
-            بیشترین هزینه‌ها
-          </p>
-          <p className="mt-0.5 text-micro text-muted-foreground">
-            تا ۵ مورد با بالاترین مبلغ در این بازه
-          </p>
-        </div>
-        <ol className="divide-y divide-border/35">
-          {stats.topExpenses.map((line, index) => {
-            const catLabel =
-              line.category === "OTHER" || line.category === "OTHER_INCOME"
-                ? line.categoryLabel?.trim() ||
-                  CATEGORY_LABELS[line.category]
-                : formatCategoryWithTag(
-                    CATEGORY_LABELS[line.category],
-                    line.categoryLabel,
-                  );
-            return (
-              <li
-                key={line.id}
-                className="flex items-center gap-2.5 px-3.5 py-2.5"
-              >
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-lg text-micro font-bold tabular-nums",
-                    index === 0
-                      ? "bg-primary/12 text-primary"
-                      : "bg-muted/80 text-muted-foreground",
-                  )}
-                >
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body-sm font-semibold text-foreground">
-                    {line.title}
-                  </p>
-                  <p className="truncate text-micro text-muted-foreground">
-                    {catLabel}
-                    {" · "}
-                    {formatDateFaShort(line.date)}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg bg-secondary/80 px-2 py-1 text-caption font-bold tabular-nums text-secondary-foreground">
-                  {formatCurrency(line.totalAmount, currency)}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      {/* قبوض by tag */}
-      {stats.billTags.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
-          <div className="border-b border-border/40 px-3.5 py-2.5">
-            <p className="text-body-sm font-semibold text-foreground">
-              قبوض به‌تفکیک
+    <div className="space-y-2 animate-fade-up" aria-label="خلاصه آماری گزارش">
+      {showSummary ? (
+        <section className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <p className="text-caption font-semibold text-foreground">
+              خلاصه بازه
             </p>
-            <p className="mt-0.5 text-micro text-muted-foreground">
-              آب، برق، گاز و تگ‌های ثبت‌شده
-            </p>
+            {periodLabel ? (
+              <p className="truncate text-micro text-muted-foreground">
+                {periodLabel}
+              </p>
+            ) : null}
           </div>
-          <ul className="divide-y divide-border/35">
-            {stats.billTags.map((row) => {
-              const share =
-                stats.total > 0
-                  ? Math.round((row.amount / stats.total) * 100)
-                  : 0;
-              return (
-                <li
-                  key={row.tag}
-                  className="flex items-center justify-between gap-2 px-3.5 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-caption font-semibold text-foreground">
-                      {row.tag}
-                    </p>
-                    <p className="text-micro text-muted-foreground">
-                      {row.count} مورد · {share}٪ از کل مشاع
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-caption font-bold tabular-nums text-foreground">
-                    {formatCurrency(row.amount, currency)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+
+          <div className="grid grid-cols-3 gap-1 px-2 pb-2">
+            <Kpi
+              label="جمع"
+              value={formatMoney(stats.total)}
+              hint={unit}
+              emphasize
+            />
+            <Kpi label="تعداد" value={String(stats.count)} hint="تراکنش" />
+            <Kpi
+              label="میانگین"
+              value={formatMoney(stats.average)}
+              hint={unit}
+            />
+          </div>
+
+          {stats.topCategory ? (
+            <div className="mx-2 mb-2 flex items-center gap-2 rounded-xl bg-primary/6 px-2.5 py-1.5">
+              <span className="shrink-0 text-micro font-medium text-primary">
+                بالاترین
+              </span>
+              <span className="min-w-0 flex-1 truncate text-caption font-semibold text-foreground">
+                {stats.topCategory.label}
+              </span>
+              <span className="shrink-0 text-micro font-bold tabular-nums text-foreground">
+                {stats.topCategoryPct}٪
+              </span>
+            </div>
+          ) : null}
+        </section>
       ) : null}
-    </section>
+
+      {showRankings ? (
+        <>
+          <section className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
+            <div className="flex items-center justify-between gap-2 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-caption font-semibold text-foreground">
+                  بیشترین هزینه‌ها
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  تا {TOP_MAX} مورد برتر این بازه
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAllOpen(true)}
+                className="shrink-0 rounded-xl bg-primary/10 px-2.5 py-1.5 text-micro font-bold text-primary transition-colors hover:bg-primary/15 active:scale-[0.98]"
+              >
+                همه ({expenseLines.length})
+              </button>
+            </div>
+            <ol className="divide-y divide-border/30">
+              {visibleTops.map((line, index) => {
+                const catLabel =
+                  line.category === "OTHER" ||
+                  line.category === "OTHER_INCOME"
+                    ? line.categoryLabel?.trim() ||
+                      CATEGORY_LABELS[line.category]
+                    : formatCategoryWithTag(
+                        CATEGORY_LABELS[line.category],
+                        line.categoryLabel,
+                      );
+                return (
+                  <li
+                    key={line.id}
+                    className="flex items-center gap-2 px-3 py-2"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold tabular-nums",
+                        index === 0
+                          ? "bg-primary/12 text-primary"
+                          : "bg-muted/70 text-muted-foreground",
+                      )}
+                    >
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-caption font-semibold text-foreground">
+                        {line.title}
+                      </p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {catLabel} · {formatDateFaShort(line.date)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-caption font-bold tabular-nums text-foreground">
+                      {formatCurrency(line.totalAmount, currency)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+            <div className="flex border-t border-border/35">
+              {hasMoreTops ? (
+                <button
+                  type="button"
+                  onClick={() => setTopsOpen((o) => !o)}
+                  className="flex-1 py-2 text-micro font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  {topsOpen
+                    ? "کمتر"
+                    : `+${stats.topExpenses.length - TOP_PREVIEW} برتر`}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setAllOpen(true)}
+                className={cn(
+                  "py-2 text-micro font-semibold text-primary transition-colors hover:bg-primary/6",
+                  hasMoreTops ? "flex-1 border-s border-border/35" : "w-full",
+                )}
+              >
+                همه هزینه‌ها · سورت
+              </button>
+            </div>
+          </section>
+
+          <BuildingAllExpensesDrawer
+            open={allOpen}
+            onOpenChange={setAllOpen}
+            expenseLines={expenseLines}
+            currency={currency}
+            periodLabel={periodLabel}
+          />
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -226,25 +230,30 @@ function Kpi({
   label,
   value,
   hint,
-  tone = "default",
+  emphasize = false,
 }: {
   label: string;
   value: string;
   hint: string;
-  tone?: "default" | "muted";
+  emphasize?: boolean;
 }) {
   return (
-    <div className="bg-card px-2 py-2.5 text-center">
+    <div
+      className={cn(
+        "rounded-xl px-1.5 py-2 text-center",
+        emphasize ? "bg-primary/6" : "bg-muted/40",
+      )}
+    >
       <p className="text-[10px] font-semibold text-foreground/50">{label}</p>
       <p
         className={cn(
-          "mt-0.5 text-[13px] font-bold tabular-nums tracking-tight text-foreground",
-          tone === "muted" && "text-foreground/80",
+          "mt-0.5 text-[12px] font-bold leading-tight tabular-nums tracking-tight",
+          emphasize ? "text-primary" : "text-foreground",
         )}
       >
         {value}
       </p>
-      <p className="mt-0.5 text-[10px] text-foreground/40">{hint}</p>
+      <p className="mt-0.5 text-[9px] text-foreground/40">{hint}</p>
     </div>
   );
 }

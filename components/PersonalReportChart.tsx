@@ -43,6 +43,8 @@ type PersonalReportChartProps = {
   emptyHint?: string;
   /** Donut center caption — e.g. "جمع سال" / "جمع ماه" */
   totalCenterLabel?: string;
+  /** Tighter header + smaller chart (building report stack). */
+  dense?: boolean;
 };
 
 function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
@@ -77,6 +79,7 @@ export function PersonalReportChart({
   emptyTitle = "گزارش ماه خالی است",
   emptyHint = "با ثبت چند هزینه، سهم هر دسته به‌صورت دایره‌ای اینجا می‌آید.",
   totalCenterLabel = "جمع ماه",
+  dense = false,
 }: PersonalReportChartProps) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const total = data.reduce((sum, row) => sum + row.amount, 0);
@@ -133,24 +136,46 @@ export function PersonalReportChart({
   return (
     <>
       <div className="animate-fade-up overflow-hidden rounded-2xl border border-border/55 bg-card shadow-sm">
-        <div className="border-b border-border/45 px-4 py-3">
-          <h2 className="text-body-sm font-semibold text-foreground">
-            سهم دسته‌ها
-          </h2>
-          <p className="mt-0.5 text-caption text-muted-foreground">
-            {periodLabel} · {formatCurrency(total, currency)}
-          </p>
-          {canDrill ? (
-            <p className="mt-1 text-micro text-muted-foreground">
-              روی هر دسته بزنید تا جزئیات را ببینید
+        <div
+          className={cn(
+            "border-b border-border/45",
+            dense ? "flex items-center justify-between gap-2 px-3 py-2" : "px-4 py-3",
+          )}
+        >
+          <div className="min-w-0">
+            <h2
+              className={cn(
+                "font-semibold text-foreground",
+                dense ? "text-caption" : "text-body-sm",
+              )}
+            >
+              سهم دسته‌ها
+            </h2>
+            {!dense ? (
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                {periodLabel} · {formatCurrency(total, currency)}
+              </p>
+            ) : null}
+            {canDrill && !dense ? (
+              <p className="mt-1 text-micro text-muted-foreground">
+                روی هر دسته بزنید تا جزئیات را ببینید
+              </p>
+            ) : null}
+          </div>
+          {dense ? (
+            <p className="shrink-0 text-micro tabular-nums text-muted-foreground">
+              {formatCurrency(total, currency)}
             </p>
           ) : null}
         </div>
 
-        <div className="px-2 pb-2 pt-4 sm:px-4">
+        <div className={cn("px-2 sm:px-4", dense ? "pb-1 pt-2" : "pb-2 pt-4")}>
           <ChartContainer
             config={chartConfig}
-            className="mx-auto aspect-square max-h-[260px] w-full"
+            className={cn(
+              "mx-auto aspect-square w-full",
+              dense ? "max-h-[200px]" : "max-h-[260px]",
+            )}
           >
             <PieChart>
               <ChartTooltip
@@ -185,8 +210,8 @@ export function PersonalReportChart({
                 data={data}
                 dataKey="amount"
                 nameKey="key"
-                innerRadius={68}
-                outerRadius={100}
+                innerRadius={dense ? 56 : 68}
+                outerRadius={dense ? 84 : 100}
                 strokeWidth={3}
                 stroke="var(--card)"
                 className={canDrill ? "cursor-pointer outline-none" : undefined}
@@ -223,15 +248,23 @@ export function PersonalReportChart({
                       >
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy ?? 0) - 10}
-                          className="fill-muted-foreground text-[11px]"
+                          y={(viewBox.cy ?? 0) - (dense ? 8 : 10)}
+                          className={
+                            dense
+                              ? "fill-muted-foreground text-[10px]"
+                              : "fill-muted-foreground text-[11px]"
+                          }
                         >
                           {totalCenterLabel}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy ?? 0) + 12}
-                          className="fill-foreground text-sm font-bold"
+                          y={(viewBox.cy ?? 0) + (dense ? 10 : 12)}
+                          className={
+                            dense
+                              ? "fill-foreground text-xs font-bold"
+                              : "fill-foreground text-sm font-bold"
+                          }
                         >
                           {formatCurrency(total, currency)}
                         </tspan>
@@ -244,7 +277,12 @@ export function PersonalReportChart({
           </ChartContainer>
         </div>
 
-        <ul className="space-y-2 border-t border-border/45 px-4 py-4">
+        <ul
+          className={cn(
+            "border-t border-border/45",
+            dense ? "space-y-1 px-2.5 py-2.5" : "space-y-2 px-4 py-4",
+          )}
+        >
           {data.map((row) => {
             const pct = Math.round((row.amount * 100) / total);
             const color =
@@ -267,7 +305,10 @@ export function PersonalReportChart({
                   disabled={!canDrill}
                   onClick={() => openCategory(row.key)}
                   className={cn(
-                    "w-full rounded-xl bg-muted/40 px-2.5 py-2 text-start text-body-sm transition-colors",
+                    "w-full rounded-xl bg-muted/40 text-start transition-colors",
+                    dense
+                      ? "px-2 py-1.5 text-caption"
+                      : "px-2.5 py-2 text-body-sm",
                     canDrill &&
                       "hover:bg-muted/70 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                     !canDrill && "cursor-default",

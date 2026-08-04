@@ -1,9 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type * as React from "react";
-import { ExpenseForm, type ExpenseMember } from "@/components/ExpenseForm";
+import type { ExpenseMember } from "@/components/ExpenseForm";
 import { Button } from "@/components/ui/button";
+
+const ExpenseForm = dynamic(
+  () =>
+    import("@/components/ExpenseForm").then((m) => m.ExpenseForm),
+  {
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
+    ),
+  },
+);
 import {
   Dialog,
   DialogContent,

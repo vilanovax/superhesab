@@ -43,10 +43,15 @@ export function ReportExportButtons({
 
   if (variant === "row") {
     return (
-      <div className={cn("mb-3 flex gap-1.5", className)}>
+      <div
+        className={cn("mb-3 flex gap-1.5", className)}
+        role="group"
+        aria-label="خروجی گزارش"
+      >
         <a
           href={`${base}?format=xlsx${qs}`}
           download
+          aria-label="دانلود خروجی Excel"
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card text-caption font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"
         >
           <FileIcon className="size-3.5" />
@@ -55,6 +60,7 @@ export function ReportExportButtons({
         <a
           href={`${base}?format=pdf${qs}`}
           download
+          aria-label="دانلود خروجی PDF"
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card text-caption font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"
         >
           <FileIcon className="size-3.5" />
@@ -77,6 +83,7 @@ export function ReportExportButtons({
         href={`${base}?format=xlsx${qs}`}
         download
         title="خروجی Excel"
+        aria-label="دانلود خروجی Excel"
         className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-[11px] font-semibold tabular-nums text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
       >
         Excel
@@ -86,6 +93,7 @@ export function ReportExportButtons({
         href={`${base}?format=pdf${qs}`}
         download
         title="خروجی PDF"
+        aria-label="دانلود خروجی PDF"
         className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-[11px] font-semibold tabular-nums text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
       >
         PDF

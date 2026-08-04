@@ -1,17 +1,27 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteExpense,
   loadMoreSpaceExpenses,
 } from "@/app/actions/expense";
-import {
-  ExpenseForm,
-  type ExpenseInitialValues,
-  type ExpenseMember,
+import type {
+  ExpenseInitialValues,
+  ExpenseMember,
 } from "@/components/ExpenseForm";
 import { CategoryIcon } from "@/components/expenses/category-icon";
+
+const ExpenseForm = dynamic(
+  () =>
+    import("@/components/ExpenseForm").then((m) => m.ExpenseForm),
+  {
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
+    ),
+  },
+);
 import {
   InviteMembersButton,
   type InviteMemberRow,

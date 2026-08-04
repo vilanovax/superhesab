@@ -9,11 +9,17 @@ export function SpacePanelFallback({
   rows?: number;
 }) {
   return (
-    <div className={cn("space-y-2", className)} aria-hidden>
+    <div
+      className={cn("space-y-2", className)}
+      role="status"
+      aria-busy="true"
+      aria-label="در حال بارگذاری"
+    >
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}
           className="h-14 animate-pulse rounded-2xl bg-muted/50 ring-1 ring-border/30"
+          aria-hidden
         />
       ))}
     </div>

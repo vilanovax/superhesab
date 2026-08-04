@@ -91,7 +91,9 @@ function SettleConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden border-border/60 p-0 sm:max-w-sm">
         <DialogHeader className="space-y-1.5 px-5 pb-3 pt-5 text-start">
-          <DialogTitle className="text-base font-bold">تأیید پرداخت</DialogTitle>
+          <DialogTitle className="text-pretty text-base font-bold">
+            تأیید پرداخت
+          </DialogTitle>
           <DialogDescription className="text-body-sm leading-relaxed text-muted-foreground">
             این تسویه ثبت می‌شود و از مانده‌ها کم می‌گردد.
             {roundUpToThousand ? " مبلغ به‌صورت رند‌شده ثبت می‌شود." : ""}
@@ -110,7 +112,11 @@ function SettleConfirmDialog({
         </div>
 
         {error ? (
-          <p className="px-5 pb-2 text-label text-destructive" role="alert">
+          <p
+            className="px-5 pb-2 text-label text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { AddExpenseButton } from "@/components/expenses/add-expense-button";
-import { FundDashboardPanel } from "@/components/spaces/fund-dashboard-panel";
 import { SpaceTabsGate } from "@/components/spaces/space-tabs-gate";
 import {
   formatJalaliYear,
@@ -20,7 +19,7 @@ import {
 } from "@/lib/spaces/space-page-ctx";
 /**
  * Streams after hero — expense list, deferred tabs, fund panel, FAB.
- * BUILDING: only the active tab’s heavy payload is awaited (Phase A).
+ * Tab-aware: only the active tab’s heavy payload is awaited on first paint.
  */
 export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const {
@@ -45,15 +44,15 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const isFundShell = Boolean(features.fundRotating);
   const showChecklist = features.checklist;
 
-  /** BUILDING tab-aware gates — other templates keep prior eager loads. */
-  const needExpenses =
-    !isBuildingShell || activeTab === "expenses";
+  /** Eager-load only what the active tab needs; deferred loader owns the rest. */
+  const needExpenses = activeTab === "expenses";
   const needBuildingView =
     isBuildingShell &&
     (activeTab === "charges" || activeTab === "units");
   const needMonthRows =
     !isBuildingShell &&
-    (features.incomeExpense || features.budget);
+    (features.incomeExpense || features.budget) &&
+    (activeTab === "expenses" || activeTab === "report");
   const skipChargeProofsOnRsc =
     isBuildingShell && activeTab === "charges";
 
@@ -164,25 +163,33 @@ export async function SpacePageBody({ ctx }: { ctx: SpacePageCtx }) {
   const currentFundMemberId =
     space.members.find((m) => m.user.id === session.userId)?.id ?? null;
 
+  if (isFundShell) {
+    if (!fundDashboard) {
+      return (
+        <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
+          بارگذاری داشبورد صندوق ممکن نیست.
+        </p>
+      );
+    }
+    const { FundDashboardPanel } = await import(
+      "@/components/spaces/fund-dashboard-panel"
+    );
+    return (
+      <FundDashboardPanel
+        spaceId={space.id}
+        dashboard={fundDashboard}
+        currency={space.currency}
+        canMutate={canWrite}
+        isOwner={isOwner}
+        settingsHref={`/spaces/${space.id}/settings`}
+        proofs={fundProofs}
+      />
+    );
+  }
+
   return (
     <>
-      {isFundShell ? (
-        fundDashboard ? (
-          <FundDashboardPanel
-            spaceId={space.id}
-            dashboard={fundDashboard}
-            currency={space.currency}
-            canMutate={canWrite}
-            isOwner={isOwner}
-            settingsHref={`/spaces/${space.id}/settings`}
-            proofs={fundProofs}
-          />
-        ) : (
-          <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
-            بارگذاری داشبورد صندوق ممکن نیست.
-          </p>
-        )
-      ) : (
+      {(
         <SpaceTabsGate
           spaceId={space.id}
           spaceName={space.name}

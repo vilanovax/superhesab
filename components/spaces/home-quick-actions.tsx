@@ -108,7 +108,10 @@ export function HomeQuickActions({
   if (!recentSpace && !settleSpace) return null;
 
   return (
-    <div className="animate-fade-up mb-4 flex gap-2">
+    <nav
+      className="animate-fade-up mb-4 flex gap-2"
+      aria-label="میانبرهای سریع"
+    >
       {recentSpace ? (
         <Action
           href={`/spaces/${recentSpace.id}?tab=expenses`}
@@ -126,6 +129,6 @@ export function HomeQuickActions({
           hint={settleSpace.name}
         />
       ) : null}
-    </div>
+    </nav>
   );
 }

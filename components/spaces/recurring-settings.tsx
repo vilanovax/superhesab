@@ -183,7 +183,10 @@ export function RecurringSettings({
                       className="h-8 rounded-lg px-2 text-caption text-destructive"
                       disabled={pending}
                       aria-label={`حذف ${rule.title}`}
-                      onClick={() => setDeleteId(rule.id)}
+                      onClick={() => {
+                        setError(null);
+                        setDeleteId(rule.id);
+                      }}
                     >
                       حذف
                     </Button>
@@ -351,7 +354,7 @@ export function RecurringSettings({
       <ConfirmDialog
         open={Boolean(deleteRule)}
         onOpenChange={(open) => {
-          if (!open) setDeleteId(null);
+          if (!open && !pending) setDeleteId(null);
         }}
         title="حذف قانون تکرارپذیر؟"
         description={
@@ -361,6 +364,7 @@ export function RecurringSettings({
         }
         confirmLabel="حذف قانون"
         pending={pending}
+        error={deleteId ? error : null}
         destructive
         onConfirm={onConfirmDelete}
       />

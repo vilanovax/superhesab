@@ -106,6 +106,26 @@ function aggregateRows(
     .sort((a, b) => b.amount - a.amount);
 }
 
+/** Deep-link report payer filter (`?rfilter=`; omit for all). */
+function readReportFilter(currentUserId: string, memberIds: Set<string>): string {
+  if (typeof window === "undefined") return "all";
+  const raw = new URL(window.location.href).searchParams.get("rfilter");
+  if (!raw || raw === "all") return "all";
+  if (raw === currentUserId || memberIds.has(raw)) return raw;
+  return "all";
+}
+
+function syncReportFilterQuery(filter: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const prev = `${url.pathname}${url.search}`;
+  if (filter === "all") url.searchParams.delete("rfilter");
+  else url.searchParams.set("rfilter", filter);
+  const next = `${url.pathname}${url.search}`;
+  if (prev === next) return;
+  window.history.replaceState(null, "", next);
+}
+
 export function FamilyReportPanel({
   currentUserId,
   members,
@@ -115,7 +135,13 @@ export function FamilyReportPanel({
   initialReport,
   categoryBudgets,
 }: FamilyReportPanelProps) {
-  const [filter, setFilter] = useState<string>("all");
+  const memberIds = useMemo(
+    () => new Set(members.map((m) => m.userId)),
+    [members],
+  );
+  const [filter, setFilter] = useState<string>(() =>
+    readReportFilter(currentUserId, memberIds),
+  );
   const [, startTransition] = useTransition();
 
   const reportData = useMemo(() => {
@@ -143,16 +169,20 @@ export function FamilyReportPanel({
     monthlyBudget > 0 &&
     usedPct != null;
 
+  function selectFilter(next: string) {
+    startTransition(() => {
+      setFilter(next);
+      syncReportFilterQuery(next);
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-border/55 bg-card p-3 shadow-sm">
         <h2 className="mb-2 text-pretty text-caption font-semibold text-muted-foreground">
           فیلتر گزارش
         </h2>
-        <Select
-          value={filter}
-          onValueChange={(v) => startTransition(() => setFilter(v))}
-        >
+        <Select value={filter} onValueChange={selectFilter}>
           <SelectTrigger
             className="h-11 rounded-xl border-border/70 bg-sheet-muted"
             aria-label="فیلتر گزارش بر اساس پرداخت‌کننده"
@@ -192,7 +222,7 @@ export function FamilyReportPanel({
           >
             <div
               className={cn(
-                "h-full rounded-full transition-[width] duration-300 ease-out",
+                "h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none",
                 usedPct! > 100 ? "bg-destructive" : "bg-primary",
               )}
               style={{ width: `${Math.min(100, usedPct!)}%` }}

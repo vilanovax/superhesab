@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CATEGORY_EMOJI,
   type ExpenseCategory,
@@ -70,6 +70,24 @@ function buildChartConfig(rows: CategoryExpenseRow[]): ChartConfig {
   return config;
 }
 
+/** Deep-link category drill-down (`?rcat=`). */
+function readCategoryQuery(): string | null {
+  if (typeof window === "undefined") return null;
+  const key = new URL(window.location.href).searchParams.get("rcat");
+  return key && key.length > 0 ? key : null;
+}
+
+function syncCategoryQuery(key: string | null) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const prev = `${url.pathname}${url.search}`;
+  if (!key) url.searchParams.delete("rcat");
+  else url.searchParams.set("rcat", key);
+  const next = `${url.pathname}${url.search}`;
+  if (prev === next) return;
+  window.history.replaceState(null, "", next);
+}
+
 export function PersonalReportChart({
   data,
   expenseLines = [],
@@ -81,7 +99,7 @@ export function PersonalReportChart({
   totalCenterLabel = "جمع ماه",
   dense = false,
 }: PersonalReportChartProps) {
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(readCategoryQuery);
   const total = data.reduce((sum, row) => sum + row.amount, 0);
   const canDrill = expenseLines.length > 0;
 
@@ -95,11 +113,23 @@ export function PersonalReportChart({
     return expenseLines.filter((line) => line.chartKey === activeKey);
   }, [expenseLines, activeKey]);
 
+  useEffect(() => {
+    if (activeKey && !data.some((r) => r.key === activeKey)) {
+      setActiveKey(null);
+      syncCategoryQuery(null);
+    }
+  }, [activeKey, data]);
+
   if (total <= 0 || data.length === 0) {
     return (
       <div className="animate-fade-up rounded-2xl border border-dashed border-border/70 bg-card/70 px-5 py-10 text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/8 text-primary">
-          <svg viewBox="0 0 48 48" className="size-8" fill="none" aria-hidden>
+          <svg
+            viewBox="0 0 48 48"
+            className="size-8"
+            fill="none"
+            aria-hidden="true"
+          >
             <circle
               cx="24"
               cy="24"
@@ -116,10 +146,10 @@ export function PersonalReportChart({
             />
           </svg>
         </div>
-        <p className="mt-3 text-body font-semibold text-foreground">
+        <p className="mt-3 text-pretty text-body font-semibold text-foreground">
           {emptyTitle}
         </p>
-        <p className="mx-auto mt-1 max-w-[16rem] text-body-sm leading-relaxed text-muted-foreground">
+        <p className="mx-auto mt-1 max-w-[16rem] text-pretty text-body-sm leading-relaxed text-muted-foreground">
           {emptyHint}
         </p>
       </div>
@@ -131,6 +161,12 @@ export function PersonalReportChart({
   function openCategory(key: string) {
     if (!canDrill) return;
     setActiveKey(key);
+    syncCategoryQuery(key);
+  }
+
+  function closeCategory() {
+    setActiveKey(null);
+    syncCategoryQuery(null);
   }
 
   return (
@@ -145,7 +181,7 @@ export function PersonalReportChart({
           <div className="min-w-0">
             <h2
               className={cn(
-                "font-semibold text-foreground",
+                "text-pretty font-semibold text-foreground",
                 dense ? "text-caption" : "text-body-sm",
               )}
             >
@@ -214,7 +250,11 @@ export function PersonalReportChart({
                 outerRadius={dense ? 84 : 100}
                 strokeWidth={3}
                 stroke="var(--card)"
-                className={canDrill ? "cursor-pointer outline-none" : undefined}
+                className={
+                  canDrill
+                    ? "cursor-pointer outline-none focus-visible:opacity-90"
+                    : undefined
+                }
                 onClick={(_, index) => {
                   const row = data[index];
                   if (row) openCategory(row.key);
@@ -299,13 +339,21 @@ export function PersonalReportChart({
                 ? categoryBudgetProgress(row.amount, cap)
                 : null;
             return (
-              <li key={row.key}>
+              <li
+                key={row.key}
+                className="[content-visibility:auto] [contain-intrinsic-size:auto_3.5rem]"
+              >
                 <button
                   type="button"
                   disabled={!canDrill}
                   onClick={() => openCategory(row.key)}
+                  aria-label={
+                    canDrill
+                      ? `جزئیات دسته ${row.label}`
+                      : undefined
+                  }
                   className={cn(
-                    "w-full rounded-xl bg-muted/40 text-start transition-colors",
+                    "w-full rounded-xl bg-muted/40 text-start transition-[background-color,transform] duration-150 ease-out",
                     dense
                       ? "px-2 py-1.5 text-caption"
                       : "px-2.5 py-2 text-body-sm",
@@ -318,7 +366,7 @@ export function PersonalReportChart({
                     <span
                       className="size-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: color as string }}
-                      aria-hidden
+                      aria-hidden="true"
                     />
                     <span className="min-w-0 flex-1 truncate font-medium text-foreground">
                       {isCustom ? "🏷️" : CATEGORY_EMOJI[row.category]}{" "}
@@ -333,7 +381,7 @@ export function PersonalReportChart({
                     {canDrill ? (
                       <span
                         className="shrink-0 text-caption text-muted-foreground"
-                        aria-hidden
+                        aria-hidden="true"
                       >
                         ‹
                       </span>
@@ -341,10 +389,17 @@ export function PersonalReportChart({
                   </div>
                   {progress ? (
                     <div className="mt-2 ps-5">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-1.5 overflow-hidden rounded-full bg-muted"
+                        role="progressbar"
+                        aria-valuenow={Math.min(100, progress.percent)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`مصرف بودجه ${row.label}`}
+                      >
                         <div
                           className={cn(
-                            "h-full rounded-full transition-[width]",
+                            "h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none",
                             progress.over ? "bg-destructive" : "bg-primary",
                           )}
                           style={{
@@ -376,13 +431,14 @@ export function PersonalReportChart({
       <Drawer
         open={Boolean(activeRow)}
         onOpenChange={(open) => {
-          if (!open) setActiveKey(null);
+          if (!open) closeCategory();
         }}
+        repositionInputs={false}
       >
         <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
-              <DrawerTitle className="text-body font-bold text-on-hero">
+              <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                 {activeRow
                   ? `${activeRow.key.startsWith("custom-") ? "🏷️" : CATEGORY_EMOJI[activeRow.category]} ${activeRow.label}`
                   : "جزئیات دسته"}
@@ -396,7 +452,7 @@ export function PersonalReportChart({
             </DrawerHeader>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {activeLines.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border/60 px-3 py-8 text-center text-body-sm text-muted-foreground">
                 موردی در این بازه نیست.
@@ -406,11 +462,11 @@ export function PersonalReportChart({
                 {activeLines.map((line) => (
                   <li
                     key={line.id}
-                    className="rounded-xl border border-border/50 bg-card px-3 py-2.5"
+                    className="rounded-xl border border-border/50 bg-card px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_4rem]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-body-sm font-semibold text-foreground">
+                        <p className="truncate text-pretty text-body-sm font-semibold text-foreground">
                           {line.title}
                         </p>
                         <p className="mt-0.5 text-caption text-muted-foreground">

@@ -548,7 +548,10 @@ export function MembersList({
                         }
                         disabled={pending}
                       >
-                        <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-lg text-caption">
+                        <SelectTrigger
+                          className="h-8 w-[5.75rem] shrink-0 rounded-lg text-caption"
+                          aria-label={`نقش ${memberLabel(m)}`}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -621,9 +624,9 @@ export function MembersList({
 
         {isOwner ? (
           <section className="border-t border-border/40 pt-3.5">
-            <p className="text-caption font-semibold text-muted-foreground">
+            <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               افزودن بدون اپ
-            </p>
+            </h3>
             <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground/90">
               نام را بزنید؛ بعداً با لینک ادعا وصل می‌شود.
             </p>
@@ -631,11 +634,18 @@ export function MembersList({
               onSubmit={onAddVirtual}
               className="mt-2.5 flex items-center gap-2"
             >
+              <Label htmlFor="invite-virtual-name-fund" className="sr-only">
+                نام عضو
+              </Label>
               <Input
+                id="invite-virtual-name-fund"
+                name="manualName"
+                autoComplete="off"
+                spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="نام عضو"
-                className="h-10 flex-1 rounded-xl border-border/60 bg-card"
+                placeholder="مثلاً عضو…"
+                className="h-10 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
@@ -648,7 +658,10 @@ export function MembersList({
                 }
                 disabled={atCapacity || pending}
               >
-                <SelectTrigger className="h-10 w-[5.5rem] shrink-0 rounded-xl text-caption">
+                <SelectTrigger
+                  className="h-10 w-[5.5rem] shrink-0 rounded-xl text-caption"
+                  aria-label="نقش عضو جدید"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -662,12 +675,17 @@ export function MembersList({
                 variant="secondary"
                 className="h-10 shrink-0 rounded-xl px-3 active:scale-[0.97]"
                 disabled={atCapacity || pending}
+                aria-busy={pending}
               >
-                {pending ? "…" : "افزودن"}
+                {pending ? "در حال افزودن…" : "افزودن"}
               </Button>
             </form>
             {manualError ? (
-              <p className="mt-2 text-xs text-destructive" role="alert">
+              <p
+                className="mt-2 text-xs text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {manualError}
               </p>
             ) : null}
@@ -688,10 +706,10 @@ export function MembersList({
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-body-sm font-semibold text-foreground">
+              <h3 className="text-pretty text-body-sm font-semibold text-foreground">
                 دعوت
-              </p>
-              <p className="text-caption text-muted-foreground">
+              </h3>
+              <p className="text-caption text-muted-foreground" aria-live="polite">
                 {spaceLinkState === "done"
                   ? "لینک کپی شد"
                   : `دعوت به «${spaceName}»`}
@@ -712,7 +730,10 @@ export function MembersList({
                   setInviteRole(v as "EDITOR" | "VIEWER")
                 }
               >
-                <SelectTrigger className="h-10 w-[7.25rem] rounded-xl">
+                <SelectTrigger
+                  className="h-10 w-[7.25rem] rounded-xl"
+                  aria-label="نقش لینک دعوت"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -731,6 +752,9 @@ export function MembersList({
                 spaceLinkState === "done" &&
                   "border-success/40 bg-success-soft text-success",
               )}
+              aria-label={
+                spaceLinkState === "done" ? "لینک فضا کپی شد" : "کپی لینک فضا"
+              }
             >
               {spaceLinkState === "done" ? (
                 <CheckIcon className="size-4" />
@@ -745,18 +769,25 @@ export function MembersList({
             onSubmit={onAddVirtual}
             className="rounded-2xl border border-border/55 bg-muted/25 p-3"
           >
-            <p className="text-caption font-medium text-foreground">
+            <h4 className="text-pretty text-caption font-medium text-foreground">
               افزودن دستی
-            </p>
+            </h4>
             <p className="mt-0.5 text-caption text-muted-foreground">
               بدون اپ — بعداً با لینک ادعا وصل می‌شود
             </p>
             <div className="mt-2.5 flex gap-2">
+              <Label htmlFor="invite-virtual-name" className="sr-only">
+                نام عضو
+              </Label>
               <Input
+                id="invite-virtual-name"
+                name="manualName"
+                autoComplete="off"
+                spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="نام عضو"
-                className="h-10 rounded-xl border-border/70 bg-card"
+                placeholder="مثلاً عضو…"
+                className="h-10 min-w-0 flex-1 rounded-xl border-border/70 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
@@ -769,7 +800,10 @@ export function MembersList({
                 }
                 disabled={atCapacity || pending}
               >
-                <SelectTrigger className="h-10 w-[6.75rem] shrink-0 rounded-xl">
+                <SelectTrigger
+                  className="h-10 w-[6.75rem] shrink-0 rounded-xl"
+                  aria-label="نقش عضو جدید"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -783,11 +817,20 @@ export function MembersList({
               variant="secondary"
               className="mt-2 h-10 w-full rounded-xl active:scale-[0.98]"
               disabled={atCapacity || pending}
+              aria-busy={pending}
             >
-              {pending ? "…" : atCapacity ? "ظرفیت تکمیل است" : "افزودن"}
+              {pending
+                ? "در حال افزودن…"
+                : atCapacity
+                  ? "ظرفیت تکمیل است"
+                  : "افزودن"}
             </Button>
             {manualError ? (
-              <p className="mt-2 text-xs text-destructive" role="alert">
+              <p
+                className="mt-2 text-xs text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {manualError}
               </p>
             ) : null}
@@ -797,24 +840,28 @@ export function MembersList({
 
       <section className="space-y-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-body-sm font-semibold text-foreground">
+          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
             اعضا
             <span className="ms-1.5 text-caption font-normal text-muted-foreground">
               ({members.length})
             </span>
-          </p>
+          </h3>
           {isOwner && showShareControls ? (
             <p className="text-caption text-muted-foreground">{shareCaption}</p>
           ) : null}
         </div>
 
         {roleError ? (
-          <p className="text-xs text-destructive" role="alert">
+          <p
+            className="text-xs text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {roleError}
           </p>
         ) : null}
 
-        <ul className="max-h-[min(52dvh,22rem)] space-y-2 overflow-y-auto pe-0.5">
+        <ul className="max-h-[min(52dvh,22rem)] space-y-2 overflow-y-auto overscroll-contain pe-0.5">
           {members.map((m) => {
             const share = m.defaultShare ?? DEFAULT_SHARE;
             const claimDone = claimCopiedId === m.userId;
@@ -875,7 +922,10 @@ export function MembersList({
                       }
                       disabled={pending}
                     >
-                      <SelectTrigger className="h-9 w-[6.5rem] shrink-0 rounded-lg text-caption">
+                      <SelectTrigger
+                        className="h-9 w-[6.5rem] shrink-0 rounded-lg text-caption"
+                        aria-label={`نقش ${memberLabel(m)}`}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

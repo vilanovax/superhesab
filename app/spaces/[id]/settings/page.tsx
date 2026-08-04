@@ -13,6 +13,7 @@ import { CategoryPrivacySettings } from "@/components/spaces/category-privacy-se
 import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
+import { SpaceSettingsSubmitButton } from "@/components/spaces/space-settings-submit";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
 import { SpaceBackupButton } from "@/components/settings/backup-panels";
@@ -142,7 +143,7 @@ export default async function SpaceSettingsPage({
   return (
     <main
       data-template={templateDataset}
-      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 py-6 sm:px-6"
+      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6"
     >
       <SpaceTheme type={space.type} />
       <div className="flex items-center justify-between gap-3">
@@ -161,7 +162,9 @@ export default async function SpaceSettingsPage({
 
       <header className="surface-hero animate-fade-up rounded-2xl p-5">
         <p className="text-xs font-medium text-on-hero/70">تنظیمات فضا</p>
-        <h1 className="mt-1 text-2xl font-bold text-on-hero">{space.name}</h1>
+        <h1 className="mt-1 text-pretty text-2xl font-bold text-on-hero">
+          {space.name}
+        </h1>
         <p className="mt-2 text-sm text-on-hero/75">
           {showBuilding
             ? "نام، سال مالی، پایه شارژ و مدیران ساختمان."
@@ -197,6 +200,7 @@ export default async function SpaceSettingsPage({
               <Input
                 id="name"
                 name="name"
+                autoComplete="organization"
                 required
                 minLength={2}
                 defaultValue={space.name}
@@ -235,10 +239,11 @@ export default async function SpaceSettingsPage({
                   name="monthlyBudget"
                   type="number"
                   inputMode="numeric"
+                  autoComplete="off"
                   min={0}
                   step={1}
                   defaultValue={space.monthlyBudget ?? ""}
-                  placeholder="مثلاً ۵۰۰۰۰۰۰"
+                  placeholder="مثلاً ۵۰۰۰۰۰۰…"
                   disabled={!isOwner}
                   className="rounded-xl tabular-nums"
                 />
@@ -292,7 +297,11 @@ export default async function SpaceSettingsPage({
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
+              <p
+                className="text-sm text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </p>
             ) : null}
@@ -302,9 +311,7 @@ export default async function SpaceSettingsPage({
                 فقط مالک فضا می‌تواند تنظیمات را ذخیره کند.
               </p>
             ) : (
-              <Button type="submit" className="h-12 w-full rounded-xl">
-                ذخیره تنظیمات
-              </Button>
+              <SpaceSettingsSubmitButton />
             )}
           </form>
         )}

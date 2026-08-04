@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   upsertChargePayment,
   type AnnualChargeCalendarDTO,
@@ -30,6 +30,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import {
   CHARGE_STATUS_LABELS,
   formatJalaliYear,
@@ -45,6 +46,13 @@ import { todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
+
+type PayDraftBaseline = {
+  amount: number;
+  status: ChargeStatusValue;
+  note: string;
+  date: string;
+};
 
 type ChargesView = "month" | "calendar";
 
@@ -140,8 +148,40 @@ export function BuildingChargesPanel({
   const [pending, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
   const [detailUnit, setDetailUnit] = useState<UnitDetailModel | null>(null);
+  const payBaseline = useRef<PayDraftBaseline | null>(null);
 
   const unitLabel = currencyLabel(currency);
+
+  const payDirty = Boolean(
+    payUnit &&
+      payBaseline.current &&
+      (amount !== payBaseline.current.amount ||
+        status !== payBaseline.current.status ||
+        note !== payBaseline.current.note ||
+        date !== payBaseline.current.date),
+  );
+  const { requestOpenChange, discardConfirm } = useUnsavedCloseGuard(
+    payDirty || pending,
+  );
+
+  useEffect(() => {
+    if (!payDirty && !pending) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [payDirty, pending]);
+
+  function closePayDrawer() {
+    requestOpenChange(false, (next) => {
+      if (!next) {
+        payBaseline.current = null;
+        setPayUnit(null);
+        setError(null);
+      }
+    });
+  }
 
   const paymentByUnit = useMemo(() => {
     const map = new Map<string, ChargePaymentDTO>();
@@ -190,13 +230,23 @@ export function BuildingChargesPanel({
 
   function openPay(unit: UnitDTO) {
     const existing = paymentByUnit.get(unit.id);
+    const nextAmount = existing?.amount ?? unit.monthlyCharge ?? 0;
+    const nextStatus = existing?.status ?? "PAID";
+    const nextNote = existing?.note ?? "";
+    const nextDate = existing?.date ?? todayIsoDateTehran();
     setPayUnit(unit);
-    setAmount(existing?.amount ?? unit.monthlyCharge ?? 0);
-    setStatus(existing?.status ?? "PAID");
-    setNote(existing?.note ?? "");
+    setAmount(nextAmount);
+    setStatus(nextStatus);
+    setNote(nextNote);
     setNoteOpen(Boolean(existing?.note));
-    setDate(existing?.date ?? todayIsoDateTehran());
+    setDate(nextDate);
     setError(null);
+    payBaseline.current = {
+      amount: nextAmount,
+      status: nextStatus,
+      note: nextNote,
+      date: nextDate,
+    };
   }
 
   function openPayFromCalendar(args: {
@@ -220,12 +270,22 @@ export function BuildingChargesPanel({
       arrears: dash?.arrears ?? 0,
       collected: dash?.collected ?? 0,
     });
-    setAmount(args.payment?.amount ?? args.monthlyCharge ?? 0);
-    setStatus(args.payment?.status ?? "PAID");
-    setNote(args.payment?.note ?? "");
+    const nextAmount = args.payment?.amount ?? args.monthlyCharge ?? 0;
+    const nextStatus = args.payment?.status ?? "PAID";
+    const nextNote = args.payment?.note ?? "";
+    const nextDate = args.payment?.date ?? todayIsoDateTehran();
+    setAmount(nextAmount);
+    setStatus(nextStatus);
+    setNote(nextNote);
     setNoteOpen(Boolean(args.payment?.note));
-    setDate(args.payment?.date ?? todayIsoDateTehran());
+    setDate(nextDate);
     setError(null);
+    payBaseline.current = {
+      amount: nextAmount,
+      status: nextStatus,
+      note: nextNote,
+      date: nextDate,
+    };
   }
 
   function openUnitDetail(unitId: string) {
@@ -277,7 +337,7 @@ export function BuildingChargesPanel({
 
   function onSavePayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!payUnit) return;
+    if (!payUnit || pending) return;
     setError(null);
 
     const payload = {
@@ -291,16 +351,17 @@ export function BuildingChargesPanel({
       date,
     };
 
-    // Fast-close before server round-trip.
-    setPayUnit(null);
-    showToast("ثبت شد");
-
     startTransition(async () => {
       const result = await upsertChargePayment(payload);
       if (!result.ok) {
-        showToast(result.error || "خطا در ثبت اطلاعات", "error");
+        const msg = result.error || "خطا در ثبت اطلاعات";
+        setError(msg);
+        showToast(msg, "error");
         return;
       }
+      showToast("ثبت شد");
+      payBaseline.current = null;
+      setPayUnit(null);
       router.refresh();
     });
   }
@@ -705,7 +766,8 @@ export function BuildingChargesPanel({
       <Drawer
         open={Boolean(payUnit)}
         onOpenChange={(open) => {
-          if (!open) setPayUnit(null);
+          if (open) return;
+          closePayDrawer();
         }}
         repositionInputs={false}
       >
@@ -864,7 +926,7 @@ export function BuildingChargesPanel({
                   variant="outline"
                   className="h-11 flex-1 rounded-xl"
                   disabled={pending}
-                  onClick={() => setPayUnit(null)}
+                  onClick={closePayDrawer}
                 >
                   انصراف
                 </Button>
@@ -891,6 +953,8 @@ export function BuildingChargesPanel({
         canMutate={canMutate}
         onRecordPayment={canMutate ? recordPaymentFromDetail : undefined}
       />
+
+      {discardConfirm}
     </div>
   );
 }

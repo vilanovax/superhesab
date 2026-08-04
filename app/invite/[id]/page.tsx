@@ -58,7 +58,7 @@ export default async function InvitePage({
           className="pointer-events-none absolute -end-8 -top-10 size-32 rounded-full bg-on-hero/15 blur-2xl"
         />
         <p className="text-xs font-medium text-on-hero/70">{meta.templateLabel}</p>
-        <h1 className="mt-2 text-2xl font-bold leading-snug text-on-hero">
+        <h1 className="mt-2 text-pretty text-2xl font-bold leading-snug text-on-hero">
           {claimPreview
             ? `شما دعوت شده‌اید تا حساب ${claimPreview.name} را مدیریت کنید`
             : `شما به «${meta.name}» دعوت شده‌اید`}
@@ -80,13 +80,21 @@ export default async function InvitePage({
         </p>
 
         {claim && !claimPreview ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             این لینک ادعا معتبر نیست یا قبلاً استفاده شده.
           </p>
         ) : null}
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </p>
         ) : null}

@@ -192,9 +192,9 @@ export function InviteMembersButton({
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="max-h-[85vh] overflow-y-auto border-border/70 bg-card/95 sm:max-w-md">
+        <DialogContent className="max-h-[85vh] overflow-y-auto overscroll-contain border-border/70 bg-card/95 sm:max-w-md">
           <DialogHeader className="text-start">
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className="text-pretty">{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           {panel}
@@ -208,7 +208,7 @@ export function InviteMembersButton({
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent
         className={cn(
-          "border-border/60 bg-sheet",
+          "overflow-hidden overscroll-contain border-border/60 bg-sheet",
           compactSheet && "max-h-[78dvh]",
         )}
       >
@@ -218,7 +218,7 @@ export function InviteMembersButton({
             compactSheet ? "pb-1.5 pt-1" : "pb-2",
           )}
         >
-          <DrawerTitle>{title}</DrawerTitle>
+          <DrawerTitle className="text-pretty">{title}</DrawerTitle>
           <DrawerDescription
             className={compactSheet ? "text-caption" : undefined}
           >
@@ -227,7 +227,7 @@ export function InviteMembersButton({
         </DrawerHeader>
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-4",
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4",
             compactSheet ? "pb-6" : "pb-8",
           )}
         >

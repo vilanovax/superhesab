@@ -9,6 +9,7 @@ import {
 import { addVirtualMember } from "@/app/actions/virtualMember";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Select,
@@ -239,36 +240,52 @@ export function MembersList({
     return (
       <div className="space-y-4">
         {isOwner ? (
-          <Button
-            type="button"
-            onClick={copySpaceLink}
-            className={cn(
-              "h-11 w-full gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
-              spaceLinkState === "done" &&
-                "bg-success text-success-foreground hover:bg-success/90",
-            )}
-          >
-            {spaceLinkState === "done" ? (
-              <CheckIcon className="size-4" />
-            ) : (
-              <CopyIcon className="size-4" />
-            )}
-            {spaceLinkState === "done" ? "لینک کپی شد" : "کپی لینک دعوت هم‌مدیر"}
-          </Button>
+          <>
+            <Button
+              type="button"
+              onClick={copySpaceLink}
+              className={cn(
+                "h-11 w-full gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
+                spaceLinkState === "done" &&
+                  "bg-success text-success-foreground hover:bg-success/90",
+              )}
+              aria-label={
+                spaceLinkState === "done"
+                  ? "لینک دعوت هم‌مدیر کپی شد"
+                  : "کپی لینک دعوت هم‌مدیر"
+              }
+            >
+              {spaceLinkState === "done" ? (
+                <CheckIcon className="size-4" />
+              ) : (
+                <CopyIcon className="size-4" />
+              )}
+              {spaceLinkState === "done"
+                ? "لینک کپی شد"
+                : "کپی لینک دعوت هم‌مدیر"}
+            </Button>
+            <span className="sr-only" aria-live="polite">
+              {spaceLinkState === "done" ? "لینک دعوت هم‌مدیر کپی شد" : ""}
+            </span>
+          </>
         ) : null}
 
         <section>
           <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
-            <p className="text-caption font-semibold text-muted-foreground">
+            <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               مدیران فعلی
-            </p>
+            </h3>
             <p className="text-caption tabular-nums text-muted-foreground">
               {members.length}
             </p>
           </div>
 
           {roleError ? (
-            <p className="mb-2 text-xs text-destructive" role="alert">
+            <p
+              className="mb-2 text-xs text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
               {roleError}
             </p>
           ) : null}
@@ -333,9 +350,9 @@ export function MembersList({
 
         {isOwner ? (
           <section className="border-t border-border/40 pt-3.5">
-            <p className="text-caption font-semibold text-muted-foreground">
+            <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               افزودن بدون اپ
-            </p>
+            </h3>
             <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground/90">
               نام را بزنید؛ بعداً با لینک ادعا وصل می‌شود.
             </p>
@@ -343,11 +360,18 @@ export function MembersList({
               onSubmit={onAddVirtual}
               className="mt-2.5 flex items-center gap-2"
             >
+              <Label htmlFor="invite-virtual-name-building" className="sr-only">
+                نام مدیر
+              </Label>
               <Input
+                id="invite-virtual-name-building"
+                name="manualName"
+                autoComplete="off"
+                spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="نام مدیر"
-                className="h-10 flex-1 rounded-xl border-border/60 bg-card"
+                placeholder="مثلاً مدیر…"
+                className="h-10 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
@@ -359,12 +383,17 @@ export function MembersList({
                 variant="secondary"
                 className="h-10 shrink-0 rounded-xl px-3.5 active:scale-[0.97]"
                 disabled={atCapacity || pending}
+                aria-busy={pending}
               >
-                {pending ? "…" : "افزودن"}
+                {pending ? "در حال افزودن…" : "افزودن"}
               </Button>
             </form>
             {manualError ? (
-              <p className="mt-2 text-xs text-destructive" role="alert">
+              <p
+                className="mt-2 text-xs text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
                 {manualError}
               </p>
             ) : null}
@@ -381,16 +410,23 @@ export function MembersList({
           <div className="space-y-2">
             {inviteRolePicker ? (
               <div className="flex items-center justify-between gap-2 px-0.5">
-                <p className="text-caption text-muted-foreground">
+                <Label
+                  htmlFor="invite-role-fund"
+                  className="text-caption text-muted-foreground"
+                >
                   نقش لینک دعوت
-                </p>
+                </Label>
                 <Select
                   value={inviteRole}
                   onValueChange={(v) =>
                     setInviteRole(v as "EDITOR" | "VIEWER")
                   }
                 >
-                  <SelectTrigger className="h-8 w-[7.5rem] rounded-lg text-caption">
+                  <SelectTrigger
+                    id="invite-role-fund"
+                    className="h-8 w-[7.5rem] rounded-lg text-caption"
+                    aria-label="نقش لینک دعوت"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -408,6 +444,11 @@ export function MembersList({
                 spaceLinkState === "done" &&
                   "bg-success text-success-foreground hover:bg-success/90",
               )}
+              aria-label={
+                spaceLinkState === "done"
+                  ? "لینک دعوت عضو کپی شد"
+                  : "کپی لینک دعوت عضو"
+              }
             >
               {spaceLinkState === "done" ? (
                 <CheckIcon className="size-4" />
@@ -416,6 +457,9 @@ export function MembersList({
               )}
               {spaceLinkState === "done" ? "لینک کپی شد" : "کپی لینک دعوت عضو"}
             </Button>
+            <span className="sr-only" aria-live="polite">
+              {spaceLinkState === "done" ? "لینک دعوت عضو کپی شد" : ""}
+            </span>
             {maxMembers != null ? (
               <p className="text-center text-caption tabular-nums text-muted-foreground">
                 {members.length} / {maxMembers} عضو
@@ -426,9 +470,9 @@ export function MembersList({
 
         <section>
           <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
-            <p className="text-caption font-semibold text-muted-foreground">
+            <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               اعضا
-            </p>
+            </h3>
             <p className="text-caption text-muted-foreground">
               {shareCaption}
               <span className="ms-1.5 tabular-nums">· {members.length}</span>
@@ -436,12 +480,16 @@ export function MembersList({
           </div>
 
           {roleError ? (
-            <p className="mb-2 text-xs text-destructive" role="alert">
+            <p
+              className="mb-2 text-xs text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
               {roleError}
             </p>
           ) : null}
 
-          <ul className="max-h-[min(48dvh,20rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card">
+          <ul className="max-h-[min(48dvh,20rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border/50 bg-card">
             {members.map((m, i) => {
               const share = m.defaultShare ?? DEFAULT_SHARE;
               const claimDone = claimCopiedId === m.userId;

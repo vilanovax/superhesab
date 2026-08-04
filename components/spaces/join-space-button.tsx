@@ -69,12 +69,17 @@ export function JoinSpaceButton({
         type="button"
         className="h-14 w-full rounded-2xl text-base font-semibold shadow-fab"
         disabled={pending}
+        aria-busy={pending}
         onClick={onJoin}
       >
         {pending ? "در حال پیوستن…" : label}
       </Button>
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="text-sm text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}

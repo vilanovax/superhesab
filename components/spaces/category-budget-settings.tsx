@@ -43,6 +43,7 @@ export function CategoryBudgetSettings({
 
   function onSave(e: React.FormEvent) {
     e.preventDefault();
+    if (disabled || pending) return;
     setError(null);
     setSaved(false);
     startTransition(async () => {
@@ -62,7 +63,7 @@ export function CategoryBudgetSettings({
   return (
     <form onSubmit={onSave} className="space-y-3">
       <div>
-        <h2 className="text-body-sm font-semibold text-foreground">
+        <h2 className="text-pretty text-body-sm font-semibold text-foreground">
           بودجه هر دسته
         </h2>
         <p className="mt-0.5 text-caption text-muted-foreground">
@@ -74,7 +75,7 @@ export function CategoryBudgetSettings({
         {SPEND_CATEGORIES.map((category) => (
           <li
             key={category}
-            className="flex items-center gap-2 rounded-xl border border-border/50 bg-sheet-muted/60 px-3 py-2"
+            className="flex items-center gap-2 rounded-xl border border-border/50 bg-sheet-muted/60 px-3 py-2 [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]"
           >
             <label
               htmlFor={`cat-budget-${category}`}
@@ -84,6 +85,8 @@ export function CategoryBudgetSettings({
             </label>
             <Input
               id={`cat-budget-${category}`}
+              name={`categoryBudget_${category}`}
+              autoComplete="off"
               type="text"
               inputMode="numeric"
               value={values[category] ?? ""}
@@ -94,7 +97,7 @@ export function CategoryBudgetSettings({
                   [category]: e.target.value.replace(/[^\d]/g, ""),
                 }))
               }
-              placeholder="—"
+              placeholder="مثلاً ۵۰۰۰۰۰…"
               className="h-10 w-32 rounded-xl border-border/70 bg-card text-end tabular-nums"
             />
           </li>
@@ -102,23 +105,33 @@ export function CategoryBudgetSettings({
       </ul>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-sm text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </p>
       ) : null}
       {saved ? (
-        <p className="text-caption text-success">ذخیره شد.</p>
+        <p className="text-caption text-success" aria-live="polite">
+          ذخیره شد.
+        </p>
       ) : null}
 
-      {!disabled ? (
+      {disabled ? (
+        <p className="text-sm text-muted-foreground">
+          فقط مالک می‌تواند بودجه دسته‌ها را تغییر دهد.
+        </p>
+      ) : (
         <Button
           type="submit"
-          className="h-11 w-full rounded-xl"
+          className="h-11 w-full rounded-xl active:scale-[0.98]"
           disabled={pending}
         >
-          {pending ? "…" : "ذخیره بودجه دسته‌ها"}
+          {pending ? "در حال ذخیره…" : "ذخیره بودجه دسته‌ها"}
         </Button>
-      ) : null}
+      )}
     </form>
   );
 }

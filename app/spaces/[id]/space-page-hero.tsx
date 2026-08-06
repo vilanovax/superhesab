@@ -289,6 +289,7 @@ async function SpacePageHeroCard({
     fundPeriod,
     monthRange,
     hiddenCategoriesKey,
+    activeTab,
   } = ctx;
 
   const template = getTemplate(membership.space.type);
@@ -431,6 +432,14 @@ async function SpacePageHeroCard({
               currency={space.currency}
               settingsHref={`/spaces/${space.id}/settings`}
               isOwner={isOwner}
+              yearNavTab={
+                activeTab === "expenses" ||
+                activeTab === "charges" ||
+                activeTab === "units" ||
+                activeTab === "report"
+                  ? activeTab
+                  : "charges"
+              }
               managersAction={
                 isOwner ? (
                   <InviteMembersButton

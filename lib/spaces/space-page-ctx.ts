@@ -181,13 +181,24 @@ export const loadSpaceWithMembers = cache(async (spaceId: string) => {
 
 /** First ledger page — not needed for hero chrome. */
 export const loadSpaceExpensesPage = cache(
-  async (spaceId: string, hiddenCategoriesKey: string) => {
+  async (
+    spaceId: string,
+    hiddenCategoriesKey: string,
+    /** Jalali year bound (BUILDING expenses tab). */
+    year?: number,
+  ) => {
     const hidden = hiddenCategoriesKey
       ? (hiddenCategoriesKey.split(",") as ExpenseCategory[])
       : [];
+    const bounds =
+      year != null && year >= 1390 && year <= 1500
+        ? jalaliYearBounds(year)
+        : null;
     return queryExpenseLedgerPage({
       spaceId,
       hiddenCategories: hidden,
+      dateFrom: bounds?.start,
+      dateTo: bounds?.end,
     });
   },
 );

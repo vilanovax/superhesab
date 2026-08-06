@@ -133,10 +133,14 @@ export function TabsTrigger({
   value,
   className,
   children,
+  onPointerEnter,
+  onFocus,
 }: {
   value: string;
   className?: string;
   children: React.ReactNode;
+  onPointerEnter?: React.PointerEventHandler<HTMLButtonElement>;
+  onFocus?: React.FocusEventHandler<HTMLButtonElement>;
 }) {
   const { value: active, setValue, tabId, panelId } = useTabs();
   const selected = active === value;
@@ -150,6 +154,8 @@ export function TabsTrigger({
       aria-selected={selected}
       tabIndex={selected ? 0 : -1}
       onClick={() => setValue(value)}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
       className={cn(
         "inline-flex h-8 items-center justify-center rounded-lg text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
         className,

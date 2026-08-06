@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
+import { ExpenseList } from "@/components/expenses/expense-list";
+import { BuildingExpenseYearFilter } from "@/components/spaces/building-expense-year-filter";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
@@ -13,12 +15,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-
-const ExpenseList = dynamic(
-  () =>
-    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
-  { loading: () => <SpacePanelFallback rows={4} /> },
-);
 
 const PersonalReportChart = dynamic(
   () =>
@@ -112,30 +108,60 @@ export function BuildingSpaceTabs({
       ? initialTab
       : "charges";
 
-  const { tab, deferred, loaded, tabBusy, onTabChange, hydrateChargeProofs } =
-    useDeferredSpaceTabs({
-      spaceId,
-      defaultTab,
-      loadedTabs,
-      reportPlanYear,
-      reportMonth,
-      tabLoadContext,
-      initial: {
-        personalReportData: reportProp,
-        reportExpenseLines: reportLinesProp,
-        debts: [],
-        savingsPots: [],
-        internalLoans: [],
-        checklist: [],
-        chargeProofs: proofsProp,
-        categoryBudgets: budgetsProp ?? {},
-        expenses: defaultTab === "expenses" ? expenses : [],
-        expensesHasMore: defaultTab === "expenses" ? expensesHasMore : false,
-        buildingDashboard,
-        buildingCalendar,
-        buildingUnits,
-      },
-    });
+  const {
+    tab,
+    deferred,
+    loaded,
+    tabBusy,
+    onTabChange,
+    prefetchTab,
+    hydrateChargeProofs,
+  } = useDeferredSpaceTabs({
+    spaceId,
+    defaultTab,
+    loadedTabs,
+    reportPlanYear,
+    reportMonth,
+    tabLoadContext,
+    initial: {
+      personalReportData: reportProp,
+      reportExpenseLines: reportLinesProp,
+      debts: [],
+      savingsPots: [],
+      internalLoans: [],
+      checklist: [],
+      chargeProofs: proofsProp,
+      categoryBudgets: budgetsProp ?? {},
+      expenses: defaultTab === "expenses" ? expenses : [],
+      expensesHasMore: defaultTab === "expenses" ? expensesHasMore : false,
+      buildingDashboard,
+      buildingCalendar,
+      buildingUnits,
+    },
+  });
+
+  /** Warm expenses ledger after charges first paint so تب هزینه feels instant. */
+  useEffect(() => {
+    if (defaultTab === "expenses") return;
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) prefetchTab("expenses");
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      timeoutId = setTimeout(run, 350);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId != null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
+  }, [defaultTab, prefetchTab]);
 
   /** Proofs stay off the RSC critical path — hydrate after first paint. */
   useEffect(() => {
@@ -156,6 +182,9 @@ export function BuildingSpaceTabs({
   const liveExpensesHasMore = loaded.has("expenses")
     ? deferred.expensesHasMore
     : expensesHasMore;
+  /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
+  const expensesWaiting =
+    tab === "expenses" && !loaded.has("expenses") && tabBusy;
   const liveDashboard =
     deferred.buildingDashboard ?? buildingDashboard;
   const liveCalendar = deferred.buildingCalendar ?? buildingCalendar;
@@ -175,21 +204,47 @@ export function BuildingSpaceTabs({
         aria-label="زبانه‌های دفتر"
         className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1"
       >
-        <TabsTrigger value="expenses" className="rounded-xl">
+        <TabsTrigger
+          value="expenses"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("expenses")}
+          onFocus={() => prefetchTab("expenses")}
+        >
           هزینه
         </TabsTrigger>
-        <TabsTrigger value="charges" className="rounded-xl">
+        <TabsTrigger
+          value="charges"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("charges")}
+          onFocus={() => prefetchTab("charges")}
+        >
           شارژ
         </TabsTrigger>
-        <TabsTrigger value="units" className="rounded-xl">
+        <TabsTrigger
+          value="units"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("units")}
+          onFocus={() => prefetchTab("units")}
+        >
           واحد
         </TabsTrigger>
-        <TabsTrigger value="report" className="rounded-xl">
+        <TabsTrigger
+          value="report"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("report")}
+          onFocus={() => prefetchTab("report")}
+        >
           گزارش
         </TabsTrigger>
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
-        {tabBusy && tab === "expenses" ? (
+        {reportPlanYear != null ? (
+          <BuildingExpenseYearFilter
+            spaceId={spaceId}
+            year={reportPlanYear}
+          />
+        ) : null}
+        {expensesWaiting ? (
           <SpacePanelFallback rows={4} />
         ) : (
           <ExpenseList
@@ -204,6 +259,7 @@ export function BuildingSpaceTabs({
             currency={currency}
             spaceType={spaceType}
             canMutate={canMutate}
+            expenseYear={reportPlanYear}
           />
         )}
       </TabsContent>

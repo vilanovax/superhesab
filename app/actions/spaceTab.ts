@@ -36,16 +36,25 @@ export async function loadSpaceTabData(input: {
   const features = getTemplate(membership.space.type).features;
   const tab = resolveDefaultTab(features, input.tab);
 
-  const planYear =
-    input.year && input.year >= 1390 && input.year <= 1500
+  const needsPlanYear =
+    tab === "charges" ||
+    tab === "units" ||
+    tab === "report" ||
+    (tab === "expenses" && features.buildingCharges) ||
+    Boolean(features.buildingCharges && input.year);
+
+  const planYear = needsPlanYear
+    ? input.year && input.year >= 1390 && input.year <= 1500
       ? input.year
       : membership.space.defaultPlanYear &&
           membership.space.defaultPlanYear >= 1390 &&
           membership.space.defaultPlanYear <= 1500
         ? membership.space.defaultPlanYear
-        : tehranCivilYear();
+        : tehranCivilYear()
+    : tehranCivilYear();
 
   const reportMonth =
+    tab === "report" &&
     features.buildingCharges &&
     input.reportMonth != null &&
     input.reportMonth >= 1 &&
@@ -53,22 +62,26 @@ export async function loadSpaceTabData(input: {
       ? input.reportMonth
       : null;
 
-  const reportRange = features.buildingCharges
-    ? reportMonth != null
-      ? jalaliMonthBounds(planYear, reportMonth)
-      : jalaliYearBounds(planYear)
-    : null;
+  /** Report tab range; BUILDING expenses use planYear inside loadDeferredTabData. */
+  const reportRange =
+    tab === "report" && features.buildingCharges
+      ? reportMonth != null
+        ? jalaliMonthBounds(planYear, reportMonth)
+        : jalaliYearBounds(planYear)
+      : null;
 
-  const categoryPolicies = features.categoryPrivacy
-    ? await prisma.spaceCategoryPolicy.findMany({
-        where: { spaceId: input.spaceId, visibility: "PRIVATE" },
-        select: {
-          category: true,
-          visibility: true,
-          ownerUserId: true,
-        },
-      })
-    : [];
+  const categoryPolicies =
+    features.categoryPrivacy &&
+    (tab === "expenses" || tab === "report")
+      ? await prisma.spaceCategoryPolicy.findMany({
+          where: { spaceId: input.spaceId, visibility: "PRIVATE" },
+          select: {
+            category: true,
+            visibility: true,
+            ownerUserId: true,
+          },
+        })
+      : [];
   const hiddenCategories = privateCategoriesHiddenFromViewer(
     categoryPolicies,
     session.userId,
@@ -86,6 +99,8 @@ export async function loadSpaceTabData(input: {
     planYear,
     reportRange,
     hiddenCategories,
+    // Proofs hydrate after charges paint on the client.
+    includeChargeProofs: false,
   });
 
   return { ok: true, tab, data };

@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
+import { ExpenseList } from "@/components/expenses/expense-list";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
@@ -14,12 +16,6 @@ import {
 } from "@/components/ui/tabs";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
-
-const ExpenseList = dynamic(
-  () =>
-    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
-  { loading: () => <SpacePanelFallback rows={4} /> },
-);
 
 const FamilyReportPanel = dynamic(
   () =>
@@ -85,7 +81,14 @@ export function FamilySpaceTabs({
       ? initialTab
       : "expenses";
 
-  const { tab, deferred, tabBusy, onTabChange } = useDeferredSpaceTabs({
+  const {
+    tab,
+    deferred,
+    loaded,
+    tabBusy,
+    onTabChange,
+    prefetchTab,
+  } = useDeferredSpaceTabs({
     spaceId,
     defaultTab,
     loadedTabs,
@@ -99,16 +102,54 @@ export function FamilySpaceTabs({
       checklist: [],
       chargeProofs: [],
       categoryBudgets: budgetsProp ?? {},
-      expenses,
-      expensesHasMore,
+      expenses: defaultTab === "expenses" ? expenses : [],
+      expensesHasMore: defaultTab === "expenses" ? expensesHasMore : false,
       buildingDashboard: null,
       buildingCalendar: null,
       buildingUnits: [],
     },
   });
 
+  /** Warm deferred tabs after expenses first paint so switches feel instant. */
+  useEffect(() => {
+    const tabsToWarm: SpaceTabId[] = [];
+    if (defaultTab !== "expenses") tabsToWarm.push("expenses");
+    if (defaultTab !== "report") tabsToWarm.push("report");
+    if (showDebts && defaultTab !== "debts") tabsToWarm.push("debts");
+    if (showFamilyFunds && defaultTab !== "funds") tabsToWarm.push("funds");
+    if (tabsToWarm.length === 0) return;
+
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      for (const t of tabsToWarm) prefetchTab(t);
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      timeoutId = setTimeout(run, 350);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId != null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
+  }, [defaultTab, prefetchTab, showDebts, showFamilyFunds]);
+
   const extraTabs = (showDebts ? 1 : 0) + (showFamilyFunds ? 1 : 0);
   const tabCount = 2 + extraTabs;
+
+  const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
+  const liveExpensesHasMore = loaded.has("expenses")
+    ? deferred.expensesHasMore
+    : expensesHasMore;
+  /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
+  const expensesWaiting =
+    tab === "expenses" && !loaded.has("expenses") && tabBusy;
 
   return (
     <Tabs
@@ -128,37 +169,61 @@ export function FamilySpaceTabs({
               : "grid-cols-2",
         )}
       >
-        <TabsTrigger value="expenses" className="rounded-xl">
+        <TabsTrigger
+          value="expenses"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("expenses")}
+          onFocus={() => prefetchTab("expenses")}
+        >
           تراکنش‌ها
         </TabsTrigger>
-        <TabsTrigger value="report" className="rounded-xl">
+        <TabsTrigger
+          value="report"
+          className="rounded-xl"
+          onPointerEnter={() => prefetchTab("report")}
+          onFocus={() => prefetchTab("report")}
+        >
           گزارش
         </TabsTrigger>
         {showDebts ? (
-          <TabsTrigger value="debts" className="rounded-xl">
+          <TabsTrigger
+            value="debts"
+            className="rounded-xl"
+            onPointerEnter={() => prefetchTab("debts")}
+            onFocus={() => prefetchTab("debts")}
+          >
             بدهی / طلب
           </TabsTrigger>
         ) : null}
         {showFamilyFunds ? (
-          <TabsTrigger value="funds" className="rounded-xl">
+          <TabsTrigger
+            value="funds"
+            className="rounded-xl"
+            onPointerEnter={() => prefetchTab("funds")}
+            onFocus={() => prefetchTab("funds")}
+          >
             صندوق و وام
           </TabsTrigger>
         ) : null}
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
-        <ExpenseList
-          spaceId={spaceId}
-          spaceName={spaceName}
-          currentUserId={currentUserId}
-          currentUserRole={currentUserRole}
-          members={members}
-          inviteMembers={inviteMembers}
-          expenses={expenses}
-          expensesHasMore={expensesHasMore}
-          currency={currency}
-          spaceType={spaceType}
-          canMutate={canMutate}
-        />
+        {expensesWaiting ? (
+          <SpacePanelFallback rows={4} />
+        ) : (
+          <ExpenseList
+            spaceId={spaceId}
+            spaceName={spaceName}
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            members={members}
+            inviteMembers={inviteMembers}
+            expenses={liveExpenses}
+            expensesHasMore={liveExpensesHasMore}
+            currency={currency}
+            spaceType={spaceType}
+            canMutate={canMutate}
+          />
+        )}
       </TabsContent>
       <TabsContent value="report" className="mt-3">
         {tabBusy && tab === "report" ? (

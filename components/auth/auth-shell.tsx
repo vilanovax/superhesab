@@ -8,8 +8,8 @@ type AuthShellProps = {
 };
 
 /**
- * Shared atmosphere for login / register — soft mist orbs + brand hero.
- * Brand name is the first viewport signal; form card is the interaction.
+ * Shared atmosphere for login / register.
+ * Brand h1 is the LCP candidate — no opacity animations, light decoration.
  */
 export function AuthShell({ children, className }: AuthShellProps) {
   return (
@@ -19,25 +19,21 @@ export function AuthShell({ children, className }: AuthShellProps) {
         className,
       )}
     >
+      {/* Soft wash — avoid large blur-3xl orbs (slow paint under mobile throttling) */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-e-[18%] top-[8%] size-[min(22rem,70vw)] rounded-full bg-highlight/40 blur-3xl"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_15%,color-mix(in_oklab,var(--highlight)_45%,transparent),transparent_55%),radial-gradient(ellipse_at_85%_80%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_50%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-s-[20%] bottom-[6%] size-[min(18rem,60vw)] rounded-full bg-primary/25 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-[18%] h-px bg-gradient-to-l from-transparent via-primary/40 to-transparent opacity-70"
+        className="pointer-events-none absolute inset-x-0 top-[18%] h-px bg-gradient-to-l from-transparent via-primary/35 to-transparent"
       />
 
       <div className="relative z-1 mb-6 w-full max-w-md text-center sm:mb-8">
-        {/* No fade-up here — opacity:0 animations delay LCP on the brand. */}
         <p className="text-[11px] font-bold tracking-[0.28em] text-primary/80">
           SUPERHESAB
         </p>
-        <h1 className="mt-2 text-balance text-3xl font-bold tracking-tight text-primary sm:text-[2.15rem]">
+        <h1 className="mt-2 text-balance text-4xl font-bold tracking-tight text-primary sm:text-[2.35rem]">
           سوپرحساب
         </h1>
         <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">

@@ -25,7 +25,7 @@ export function BuildingExportButtons({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-0.5 rounded-xl border border-border/50 bg-card p-0.5 shadow-sm",
+        "flex h-9 shrink-0 items-center gap-0.5 rounded-xl border border-border/50 bg-card p-0.5 shadow-sm",
         className,
       )}
       role="group"
@@ -35,7 +35,7 @@ export function BuildingExportButtons({
         href={`${base}&format=xlsx`}
         download
         title="خروجی Excel"
-        className="inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground active:scale-[0.98]"
+        className="inline-flex h-full items-center justify-center rounded-lg px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground active:scale-[0.98]"
       >
         Excel
       </a>
@@ -44,7 +44,7 @@ export function BuildingExportButtons({
         href={`${base}&format=pdf`}
         download
         title="خروجی PDF"
-        className="inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground active:scale-[0.98]"
+        className="inline-flex h-full items-center justify-center rounded-lg px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground active:scale-[0.98]"
       >
         PDF
       </a>

@@ -5,7 +5,9 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteExpense,
+  getExpenseForEdit,
   loadMoreSpaceExpenses,
+  type ExpenseForEdit,
 } from "@/app/actions/expense";
 import type {
   ExpenseInitialValues,
@@ -84,7 +86,8 @@ export type ExpenseListItem = {
     isVirtual?: boolean;
   } | null;
   splitMode?: "EQUAL" | "EXACT" | "PERCENT";
-  splits: {
+  /** Present only after edit fetch; list paint omits splits. */
+  splits?: {
     userId: string;
     owedAmount: number;
     share: number;
@@ -104,6 +107,8 @@ type ExpenseListProps = {
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
   canMutate?: boolean;
+  /** Jalali year filter (BUILDING) — kept for load-more pagination. */
+  expenseYear?: number;
 };
 
 function normalizeExpenseDates(item: ExpenseListItem): ExpenseListItem {
@@ -133,28 +138,20 @@ function useIsDesktop() {
   return isDesktop;
 }
 
-function toInitial(expense: ExpenseListItem): ExpenseInitialValues {
+function toInitial(expense: ExpenseForEdit): ExpenseInitialValues {
   return {
-    expenseId: expense.id,
+    expenseId: expense.expenseId,
     title: expense.title,
     totalAmount: expense.totalAmount,
     paidById: expense.paidById,
-    date: expenseDayKey(expense.date),
+    date: expense.date,
     category: expense.category,
     categoryLabel: expense.categoryLabel ?? null,
     transactionType: expense.transactionType ?? "EXPENSE",
     splitMode: expense.splitMode,
-    splitAmounts: Object.fromEntries(
-      expense.splits.map((s) => [s.userId, s.owedAmount]),
-    ),
-    splitShares: Object.fromEntries(
-      expense.splits.map((s) => [s.userId, s.share]),
-    ),
-    splitPercents: Object.fromEntries(
-      expense.splits
-        .filter((s) => typeof s.percent === "number")
-        .map((s) => [s.userId, s.percent as number]),
-    ),
+    splitAmounts: expense.splitAmounts,
+    splitShares: expense.splitShares,
+    splitPercents: expense.splitPercents,
   };
 }
 
@@ -243,7 +240,7 @@ function EditSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  expense: ExpenseListItem | null;
+  expense: ExpenseForEdit | null;
   spaceId: string;
   currentUserId: string;
   members: ExpenseMember[];
@@ -277,7 +274,7 @@ function EditSheet({
     if (!expense) return;
     setDeleteError(null);
     startDelete(async () => {
-      const result = await deleteExpense(expense.id, spaceId);
+      const result = await deleteExpense(expense.expenseId, spaceId);
       if (!result.ok) {
         setDeleteError(result.error);
         return;
@@ -290,7 +287,7 @@ function EditSheet({
   const form = (
     <div className="space-y-4">
       <ExpenseForm
-        key={expense.id}
+        key={expense.expenseId}
         spaceId={spaceId}
         currentUserId={currentUserId}
         members={members}
@@ -418,14 +415,18 @@ export function ExpenseList({
   currency = "TOMAN",
   spaceType = "TRIP",
   canMutate = true,
+  expenseYear,
 }: ExpenseListProps) {
-  const [editing, setEditing] = useState<ExpenseListItem | null>(null);
+  const [editing, setEditing] = useState<ExpenseForEdit | null>(null);
   const [items, setItems] = useState(() =>
     expensesProp.map(normalizeExpenseDates),
   );
   const [hasMore, setHasMore] = useState(expensesHasMoreProp);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editLoadError, setEditLoadError] = useState<string | null>(null);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [pendingMore, startMoreTransition] = useTransition();
+  const [pendingEdit, startEditTransition] = useTransition();
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const isOwner = currentUserRole === "OWNER";
   const features = getTemplate(spaceType).features;
@@ -445,15 +446,34 @@ export function ExpenseList({
     return false;
   }
 
+  function onOpenEdit(expense: ExpenseListItem) {
+    if (pendingEdit) return;
+    setEditLoadError(null);
+    setLoadingEditId(expense.id);
+    startEditTransition(async () => {
+      const result = await getExpenseForEdit(expense.id, spaceId);
+      setLoadingEditId(null);
+      if (!result.ok) {
+        setEditLoadError(result.error);
+        return;
+      }
+      setEditing(result.expense);
+    });
+  }
+
   function onLoadMore() {
     const last = items[items.length - 1];
     if (!last || pendingMore) return;
     setLoadError(null);
     startMoreTransition(async () => {
-      const result = await loadMoreSpaceExpenses(spaceId, {
-        date: last.date.toISOString(),
-        id: last.id,
-      });
+      const result = await loadMoreSpaceExpenses(
+        spaceId,
+        {
+          date: last.date.toISOString(),
+          id: last.id,
+        },
+        expenseYear != null ? { year: expenseYear } : undefined,
+      );
       if (!result.ok) {
         setLoadError(result.error);
         return;
@@ -474,14 +494,25 @@ export function ExpenseList({
       return <PersonalEmptyState canMutate={canMutate} />;
     }
 
+    const buildingYearEmpty =
+      features.buildingCharges && expenseYear != null;
+
     return (
       <EmptyState
         icon="expense"
-        title="هنوز هزینه‌ای ثبت نشده"
+        title={
+          buildingYearEmpty
+            ? "هزینه‌ای در این سال نیست"
+            : "هنوز هزینه‌ای ثبت نشده"
+        }
         description={
-          canMutate
-            ? "با ثبت اولین هزینه، ترازهای سفر زنده می‌شوند."
-            : "هنوز هزینه‌ای ثبت نشده. نقش ناظر فقط مشاهده است."
+          buildingYearEmpty
+            ? canMutate
+              ? "سال را عوض کنید یا اولین هزینهٔ این سال را ثبت کنید."
+              : "برای این سال هزینه‌ای ثبت نشده."
+            : canMutate
+              ? "با ثبت اولین هزینه، ترازهای سفر زنده می‌شوند."
+              : "هنوز هزینه‌ای ثبت نشده. نقش ناظر فقط مشاهده است."
         }
         actionNode={
           canMutate ? (
@@ -599,7 +630,10 @@ export function ExpenseList({
                       </p>
                       {canEditExpense(expense) ? (
                         <span
-                          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary"
+                          className={cn(
+                            "inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary",
+                            loadingEditId === expense.id && "animate-pulse",
+                          )}
                           aria-hidden
                         >
                           <PencilIcon className="size-4" />
@@ -608,6 +642,7 @@ export function ExpenseList({
                     </div>
                   </>
                 );
+                const rowLoading = loadingEditId === expense.id;
                 return (
                   <li
                     key={expense.id}
@@ -621,11 +656,18 @@ export function ExpenseList({
                     {canEditExpense(expense) ? (
                       <button
                         type="button"
-                        onClick={() => setEditing(expense)}
-                        aria-label={`ویرایش ${expense.title}`}
+                        onClick={() => onOpenEdit(expense)}
+                        disabled={pendingEdit}
+                        aria-busy={rowLoading || undefined}
+                        aria-label={
+                          rowLoading
+                            ? `در حال بارگذاری ${expense.title}`
+                            : `ویرایش ${expense.title}`
+                        }
                         className={cn(
                           "flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start",
                           "transition-transform duration-150 active:scale-[0.99]",
+                          rowLoading && "opacity-70",
                         )}
                       >
                         {rowBody}
@@ -642,6 +684,16 @@ export function ExpenseList({
           </section>
         ))}
       </div>
+
+      {editLoadError ? (
+        <p
+          className="mt-3 text-center text-caption text-destructive"
+          role="alert"
+          aria-live="polite"
+        >
+          {editLoadError}
+        </p>
+      ) : null}
 
       {hasMore ? (
         <div className="mt-4 space-y-2 pb-2">

@@ -478,15 +478,8 @@ export function BuildingChargesPanel({
           id="charges-panel-calendar"
           role="tabpanel"
           aria-labelledby="charges-tab-calendar"
-          className="rounded-2xl border border-border/40 bg-card px-3.5 py-3.5 shadow-sm"
+          className="rounded-[1.25rem] border border-border/45 bg-card px-3.5 py-4 shadow-sm"
         >
-          <div className="mb-2 flex justify-end">
-            <BuildingExportButtons
-              spaceId={spaceId}
-              year={dashboard.year}
-              canExport={canMutate}
-            />
-          </div>
           {calendar ? (
             <BuildingAnnualCalendar
               spaceId={spaceId}
@@ -494,6 +487,14 @@ export function BuildingChargesPanel({
               canMutate={canMutate}
               onCellClick={canMutate ? openPayFromCalendar : undefined}
               onUnitClick={openUnitDetail}
+              toolbarEnd={
+                <BuildingExportButtons
+                  spaceId={spaceId}
+                  year={dashboard.year}
+                  canExport={canMutate}
+                  className="h-9 rounded-xl"
+                />
+              }
             />
           ) : (
             <p className="py-6 text-center text-body-sm text-muted-foreground">

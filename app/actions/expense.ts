@@ -8,8 +8,9 @@ import {
   guessCategoryFromTitle,
 } from "@/lib/categorizer";
 import { privateCategoriesHiddenFromViewer } from "@/lib/category-privacy";
-import { parseExpenseDateInput } from "@/lib/format";
+import { expenseDayKey, parseExpenseDateInput } from "@/lib/format";
 import type { ExpenseCategory } from "@/lib/generated/prisma/enums";
+import { jalaliYearBounds } from "@/lib/jalali";
 import {
   asMoney,
   calculatePercentageSplits,
@@ -18,7 +19,10 @@ import {
   DEFAULT_SHARE,
 } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
-import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
+import {
+  expenseEditSelect,
+  queryExpenseLedgerPage,
+} from "@/lib/spaces/expense-ledger";
 import { getTemplate } from "@/lib/templates/registry";
 import {
   expenseSchema,
@@ -28,6 +32,26 @@ import type { SpaceType } from "@/types";
 
 export type ExpenseActionResult =
   | { ok: true; expenseId: string }
+  | { ok: false; error: string };
+
+/** Serializable edit-form payload (splits loaded on demand). */
+export type ExpenseForEdit = {
+  expenseId: string;
+  title: string;
+  totalAmount: number;
+  paidById: string;
+  date: string;
+  category: ExpenseCategory;
+  categoryLabel: string | null;
+  transactionType: "EXPENSE" | "INCOME";
+  splitMode: "EQUAL" | "EXACT" | "PERCENT";
+  splitAmounts: Record<string, number>;
+  splitShares: Record<string, number>;
+  splitPercents: Record<string, number>;
+};
+
+export type GetExpenseForEditResult =
+  | { ok: true; expense: ExpenseForEdit }
   | { ok: false; error: string };
 
 type OwedRow = {
@@ -581,10 +605,80 @@ export type LoadMoreExpensesResult =
     }
   | { ok: false; error: string };
 
+/**
+ * Fetch one expense with splits for the edit form.
+ * List paint omits splits; call this when the user opens edit.
+ */
+export async function getExpenseForEdit(
+  expenseId: string,
+  spaceId: string,
+): Promise<GetExpenseForEditResult> {
+  const session = await requireUser();
+  const access = await assertCanMutateExpense(spaceId, session.userId);
+  if (!access.ok) return access;
+
+  const expense = await prisma.expense.findFirst({
+    where: { id: expenseId, spaceId },
+    select: expenseEditSelect,
+  });
+  if (!expense) {
+    return { ok: false, error: "هزینه پیدا نشد." };
+  }
+
+  if (
+    access.membership.role === "EDITOR" &&
+    expense.createdById !== session.userId
+  ) {
+    return {
+      ok: false,
+      error: "فقط می‌توانید تراکنش‌هایی را ویرایش کنید که خودتان ثبت کرده‌اید.",
+    };
+  }
+
+  const spaceType = access.membership.space.type;
+  const privacy = await assertCategoryNotHidden(
+    spaceId,
+    spaceType,
+    session.userId,
+    expense.category,
+  );
+  if (!privacy.ok) return privacy;
+
+  const splitPercents: Record<string, number> = {};
+  for (const s of expense.splits) {
+    if (typeof s.percent === "number") {
+      splitPercents[s.userId] = s.percent;
+    }
+  }
+
+  return {
+    ok: true,
+    expense: {
+      expenseId: expense.id,
+      title: expense.title,
+      totalAmount: expense.totalAmount,
+      paidById: expense.paidById,
+      date: expenseDayKey(expense.date),
+      category: expense.category,
+      categoryLabel: expense.categoryLabel,
+      transactionType: expense.transactionType,
+      splitMode: expense.splitMode,
+      splitAmounts: Object.fromEntries(
+        expense.splits.map((s) => [s.userId, s.owedAmount]),
+      ),
+      splitShares: Object.fromEntries(
+        expense.splits.map((s) => [s.userId, s.share]),
+      ),
+      splitPercents,
+    },
+  };
+}
+
 /** Keyset page after the last visible expense (newest → older). */
 export async function loadMoreSpaceExpenses(
   spaceId: string,
   cursor: { date: string; id: string },
+  options?: { year?: number },
 ): Promise<LoadMoreExpensesResult> {
   const session = await requireUser();
   const membership = await requireSpaceMember(spaceId, session.userId);
@@ -617,10 +711,21 @@ export async function loadMoreSpaceExpenses(
     },
   );
 
+  const year = options?.year;
+  const bounds =
+    features.buildingCharges &&
+    year != null &&
+    year >= 1390 &&
+    year <= 1500
+      ? jalaliYearBounds(year)
+      : null;
+
   const page = await queryExpenseLedgerPage({
     spaceId,
     hiddenCategories,
     cursor: { date: cursorDate, id: cursor.id },
+    dateFrom: bounds?.start,
+    dateTo: bounds?.end,
   });
 
   return { ok: true, expenses: page.expenses, hasMore: page.hasMore };

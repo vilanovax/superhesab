@@ -15,10 +15,9 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ callbackUrl?: string; next?: string }>;
 }) {
-  const params = await searchParams;
+  const [params, session] = await Promise.all([searchParams, getSession()]);
   const callbackUrl = safeCallbackUrl(params.callbackUrl ?? params.next);
 
-  const session = await getSession();
   if (session) {
     const user = await prisma.user.findUnique({
       where: { id: session.userId },

@@ -16,6 +16,7 @@ import {
   getExpenseLinesForMonth,
   getExpenseLinesInRange,
 } from "@/lib/reports-server";
+import { jalaliYearBounds } from "@/lib/jalali";
 import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
 import type { TemplateFeatures } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
@@ -140,9 +141,14 @@ export async function loadDeferredTabData(
   if (tab === "expenses") {
     tasks.push(
       (async () => {
+        const bounds = features.buildingCharges
+          ? jalaliYearBounds(planYear)
+          : null;
         const page = await queryExpenseLedgerPage({
           spaceId,
           hiddenCategories,
+          dateFrom: bounds?.start,
+          dateTo: bounds?.end,
         });
         out.expenses = page.expenses;
         out.expensesHasMore = page.hasMore;

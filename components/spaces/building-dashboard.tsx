@@ -17,6 +17,8 @@ type BuildingMonthHeroProps = {
   isOwner: boolean;
   /** OWNER: invite / manage co-managers */
   managersAction?: ReactNode;
+  /** Preserve active tab when changing year in the hero chip. */
+  yearNavTab?: "expenses" | "charges" | "units" | "report";
 };
 
 export function BuildingMonthHero({
@@ -30,6 +32,7 @@ export function BuildingMonthHero({
   settingsHref,
   isOwner,
   managersAction,
+  yearNavTab = "charges",
 }: BuildingMonthHeroProps) {
   const unit = currencyLabel(currency);
   const activeUnits = dashboard?.totals.activeUnits ?? 0;
@@ -40,6 +43,7 @@ export function BuildingMonthHero({
   const year = dashboard?.year;
   const collectPct =
     expected > 0 ? Math.min(100, Math.round((collected * 100) / expected)) : 0;
+  const yearTab = yearNavTab;
 
   return (
     <div className="space-y-3">
@@ -63,7 +67,7 @@ export function BuildingMonthHero({
           {year != null ? (
             <div className="flex items-center gap-1 rounded-full bg-on-hero/10 p-0.5 ring-1 ring-on-hero/15">
               <Link
-                href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
+                href={`/spaces/${spaceId}?year=${year - 1}&tab=${yearTab}`}
                 className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
                 aria-label="سال قبل"
               >
@@ -73,7 +77,7 @@ export function BuildingMonthHero({
                 {formatJalaliYear(year)}
               </span>
               <Link
-                href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
+                href={`/spaces/${spaceId}?year=${year + 1}&tab=${yearTab}`}
                 className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
                 aria-label="سال بعد"
               >

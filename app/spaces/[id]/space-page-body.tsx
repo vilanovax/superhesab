@@ -73,7 +73,11 @@ export async function SpacePageBody({
   ] = await Promise.all([
     loadSpaceWithMembers(id),
     needExpenses
-      ? loadSpaceExpensesPage(id, hiddenCategoriesKey)
+      ? loadSpaceExpensesPage(
+          id,
+          hiddenCategoriesKey,
+          isBuildingShell ? planYear : undefined,
+        )
       : Promise.resolve({ expenses: [], hasMore: false }),
     features.settlements
       ? loadCachedBalances(id)

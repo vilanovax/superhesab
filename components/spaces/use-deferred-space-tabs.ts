@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  startTransition,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadSpaceChargeProofs,
   loadSpaceTabData,
@@ -148,10 +142,12 @@ export function useDeferredSpaceTabs(args: {
   }, [spaceId, defaultTab, reportPlanYear, reportMonth]);
 
   const ensureTabData = useCallback(
-    (next: SpaceTabId) => {
+    (next: SpaceTabId, opts?: { silent?: boolean }) => {
       if (!DEFERRED_TABS.has(next) || loadedRef.current.has(next)) return;
-      setPendingTab(next);
-      startTransition(async () => {
+      // Silent warm (idle/hover) must not flip tabBusy — only real switches do.
+      if (!opts?.silent) setPendingTab(next);
+      // Urgent — do not wrap in startTransition (that delayed painting the list).
+      void (async () => {
         const result = await loadSpaceTabDataDeduped({
           spaceId,
           tab: next,
@@ -163,7 +159,7 @@ export function useDeferredSpaceTabs(args: {
           setLoaded((prev) => new Set(prev).add(next));
         }
         setPendingTab((cur) => (cur === next ? null : cur));
-      });
+      })();
     },
     [
       reportMonth,
@@ -172,6 +168,14 @@ export function useDeferredSpaceTabs(args: {
       tabLoadContext?.planYear,
       tabLoadContext?.reportMonth,
     ],
+  );
+
+  /** Warm tab payload before click (hover / focus / idle) without skeleton. */
+  const prefetchTab = useCallback(
+    (next: SpaceTabId) => {
+      ensureTabData(next, { silent: true });
+    },
+    [ensureTabData],
   );
 
   const onTabChange = (value: string) => {
@@ -206,6 +210,7 @@ export function useDeferredSpaceTabs(args: {
     loaded,
     tabBusy: pendingTab !== null && pendingTab === tab,
     onTabChange,
+    prefetchTab,
     hydrateChargeProofs,
   };
 }

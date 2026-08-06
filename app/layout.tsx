@@ -37,7 +37,11 @@ const vazir = localFont({
     },
   ],
   variable: "--font-vazirmatn",
-  display: "swap",
+  /**
+   * optional: LCP can paint with fallback immediately and not wait for woff2
+   * on slow networks (Core Web Vitals guidance for text LCP).
+   */
+  display: "optional",
   adjustFontFallback: "Arial",
   fallback: ["Tahoma", "Arial", "sans-serif"],
   preload: true,

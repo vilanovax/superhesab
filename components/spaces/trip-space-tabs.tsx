@@ -1,7 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
+import { ExpenseList } from "@/components/expenses/expense-list";
 import { SpaceBalances } from "@/components/SpaceBalances";
 import { SpaceChecklist } from "@/components/SpaceChecklist";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
@@ -15,12 +16,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-
-const ExpenseList = dynamic(
-  () =>
-    import("@/components/expenses/expense-list").then((m) => m.ExpenseList),
-  { loading: () => <SpacePanelFallback rows={4} /> },
-);
 
 /** TRIP / PARTNER — settlements tabs only (no BUILDING / FAMILY panel graph). */
 export function TripSpaceTabs({
@@ -50,7 +45,14 @@ export function TripSpaceTabs({
       ? (initialTab as SpaceTabId)
       : "expenses";
 
-  const { tab, deferred, tabBusy, onTabChange } = useDeferredSpaceTabs({
+  const {
+    tab,
+    deferred,
+    loaded,
+    tabBusy,
+    onTabChange,
+    prefetchTab,
+  } = useDeferredSpaceTabs({
     spaceId,
     defaultTab,
     loadedTabs,
@@ -64,17 +66,55 @@ export function TripSpaceTabs({
       checklist: checklistProp,
       chargeProofs: [],
       categoryBudgets: {},
-      expenses,
-      expensesHasMore,
+      expenses: defaultTab === "expenses" ? expenses : [],
+      expensesHasMore: defaultTab === "expenses" ? expensesHasMore : false,
       buildingDashboard: null,
       buildingCalendar: null,
       buildingUnits: [],
     },
   });
 
+  /** Warm deferred tabs after first paint so switches feel instant. */
+  useEffect(() => {
+    const tabsToWarm: SpaceTabId[] = [];
+    if (defaultTab !== "expenses") tabsToWarm.push("expenses");
+    if (showChecklist && defaultTab !== "checklist") {
+      tabsToWarm.push("checklist");
+    }
+    if (tabsToWarm.length === 0) return;
+
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      for (const t of tabsToWarm) prefetchTab(t);
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      timeoutId = setTimeout(run, 350);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId != null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
+  }, [defaultTab, prefetchTab, showChecklist]);
+
   const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
   const showExport = tab === "expenses" || tab === "balances";
+
+  const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
+  const liveExpensesHasMore = loaded.has("expenses")
+    ? deferred.expensesHasMore
+    : expensesHasMore;
+  /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
+  const expensesWaiting =
+    tab === "expenses" && !loaded.has("expenses") && tabBusy;
 
   return (
     <Tabs
@@ -91,29 +131,51 @@ export function TripSpaceTabs({
             tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
           )}
         >
-          <TabsTrigger value="expenses">هزینه‌ها</TabsTrigger>
-          <TabsTrigger value="balances">تراز</TabsTrigger>
+          <TabsTrigger
+            value="expenses"
+            onPointerEnter={() => prefetchTab("expenses")}
+            onFocus={() => prefetchTab("expenses")}
+          >
+            هزینه‌ها
+          </TabsTrigger>
+          <TabsTrigger
+            value="balances"
+            onPointerEnter={() => prefetchTab("balances")}
+            onFocus={() => prefetchTab("balances")}
+          >
+            تراز
+          </TabsTrigger>
           {showChecklist ? (
-            <TabsTrigger value="checklist">چک‌لیست</TabsTrigger>
+            <TabsTrigger
+              value="checklist"
+              onPointerEnter={() => prefetchTab("checklist")}
+              onFocus={() => prefetchTab("checklist")}
+            >
+              چک‌لیست
+            </TabsTrigger>
           ) : null}
         </TabsList>
         {showExport ? <ReportExportButtons spaceId={spaceId} /> : null}
       </div>
 
       <TabsContent value="expenses" className="mt-3">
-        <ExpenseList
-          spaceId={spaceId}
-          spaceName={spaceName}
-          currentUserId={currentUserId}
-          currentUserRole={currentUserRole}
-          members={members}
-          inviteMembers={inviteMembers}
-          expenses={expenses}
-          expensesHasMore={expensesHasMore}
-          currency={currency}
-          spaceType={spaceType}
-          canMutate={canMutate}
-        />
+        {expensesWaiting ? (
+          <SpacePanelFallback rows={4} />
+        ) : (
+          <ExpenseList
+            spaceId={spaceId}
+            spaceName={spaceName}
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            members={members}
+            inviteMembers={inviteMembers}
+            expenses={liveExpenses}
+            expensesHasMore={liveExpensesHasMore}
+            currency={currency}
+            spaceType={spaceType}
+            canMutate={canMutate}
+          />
+        )}
       </TabsContent>
       <TabsContent value="balances" className="mt-3">
         <SpaceBalances

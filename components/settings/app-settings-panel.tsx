@@ -185,9 +185,9 @@ export function AppSettingsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <nav
-        className="grid grid-cols-3 gap-1 rounded-2xl bg-muted/70 p-1"
+        className="grid grid-cols-3 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
         aria-label="بخش‌های تنظیمات"
         role="tablist"
       >
@@ -204,10 +204,11 @@ export function AppSettingsPanel({
               tabIndex={active ? 0 : -1}
               onClick={() => selectTab(item.id)}
               className={cn(
-                "flex h-11 flex-col items-center justify-center rounded-xl px-1 transition-colors",
+                "flex h-12 cursor-pointer flex-col items-center justify-center rounded-xl px-1 transition-colors duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
               <span className="text-body-sm font-semibold leading-none">
@@ -216,7 +217,9 @@ export function AppSettingsPanel({
               <span
                 className={cn(
                   "mt-0.5 text-[10px] leading-none",
-                  active ? "text-muted-foreground" : "text-muted-foreground/70",
+                  active
+                    ? "text-primary-foreground/72"
+                    : "text-muted-foreground/70",
                 )}
               >
                 {item.hint}
@@ -231,11 +234,11 @@ export function AppSettingsPanel({
         id={activePanelId}
         role="tabpanel"
         aria-labelledby={activeTabId}
-        className="animate-fade-up space-y-2.5"
+        className="animate-fade-up space-y-3"
       >
         {tab === "look" ? (
-          <section className="space-y-3 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-            <div className="flex items-center gap-2.5 rounded-xl bg-primary px-3 py-2.5 text-primary-foreground">
+          <section className="space-y-3.5 rounded-[1.25rem] border border-border/45 bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-primary px-3.5 py-3 text-primary-foreground">
               <span
                 className="size-3.5 shrink-0 rounded-full ring-2 ring-on-hero/35"
                 style={{ backgroundColor: activeAccent.swatch }}
@@ -276,7 +279,8 @@ export function AppSettingsPanel({
                         applyDocumentTheme(opt.value);
                       }}
                       className={cn(
-                        "flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-caption font-semibold transition-colors",
+                        "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-caption font-semibold transition-colors duration-150",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         selected
                           ? "bg-card text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground",
@@ -322,7 +326,8 @@ export function AppSettingsPanel({
                         applyDocumentAccent(opt.value);
                       }}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-[color,background-color,border-color,box-shadow] duration-150",
+                        "flex min-h-17 cursor-pointer flex-col items-center gap-1 rounded-xl border px-1 py-2.5 transition-[color,background-color,border-color,box-shadow] duration-150",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         selected
                           ? "border-primary bg-primary/8 ring-2 ring-primary/25"
                           : "border-border/45 hover:bg-muted/40",
@@ -348,8 +353,8 @@ export function AppSettingsPanel({
         ) : null}
 
         {tab === "account" ? (
-          <div className="space-y-2.5">
-            <section className="space-y-2.5 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
+          <div className="space-y-3">
+            <section className="space-y-3 rounded-[1.25rem] border border-border/45 bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h2 className="text-body-sm font-semibold text-foreground">
@@ -389,7 +394,8 @@ export function AppSettingsPanel({
                         aria-checked={selected}
                         onClick={() => onPickCurrency(code)}
                         className={cn(
-                          "rounded-xl px-3 py-1.5 text-caption font-semibold transition-[color,background-color] duration-150",
+                          "min-h-10 cursor-pointer rounded-full px-3.5 py-2 text-caption font-semibold transition-[color,background-color] duration-150",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           selected
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted/70 text-muted-foreground hover:text-foreground",
@@ -403,8 +409,8 @@ export function AppSettingsPanel({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-              <form onSubmit={onSaveProfile} className="space-y-2.5">
+            <section className="rounded-[1.25rem] border border-border/45 bg-card p-4 shadow-sm">
+              <form onSubmit={onSaveProfile} className="space-y-3">
                 <div>
                   <h2 className="text-body-sm font-semibold text-foreground">
                     پروفایل
@@ -449,8 +455,8 @@ export function AppSettingsPanel({
               </form>
             </section>
 
-            <section className="rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm">
-              <form onSubmit={onChangePassword} className="space-y-2.5">
+            <section className="rounded-[1.25rem] border border-border/45 bg-card p-4 shadow-sm">
+              <form onSubmit={onChangePassword} className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h2 className="text-body-sm font-semibold text-foreground">
@@ -565,10 +571,10 @@ export function AppSettingsPanel({
         ) : null}
 
         {tab === "data" ? (
-          <div className="space-y-2.5">
-            <PwaInstallCard className="p-3.5" />
+          <div className="space-y-3">
+            <PwaInstallCard className="p-4" />
             <AccountBackupPanel />
-            <section className="rounded-2xl border border-destructive/20 bg-card p-3.5 shadow-sm">
+            <section className="rounded-[1.25rem] border border-destructive/20 bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="text-body-sm font-semibold text-destructive">
@@ -608,8 +614,8 @@ export function AppSettingsPanel({
         ) : null}
       </div>
 
-      <footer className="border-t border-border/40 pt-2.5 text-center">
-        <p className="text-micro text-muted-foreground">
+      <footer className="pt-1 text-center">
+        <p className="text-caption text-muted-foreground/85">
           <span translate="no">سوپرحساب</span>
           <span className="mx-1 text-border">·</span>
           <span dir="ltr" className="tabular-nums" translate="no">

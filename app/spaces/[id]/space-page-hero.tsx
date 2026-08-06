@@ -76,11 +76,13 @@ function HeroStat({
   return (
     <div
       className={cn(
-        "flex min-h-[4.25rem] flex-col justify-center rounded-xl bg-on-hero-soft px-3 py-2.5",
+        "flex min-h-17 flex-col justify-center rounded-2xl bg-on-hero/10 px-3.5 py-3 ring-1 ring-on-hero/10",
         className,
       )}
     >
-      <p className="text-caption leading-none text-on-hero/65">{label}</p>
+      <p className="text-caption font-medium leading-none text-on-hero/70">
+        {label}
+      </p>
       <div className="mt-1.5 text-body font-bold leading-snug tabular-nums tracking-tight">
         {children}
       </div>
@@ -91,7 +93,7 @@ function HeroStat({
 function HeroCardFallback() {
   return (
     <div
-      className="mb-4 min-h-[11.5rem] animate-pulse rounded-[1.25rem] bg-primary/15"
+      className="mb-5 min-h-[11.5rem] animate-pulse rounded-3xl bg-primary/15"
       aria-hidden
     />
   );
@@ -100,7 +102,7 @@ function HeroCardFallback() {
 function ChromeIconFallback() {
   return (
     <div
-      className="size-9 shrink-0 animate-pulse rounded-xl bg-muted"
+      className="size-10 shrink-0 animate-pulse rounded-2xl bg-muted"
       aria-hidden
     />
   );
@@ -127,22 +129,18 @@ function SpacePageHeroChrome({
     isPersonalShell || isFamilyShell || isBuildingShell || isFundShell;
 
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <Button
-        asChild
-        variant="outline"
-        size="sm"
-        className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
+    <div className="mb-4 flex items-center gap-2">
+      <Link
+        href="/app"
+        className="inline-flex h-10 cursor-pointer items-center gap-1 rounded-full border border-border/55 bg-card px-3 text-caption font-semibold text-foreground shadow-sm transition-colors duration-150 hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Link href="/app">
-          <BackChevron className="size-4 text-muted-foreground" />
-          بازگشت
-        </Link>
-      </Button>
+        <BackChevron className="size-4 text-muted-foreground" />
+        بازگشت
+      </Link>
 
       {showTypedPill ? (
         <div className="ms-auto flex items-center gap-1.5">
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-caption font-semibold text-primary ring-1 ring-primary/15">
+          <span className="rounded-full bg-primary/10 px-2.5 py-1.5 text-caption font-semibold text-primary ring-1 ring-primary/15">
             {isBuildingShell
               ? "ساختمان"
               : isFundShell
@@ -162,17 +160,17 @@ function SpacePageHeroChrome({
             asChild
             variant="outline"
             size="icon"
-            className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+            className="size-10 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
             aria-label="تنظیمات فضا"
           >
             <Link href={`/spaces/${spaceId}/settings`}>
-              <SettingsIcon className="size-4" />
+              <SettingsIcon className="size-5" />
             </Link>
           </Button>
         </div>
       ) : (
         <>
-          <span className="ms-auto max-w-[8rem] truncate rounded-lg bg-ink px-2.5 py-1.5 text-caption font-medium text-primary-foreground">
+          <span className="ms-auto max-w-[8rem] truncate rounded-full bg-ink px-3 py-1.5 text-caption font-semibold text-primary-foreground">
             {isPartner ? "حساب مشترک" : template.label}
           </span>
           {features.settlements ? (
@@ -184,11 +182,11 @@ function SpacePageHeroChrome({
             asChild
             variant="outline"
             size="icon"
-            className="size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm"
+            className="size-10 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
             aria-label="تنظیمات فضا"
           >
             <Link href={`/spaces/${spaceId}/settings`}>
-              <SettingsIcon className="size-4" />
+              <SettingsIcon className="size-5" />
             </Link>
           </Button>
         </>
@@ -398,19 +396,16 @@ async function SpacePageHeroCard({
     <>
       <header
         className={cn(
-          "surface-hero animate-fade-up relative mb-4 overflow-hidden px-4",
-          isPersonalShell || isBuildingShell || isFundShell
-            ? "rounded-[1.4rem] pb-4 pt-4 shadow-md"
-            : "rounded-2xl pb-4 pt-4",
+          "surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-3xl px-5 py-5 shadow-md",
         )}
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-s-10 -top-12 size-32 rounded-full bg-on-hero-soft blur-2xl"
+          className="pointer-events-none absolute -inset-e-10 -top-14 size-40 rounded-full bg-on-hero/12 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-e-8 -bottom-14 size-36 rounded-full bg-black/15 blur-2xl"
+          className="pointer-events-none absolute -inset-s-12 -bottom-10 size-36 rounded-full bg-ink/25 blur-3xl"
         />
         {isBuildingShell ? (
           <div
@@ -605,9 +600,9 @@ async function SpacePageHeroCard({
               settingsHref={`/spaces/${space.id}/settings`}
             />
           ) : isPartner ? (
-            <div className="rounded-xl bg-on-hero-soft px-3.5 py-3">
-              <p className="text-caption text-on-hero/65">مانده شما</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-on-hero">
+            <div className="rounded-2xl bg-on-hero/10 px-3.5 py-3 ring-1 ring-on-hero/10">
+              <p className="text-caption font-medium text-on-hero/70">مانده شما</p>
+              <p className="mt-1.5 text-lg font-bold tabular-nums text-on-hero">
                 {myBalance === 0
                   ? "صاف"
                   : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance), space.currency)}`}

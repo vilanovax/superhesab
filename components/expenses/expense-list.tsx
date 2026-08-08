@@ -14,6 +14,7 @@ import type {
   ExpenseMember,
 } from "@/components/ExpenseForm";
 import { CategoryIcon } from "@/components/expenses/category-icon";
+import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 
 const ExpenseForm = dynamic(
   () =>
@@ -29,6 +30,7 @@ import {
   type InviteMemberRow,
 } from "@/components/spaces/invite-members-button";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
 import { CATEGORY_LABELS } from "@/lib/categorizer";
@@ -50,8 +52,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
 import {
+  formatJalaliYear,
+  monthLabelFa,
+  tehranCivilMonth,
+  tehranCivilYear,
+} from "@/lib/building";
+import {
   expenseDayKey,
   formatDateFa,
+  formatDateFaShort,
   payerName,
   type SpaceCurrency,
 } from "@/lib/format";
@@ -60,6 +69,10 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { getTemplate } from "@/lib/templates/registry";
 import { cn } from "@/lib/utils";
 import type { SpaceRole, SpaceType } from "@/types";
+
+function formatCountFa(n: number): string {
+  return new Intl.NumberFormat("fa-IR", { useGrouping: false }).format(n);
+}
 
 export type ExpenseListItem = {
   id: string;
@@ -86,7 +99,9 @@ export type ExpenseListItem = {
     isVirtual?: boolean;
   } | null;
   splitMode?: "EQUAL" | "EXACT" | "PERCENT";
-  /** Present only after edit fetch; list paint omits splits. */
+  /** Viewer's owed share (list paint when viewerUserId was requested). */
+  myOwedAmount?: number;
+  /** Present only after edit fetch; list paint omits full splits. */
   splits?: {
     userId: string;
     owedAmount: number;
@@ -109,6 +124,8 @@ type ExpenseListProps = {
   canMutate?: boolean;
   /** Jalali year filter (BUILDING) — kept for load-more pagination. */
   expenseYear?: number;
+  /** Trip/partner: Excel·PDF in the list header (not beside tabs). */
+  showExport?: boolean;
 };
 
 function normalizeExpenseDates(item: ExpenseListItem): ExpenseListItem {
@@ -153,25 +170,6 @@ function toInitial(expense: ExpenseForEdit): ExpenseInitialValues {
     splitShares: expense.splitShares,
     splitPercents: expense.splitPercents,
   };
-}
-
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden
-    >
-      <path
-        d="M12.5 6.5 4 15v3.5H7.5L16 10.5M12.5 6.5l2.1-2.1a1.5 1.5 0 0 1 2.1 0l1.9 1.9a1.5 1.5 0 0 1 0 2.1L16 10.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 function expenseAuditLine(
@@ -226,6 +224,61 @@ function groupExpensesByDay(expenses: ExpenseListItem[]) {
   }
 
   return groups;
+}
+
+type MonthGroup = {
+  key: string;
+  year: number;
+  month: number;
+  label: string;
+  items: ExpenseListItem[];
+  expenseTotal: number;
+  expenseCount: number;
+};
+
+/** Group BUILDING expenses by Jalali month (newest first — list order preserved). */
+function groupExpensesByMonth(expenses: ExpenseListItem[]): MonthGroup[] {
+  const groups: MonthGroup[] = [];
+  const indexByKey = new Map<string, number>();
+
+  for (const expense of expenses) {
+    const year = tehranCivilYear(expense.date);
+    const month = tehranCivilMonth(expense.date);
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    const existing = indexByKey.get(key);
+    const isIncome = expense.transactionType === "INCOME";
+    if (existing == null) {
+      indexByKey.set(key, groups.length);
+      groups.push({
+        key,
+        year,
+        month,
+        label: `${monthLabelFa(month)} ${formatJalaliYear(year)}`,
+        items: [expense],
+        expenseTotal: isIncome ? 0 : expense.totalAmount,
+        expenseCount: isIncome ? 0 : 1,
+      });
+    } else {
+      const g = groups[existing]!;
+      g.items.push(expense);
+      if (!isIncome) {
+        g.expenseTotal += expense.totalAmount;
+        g.expenseCount += 1;
+      }
+    }
+  }
+
+  return groups;
+}
+
+function categoryFilterLabel(expense: ExpenseListItem): string {
+  if (
+    expense.category === "OTHER" ||
+    expense.category === "OTHER_INCOME"
+  ) {
+    return expense.categoryLabel?.trim() || CATEGORY_LABELS[expense.category];
+  }
+  return CATEGORY_LABELS[expense.category];
 }
 
 function EditSheet({
@@ -416,6 +469,7 @@ export function ExpenseList({
   spaceType = "TRIP",
   canMutate = true,
   expenseYear,
+  showExport = false,
 }: ExpenseListProps) {
   const [editing, setEditing] = useState<ExpenseForEdit | null>(null);
   const [items, setItems] = useState(() =>
@@ -425,17 +479,36 @@ export function ExpenseList({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | "all">("all");
+  /** `all` | `mine` | other member userId (partner). */
+  const [payerFilter, setPayerFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [catsExpanded, setCatsExpanded] = useState(false);
   const [pendingMore, startMoreTransition] = useTransition();
   const [pendingEdit, startEditTransition] = useTransition();
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const isOwner = currentUserRole === "OWNER";
   const features = getTemplate(spaceType).features;
+  const isBuilding = features.buildingCharges;
+  /** Trip / partner shared-expense list (not building, not personal/family). */
+  const isTripStyle = !isBuilding && !features.incomeExpense;
+  const isPartner = spaceType === "PARTNER";
+  const partnerMember = isPartner
+    ? members.find((m) => m.userId !== currentUserId)
+    : undefined;
+  const partnerChipLabel = partnerMember
+    ? payerName(partnerMember, { isCurrentUser: false })
+    : null;
 
   useEffect(() => {
     setItems(expensesProp.map(normalizeExpenseDates));
     setHasMore(expensesHasMoreProp);
     setLoadError(null);
-  }, [expensesProp, expensesHasMoreProp]);
+    setCategoryFilter("all");
+    setPayerFilter("all");
+    setSearchQuery("");
+    setCatsExpanded(false);
+  }, [expensesProp, expensesHasMoreProp, expenseYear]);
 
   function canEditExpense(expense: ExpenseListItem): boolean {
     if (!canMutate) return false;
@@ -540,149 +613,494 @@ export function ExpenseList({
     );
   }
 
-  const dayGroups = groupExpensesByDay(items);
+  const filterChips = (() => {
+    if (!isBuilding && !isTripStyle) {
+      return [] as { id: string; label: string; count: number }[];
+    }
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const expense of items) {
+      const id = expense.category;
+      const label = categoryFilterLabel(expense);
+      const prev = counts.get(id);
+      if (prev) prev.count += 1;
+      else counts.set(id, { label, count: 1 });
+    }
+    return [...counts.entries()]
+      .map(([id, v]) => ({ id, label: v.label, count: v.count }))
+      .sort((a, b) => b.count - a.count);
+  })();
+
+  const searchNorm = searchQuery.trim().toLowerCase();
+  const visibleItems = items.filter((e) => {
+    if (isTripStyle && payerFilter === "mine" && e.paidById !== currentUserId) {
+      return false;
+    }
+    if (
+      isTripStyle &&
+      payerFilter !== "all" &&
+      payerFilter !== "mine" &&
+      e.paidById !== payerFilter
+    ) {
+      return false;
+    }
+    if (categoryFilter !== "all" && e.category !== categoryFilter) {
+      return false;
+    }
+    if (searchNorm) {
+      const hay = `${e.title} ${e.categoryLabel ?? ""}`.toLowerCase();
+      if (!hay.includes(searchNorm)) return false;
+    }
+    return true;
+  });
+
+  const listExpenseCount = visibleItems.reduce(
+    (n, e) => (e.transactionType === "INCOME" ? n : n + 1),
+    0,
+  );
+  const primaryCats = filterChips.slice(0, 3);
+  const extraCats = filterChips.slice(3);
+  const showSearch = isTripStyle && items.length >= 10;
+
+  const dayGroups = groupExpensesByDay(visibleItems);
+  const monthGroups = isBuilding
+    ? groupExpensesByMonth(visibleItems)
+    : null;
   let rowIndex = 0;
+
+  function renderExpenseRow(expense: ExpenseListItem) {
+    const delay = Math.min(rowIndex, 8) * 40;
+    rowIndex += 1;
+    const isIncome = expense.transactionType === "INCOME";
+    const categoryText =
+      expense.category === "OTHER" || expense.category === "OTHER_INCOME"
+        ? expense.categoryLabel?.trim() || CATEGORY_LABELS[expense.category]
+        : formatCategoryWithTag(
+            CATEGORY_LABELS[expense.category],
+            expense.categoryLabel,
+          );
+    const audit = expenseAuditLine(expense, currentUserId);
+    /** Trip list stays dense — audit only in edit sheet / building edit rows. */
+    const showAudit =
+      Boolean(audit) &&
+      isBuilding &&
+      (audit?.startsWith("ویرایش") ?? false);
+    const payer = payerName(expense.paidBy, {
+      isCurrentUser: expense.paidById === currentUserId,
+    });
+    const myShare =
+      isTripStyle &&
+      !isIncome &&
+      expense.myOwedAmount != null &&
+      expense.myOwedAmount > 0
+        ? formatCurrency(expense.myOwedAmount, currency)
+        : null;
+    const metaLine = isBuilding
+      ? isIncome
+        ? `${categoryText} · درآمد`
+        : categoryText
+      : features.incomeExpense
+        ? `${categoryText} · ${isIncome ? "درآمد" : "هزینه"}`
+        : myShare
+          ? `${categoryText} · ${payer} · سهم شما ${myShare}`
+          : `${categoryText} · ${payer}`;
+
+    const rowBody = (
+      <>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CategoryIcon
+            category={expense.category}
+            className={isBuilding || isTripStyle ? "size-9" : undefined}
+          />
+          <div className="min-w-0 space-y-0.5">
+            <p
+              className={cn(
+                "truncate text-foreground",
+                isBuilding || isTripStyle
+                  ? "text-caption font-semibold"
+                  : "font-semibold",
+              )}
+            >
+              {expense.title}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {metaLine}
+            </p>
+            {showAudit ? (
+              <p className="truncate text-caption text-muted-foreground/80">
+                {audit}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <p
+          className={cn(
+            "shrink-0 text-caption font-bold tabular-nums",
+            isIncome
+              ? "text-success"
+              : isTripStyle
+                ? "text-foreground"
+                : isBuilding
+                  ? "rounded-lg bg-primary/10 px-2 py-0.5 text-body-sm text-primary"
+                  : "rounded-lg bg-secondary/70 px-2 py-0.5 text-body-sm text-ink",
+          )}
+        >
+          {isIncome ? "+" : ""}
+          {formatCurrency(expense.totalAmount, currency)}
+        </p>
+      </>
+    );
+    const rowLoading = loadingEditId === expense.id;
+    return (
+      <li
+        key={expense.id}
+        className={cn(
+          "group relative overflow-hidden transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]",
+          isTripStyle
+            ? "bg-card"
+            : "rounded-2xl border bg-card hover:border-primary/25",
+          !isTripStyle &&
+            (isBuilding ? "border-border/50" : "border-border/70 bg-card/90"),
+        )}
+        style={{ animationDelay: `${delay}ms` }}
+      >
+        {!isTripStyle ? (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute inset-y-0 inset-s-0 w-1 opacity-80",
+              isIncome
+                ? "bg-success"
+                : "bg-linear-to-b from-primary to-highlight",
+            )}
+          />
+        ) : null}
+        {canEditExpense(expense) ? (
+          <button
+            type="button"
+            onClick={() => onOpenEdit(expense)}
+            disabled={pendingEdit}
+            aria-busy={rowLoading || undefined}
+            aria-label={
+              rowLoading
+                ? `در حال بارگذاری ${expense.title}`
+                : `ویرایش ${expense.title}`
+            }
+            className={cn(
+              "flex w-full items-center justify-between gap-3 text-start",
+              isTripStyle ? "px-3 py-2.5" : "px-3.5 py-2.5",
+              !isTripStyle && "ps-4",
+              "transition-transform duration-150 active:scale-[0.99]",
+              rowLoading && "opacity-70",
+            )}
+          >
+            {rowBody}
+          </button>
+        ) : (
+          <div
+            className={cn(
+              "flex w-full items-center justify-between gap-3 text-start",
+              isTripStyle ? "px-3 py-2.5" : "px-3.5 py-2.5",
+              !isTripStyle && "ps-4",
+            )}
+          >
+            {rowBody}
+          </div>
+        )}
+      </li>
+    );
+  }
 
   return (
     <>
-      <div className="animate-fade-up space-y-5">
-        {dayGroups.map((group, groupIndex) => (
-          <section
-            key={group.key}
-            className="space-y-2"
-            aria-labelledby={`expense-day-${group.key}`}
+      {isTripStyle ? (
+        <div className="mb-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <p className="min-w-0 text-caption text-muted-foreground">
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatCountFa(listExpenseCount)}
+              </span>
+              {" هزینه"}
+              {searchNorm || payerFilter !== "all" || categoryFilter !== "all"
+                ? " (فیلتر)"
+                : null}
+            </p>
+            {showExport ? (
+              <ReportExportButtons spaceId={spaceId} variant="menu" />
+            ) : null}
+          </div>
+          {showSearch ? (
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="جستجو در عنوان…"
+              className="h-9 rounded-xl border-border/50 bg-card text-caption"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          ) : null}
+          <div
+            role="toolbar"
+            aria-label="فیلتر هزینه"
+            className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none"
           >
-            <div
+            <button
+              type="button"
+              onClick={() => {
+                setPayerFilter("all");
+                setCategoryFilter("all");
+              }}
               className={cn(
-                "flex items-center gap-2.5 px-0.5",
-                groupIndex > 0 && "pt-1",
+                "h-8 shrink-0 rounded-full px-2.5 text-[11px] font-semibold transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                payerFilter === "all" && categoryFilter === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
               )}
             >
-              <h2
-                id={`expense-day-${group.key}`}
-                className="shrink-0 scroll-mt-20 text-label font-semibold text-muted-foreground"
+              همه
+              <span className="ms-1 tabular-nums opacity-80">
+                {formatCountFa(items.length)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPayerFilter((p) => (p === "mine" ? "all" : "mine"));
+                setCategoryFilter("all");
+              }}
+              className={cn(
+                "h-8 shrink-0 rounded-full px-2.5 text-[11px] font-semibold transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                payerFilter === "mine"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+              )}
+            >
+              {isPartner ? "من پرداخت کردم" : "من پرداختم"}
+            </button>
+            {isPartner && partnerMember && partnerChipLabel ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPayerFilter((p) =>
+                    p === partnerMember.userId ? "all" : partnerMember.userId,
+                  );
+                  setCategoryFilter("all");
+                }}
+                className={cn(
+                  "h-8 shrink-0 rounded-full px-2.5 text-[11px] font-semibold transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  payerFilter === partnerMember.userId
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                )}
               >
-                {group.label}
-              </h2>
-              <div
-                aria-hidden
-                className="h-px flex-1 bg-border/55"
-              />
-            </div>
+                {partnerChipLabel}
+              </button>
+            ) : null}
+            {(catsExpanded ? filterChips : primaryCats).map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => {
+                  setPayerFilter("all");
+                  setCategoryFilter((prev) =>
+                    prev === chip.id ? "all" : chip.id,
+                  );
+                }}
+                className={cn(
+                  "h-8 shrink-0 rounded-full px-2.5 text-[11px] font-semibold transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  categoryFilter === chip.id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                )}
+              >
+                {chip.label}
+                <span className="ms-1 tabular-nums opacity-80">
+                  {formatCountFa(chip.count)}
+                </span>
+              </button>
+            ))}
+            {extraCats.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCatsExpanded((v) => !v)}
+                className="h-8 shrink-0 rounded-full border border-border/50 bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {catsExpanded
+                  ? "کمتر"
+                  : `+${formatCountFa(extraCats.length)} بیشتر`}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
-            <ul className="space-y-2">
-              {group.items.map((expense) => {
-                const delay = Math.min(rowIndex, 8) * 40;
-                rowIndex += 1;
-                const rowBody = (
-                  <>
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <CategoryIcon category={expense.category} />
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="truncate font-semibold text-foreground">
-                          {expense.title}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          <span className="text-foreground/70">
-                            {expense.category === "OTHER" ||
-                            expense.category === "OTHER_INCOME"
-                              ? expense.categoryLabel?.trim() ||
-                                CATEGORY_LABELS[expense.category]
-                              : formatCategoryWithTag(
-                                  CATEGORY_LABELS[expense.category],
-                                  expense.categoryLabel,
-                                )}
-                          </span>
-                          {" · "}
-                          {features.incomeExpense
-                            ? expense.transactionType === "INCOME"
-                              ? "درآمد"
-                              : "هزینه"
-                            : payerName(expense.paidBy, {
-                                isCurrentUser:
-                                  expense.paidById === currentUserId,
-                              })}
-                        </p>
-                        {(() => {
-                          const audit = expenseAuditLine(
-                            expense,
-                            currentUserId,
-                          );
-                          return audit ? (
-                            <p className="truncate text-caption text-muted-foreground/80">
-                              {audit}
-                            </p>
-                          ) : null;
-                        })()}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <p
-                        className={cn(
-                          "rounded-lg px-2 py-0.5 text-body-sm font-bold tabular-nums",
-                          expense.transactionType === "INCOME"
-                            ? "bg-success-soft text-success"
-                            : "bg-secondary/70 text-ink",
-                        )}
-                      >
-                        {expense.transactionType === "INCOME" ? "+" : ""}
-                        {formatCurrency(expense.totalAmount, currency)}
-                      </p>
-                      {canEditExpense(expense) ? (
-                        <span
-                          className={cn(
-                            "inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-secondary/80 group-hover:text-primary",
-                            loadingEditId === expense.id && "animate-pulse",
-                          )}
-                          aria-hidden
-                        >
-                          <PencilIcon className="size-4" />
-                        </span>
-                      ) : null}
-                    </div>
-                  </>
-                );
-                const rowLoading = loadingEditId === expense.id;
-                return (
-                  <li
-                    key={expense.id}
-                    className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_4.75rem] hover:border-primary/25"
-                    style={{ animationDelay: `${delay}ms` }}
+      {isBuilding && filterChips.length > 1 ? (
+        <div
+          role="toolbar"
+          aria-label="فیلتر دسته هزینه"
+          className="mb-3 flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none"
+        >
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={cn(
+              "h-9 shrink-0 rounded-full px-3 text-caption font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              categoryFilter === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+            )}
+          >
+            همه
+            <span className="ms-1 tabular-nums opacity-80">
+              {formatCountFa(items.length)}
+            </span>
+          </button>
+          {filterChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() =>
+                setCategoryFilter((prev) =>
+                  prev === chip.id ? "all" : chip.id,
+                )
+              }
+              className={cn(
+                "h-9 shrink-0 rounded-full px-3 text-caption font-semibold transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                categoryFilter === chip.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+              )}
+            >
+              {chip.label}
+              <span className="ms-1 tabular-nums opacity-80">
+                {formatCountFa(chip.count)}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {(isBuilding || isTripStyle) && visibleItems.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border/55 px-4 py-8 text-center text-body-sm text-muted-foreground">
+          با این فیلتر هزینه‌ای نیست. فیلتر را عوض کنید.
+        </p>
+      ) : null}
+
+      <div
+        className={cn(
+          "animate-fade-up",
+          isTripStyle ? "space-y-0" : "space-y-5",
+          canMutate && (isTripStyle ? "pb-28" : "pb-24"),
+        )}
+      >
+        {monthGroups
+          ? monthGroups.map((month) => {
+              const days = groupExpensesByDay(month.items);
+              return (
+                <section
+                  key={month.key}
+                  className="space-y-2.5"
+                  aria-labelledby={`expense-month-${month.key}`}
+                >
+                  <div
+                    className="sticky top-0 z-10 -mx-1 flex items-center justify-between gap-2 rounded-2xl border border-border/45 bg-background/95 px-3 py-2.5 shadow-sm backdrop-blur-sm supports-backdrop-filter:bg-background/85"
                   >
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-0 inset-s-0 w-1 bg-linear-to-b from-primary to-highlight opacity-80"
-                    />
-                    {canEditExpense(expense) ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenEdit(expense)}
-                        disabled={pendingEdit}
-                        aria-busy={rowLoading || undefined}
-                        aria-label={
-                          rowLoading
-                            ? `در حال بارگذاری ${expense.title}`
-                            : `ویرایش ${expense.title}`
-                        }
-                        className={cn(
-                          "flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start",
-                          "transition-transform duration-150 active:scale-[0.99]",
-                          rowLoading && "opacity-70",
-                        )}
+                    <div className="min-w-0">
+                      <h2
+                        id={`expense-month-${month.key}`}
+                        className="truncate text-body-sm font-bold text-foreground"
                       >
-                        {rowBody}
-                      </button>
-                    ) : (
-                      <div className="flex w-full items-center justify-between gap-3 px-3.5 py-3 ps-4 text-start">
-                        {rowBody}
+                        {month.label}
+                      </h2>
+                      <p className="mt-0.5 text-micro text-muted-foreground">
+                        {formatCountFa(month.expenseCount)} هزینه
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-body-sm font-bold tabular-nums text-primary">
+                      {formatCurrency(month.expenseTotal, currency)}
+                    </p>
+                  </div>
+
+                  {days.map((group) => (
+                    <div key={group.key} className="space-y-1.5">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="rounded-md bg-muted/80 px-2 py-0.5 text-micro font-semibold text-muted-foreground">
+                          {group.label}
+                        </span>
+                        <div
+                          aria-hidden
+                          className="h-px flex-1 bg-border/40"
+                        />
                       </div>
+                      <ul className="space-y-1.5">
+                        {group.items.map((expense) =>
+                          renderExpenseRow(expense),
+                        )}
+                      </ul>
+                    </div>
+                  ))}
+                </section>
+              );
+            })
+          : isTripStyle ? (
+              <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+                {dayGroups.map((group, groupIndex) => (
+                  <section
+                    key={group.key}
+                    aria-labelledby={`expense-day-${group.key}`}
+                  >
+                    <h2
+                      id={`expense-day-${group.key}`}
+                      className={cn(
+                        "scroll-mt-20 bg-muted/35 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground",
+                        groupIndex > 0 && "border-t border-border/40",
+                      )}
+                    >
+                      {formatDateFaShort(group.items[0]!.date)}
+                    </h2>
+                    <ul className="divide-y divide-border/35">
+                      {group.items.map((expense) =>
+                        renderExpenseRow(expense),
+                      )}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              dayGroups.map((group, groupIndex) => (
+                <section
+                  key={group.key}
+                  className="space-y-2"
+                  aria-labelledby={`expense-day-${group.key}`}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center gap-2.5 px-0.5",
+                      groupIndex > 0 && "pt-1",
                     )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                  >
+                    <h2
+                      id={`expense-day-${group.key}`}
+                      className="shrink-0 scroll-mt-20 text-label font-semibold text-muted-foreground"
+                    >
+                      {group.label}
+                    </h2>
+                    <div
+                      aria-hidden
+                      className="h-px flex-1 bg-border/55"
+                    />
+                  </div>
+                  <ul className="space-y-2">
+                    {group.items.map((expense) => renderExpenseRow(expense))}
+                  </ul>
+                </section>
+              ))
+            )}
       </div>
 
       {editLoadError ? (

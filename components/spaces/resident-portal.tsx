@@ -121,7 +121,7 @@ export function ResidentPortal({
 
   return (
     <div className="space-y-4">
-      <header className="surface-hero animate-fade-up rounded-2xl p-5">
+      <header className="surface-hero animate-fade-up relative overflow-hidden rounded-3xl px-5 py-5 shadow-md">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-caption text-on-hero/70">
@@ -177,27 +177,27 @@ export function ResidentPortal({
         onValueChange={selectTab}
         className="w-full"
       >
-        <TabsList className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1">
-          <TabsTrigger value="announcements" className="rounded-xl px-1">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="announcements" className="px-1">
             اعلان
             {unreadAnnouncements > 0 ? (
-              <span className="ms-0.5 text-micro text-primary" aria-hidden>
+              <span className="ms-0.5 text-micro opacity-90" aria-hidden>
                 {faDigits(unreadAnnouncements)}
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="payments" className="rounded-xl px-1">
+          <TabsTrigger value="payments" className="px-1">
             پرداخت
             {unreadPayments > 0 ? (
-              <span className="ms-0.5 text-micro text-primary" aria-hidden>
+              <span className="ms-0.5 text-micro opacity-90" aria-hidden>
                 {faDigits(unreadPayments)}
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="rounded-xl px-1">
+          <TabsTrigger value="expenses" className="px-1">
             هزینه
           </TabsTrigger>
-          <TabsTrigger value="suggestions" className="rounded-xl px-1">
+          <TabsTrigger value="suggestions" className="px-1">
             پیشنهاد
           </TabsTrigger>
         </TabsList>

@@ -34,6 +34,7 @@ export type LoadDeferredTabArgs = {
   reportRange: { start: Date; end: Date } | null;
   hiddenCategories: ExpenseCategory[];
   features: TemplateFeatures;
+  viewerUserId?: string;
   /**
    * When false, skip charge proofs on the charges tab (client loads after paint).
    * Default true for client tab switches.
@@ -149,6 +150,7 @@ export async function loadDeferredTabData(
           hiddenCategories,
           dateFrom: bounds?.start,
           dateTo: bounds?.end,
+          viewerUserId: args.viewerUserId,
         });
         out.expenses = page.expenses;
         out.expensesHasMore = page.hasMore;

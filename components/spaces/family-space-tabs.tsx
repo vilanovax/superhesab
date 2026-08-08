@@ -161,7 +161,7 @@ export function FamilySpaceTabs({
       <TabsList
         aria-label="زبانه‌های دفتر"
         className={cn(
-          "grid h-11 w-full rounded-2xl bg-muted/70 p-1",
+          "grid w-full",
           tabCount >= 4
             ? "grid-cols-4"
             : tabCount === 3
@@ -171,7 +171,6 @@ export function FamilySpaceTabs({
       >
         <TabsTrigger
           value="expenses"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("expenses")}
           onFocus={() => prefetchTab("expenses")}
         >
@@ -179,7 +178,6 @@ export function FamilySpaceTabs({
         </TabsTrigger>
         <TabsTrigger
           value="report"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("report")}
           onFocus={() => prefetchTab("report")}
         >
@@ -188,7 +186,6 @@ export function FamilySpaceTabs({
         {showDebts ? (
           <TabsTrigger
             value="debts"
-            className="rounded-xl"
             onPointerEnter={() => prefetchTab("debts")}
             onFocus={() => prefetchTab("debts")}
           >
@@ -198,7 +195,6 @@ export function FamilySpaceTabs({
         {showFamilyFunds ? (
           <TabsTrigger
             value="funds"
-            className="rounded-xl"
             onPointerEnter={() => prefetchTab("funds")}
             onFocus={() => prefetchTab("funds")}
           >

@@ -120,7 +120,8 @@ export function TabsList({
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
       className={cn(
-        "grid h-10 gap-0.5 rounded-xl border border-border/60 bg-card/70 p-1 shadow-none backdrop-blur-sm",
+        // Match settings/auth segmented control: bordered card chrome, primary active.
+        "grid h-12 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm",
         className ?? "grid-cols-2",
       )}
     >
@@ -157,12 +158,13 @@ export function TabsTrigger({
       onPointerEnter={onPointerEnter}
       onFocus={onFocus}
       className={cn(
-        "inline-flex h-8 items-center justify-center rounded-lg text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
+        "inline-flex h-10 min-w-0 items-center justify-center rounded-xl px-1.5 text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
         // Color utilities must come after className — text-body-sm merges with text-* and would wipe them.
         selected
           ? "bg-primary text-primary-foreground shadow-sm"
-          : "bg-transparent text-muted-foreground hover:bg-card/80 hover:text-foreground",
+          : "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
       {children}

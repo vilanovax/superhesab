@@ -65,9 +65,13 @@ function loadSpaceTabDataDeduped(input: {
 export function syncTabQuery(tab: string) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (url.searchParams.get("tab") === tab) return;
-  url.searchParams.set("tab", tab);
-  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  if (url.searchParams.get("tab") !== tab) {
+    url.searchParams.set("tab", tab);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }
+  window.dispatchEvent(
+    new CustomEvent("superhesab:space-tab", { detail: { tab } }),
+  );
 }
 
 function mergeDeferred(

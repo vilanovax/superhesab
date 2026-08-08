@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type ReportExportButtonsProps = {
@@ -7,10 +8,11 @@ type ReportExportButtonsProps = {
   /** Query string without leading `?` (e.g. year=1405&month=4). */
   query?: string;
   /**
-   * compact — small links beside tabs (default for trip/partner toolbar)
-   * row — full-width pair under a panel header (report tabs)
+   * compact — small Excel|PDF pair
+   * row — full-width pair under a panel header
+   * menu — single «خروجی» control with Excel/PDF links
    */
-  variant?: "compact" | "row";
+  variant?: "compact" | "row" | "menu";
   className?: string;
 };
 
@@ -40,6 +42,24 @@ export function ReportExportButtons({
 }: ReportExportButtonsProps) {
   const qs = query ? `&${query.replace(/^\?/, "")}` : "";
   const base = `/api/spaces/${spaceId}/export/report`;
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   if (variant === "row") {
     return (
@@ -66,6 +86,48 @@ export function ReportExportButtons({
           <FileIcon className="size-3.5" />
           PDF
         </a>
+      </div>
+    );
+  }
+
+  if (variant === "menu") {
+    return (
+      <div ref={rootRef} className={cn("relative shrink-0", className)}>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex h-8 items-center gap-1 rounded-xl border border-border/50 bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"
+        >
+          <FileIcon className="size-3.5" />
+          خروجی
+        </button>
+        {open ? (
+          <div
+            role="menu"
+            className="absolute end-0 top-[calc(100%+0.35rem)] z-30 min-w-[8.5rem] overflow-hidden rounded-xl border border-border/55 bg-card py-1 shadow-md"
+          >
+            <a
+              role="menuitem"
+              href={`${base}?format=xlsx${qs}`}
+              download
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-caption font-semibold text-foreground transition-colors hover:bg-muted/60"
+            >
+              Excel
+            </a>
+            <a
+              role="menuitem"
+              href={`${base}?format=pdf${qs}`}
+              download
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-caption font-semibold text-foreground transition-colors hover:bg-muted/60"
+            >
+              PDF
+            </a>
+          </div>
+        ) : null}
       </div>
     );
   }

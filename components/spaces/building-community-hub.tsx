@@ -67,7 +67,7 @@ export function BuildingCommunityHub({
       <div
         role="tablist"
         aria-label="برد جامعه"
-        className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/80 p-1 ring-1 ring-border/40"
+        className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
       >
         <button
           type="button"
@@ -77,10 +77,11 @@ export function BuildingCommunityHub({
           aria-selected={view === "announcements"}
           onClick={() => selectView("announcements")}
           className={cn(
-            "relative h-10 rounded-xl text-caption font-semibold transition-[background-color,color,box-shadow]",
+            "relative flex h-11 items-center justify-center rounded-xl text-body-sm font-semibold transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             view === "announcements"
-              ? "bg-card text-foreground shadow-sm ring-1 ring-border/50"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
           )}
         >
           اعلان‌ها
@@ -89,7 +90,7 @@ export function BuildingCommunityHub({
               className={cn(
                 "ms-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-micro tabular-nums",
                 view === "announcements"
-                  ? "bg-primary/12 text-primary"
+                  ? "bg-on-hero/20 text-on-hero"
                   : "bg-muted-foreground/15 text-muted-foreground",
               )}
             >
@@ -105,10 +106,11 @@ export function BuildingCommunityHub({
           aria-selected={view === "suggestions"}
           onClick={() => selectView("suggestions")}
           className={cn(
-            "relative h-10 rounded-xl text-caption font-semibold transition-[background-color,color,box-shadow]",
+            "relative flex h-11 items-center justify-center rounded-xl text-body-sm font-semibold transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             view === "suggestions"
-              ? "bg-card text-foreground shadow-sm ring-1 ring-border/50"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
           )}
         >
           پیشنهادات
@@ -117,7 +119,7 @@ export function BuildingCommunityHub({
               className={cn(
                 "ms-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-micro tabular-nums",
                 view === "suggestions"
-                  ? "bg-primary/12 text-primary"
+                  ? "bg-on-hero/20 text-on-hero"
                   : "bg-amber-500/15 text-amber-800 dark:text-amber-200",
               )}
             >

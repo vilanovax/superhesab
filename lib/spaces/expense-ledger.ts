@@ -77,6 +77,8 @@ export async function queryExpenseLedgerPage(args: {
   pageSize?: number;
   dateFrom?: Date;
   dateTo?: Date;
+  /** When set, attaches `myOwedAmount` from that viewer's split. */
+  viewerUserId?: string;
 }) {
   const pageSize = args.pageSize ?? EXPENSE_PAGE_SIZE;
   const privacy = categoryPrivacyFilter(args.hiddenCategories);
@@ -110,12 +112,37 @@ export async function queryExpenseLedgerPage(args: {
       ...dateWhere,
       ...cursorWhere,
     },
-    select: expenseListSelect,
+    select: args.viewerUserId
+      ? {
+          ...expenseListSelect,
+          splits: {
+            where: { userId: args.viewerUserId },
+            select: { owedAmount: true },
+            take: 1,
+          },
+        }
+      : expenseListSelect,
     orderBy: [{ date: "desc" }, { id: "desc" }],
     take: pageSize + 1,
   });
 
   const hasMore = rows.length > pageSize;
-  const expenses = hasMore ? rows.slice(0, pageSize) : rows;
+  const page = hasMore ? rows.slice(0, pageSize) : rows;
+
+  if (!args.viewerUserId) {
+    return { expenses: page, hasMore };
+  }
+
+  const expenses = page.map((row) => {
+    const withSplits = row as typeof row & {
+      splits?: { owedAmount: number }[];
+    };
+    const { splits, ...rest } = withSplits;
+    const myOwedAmount = splits?.[0]?.owedAmount;
+    return {
+      ...rest,
+      ...(myOwedAmount != null ? { myOwedAmount } : {}),
+    };
+  });
   return { expenses, hasMore };
 }

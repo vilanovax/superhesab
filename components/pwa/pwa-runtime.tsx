@@ -72,6 +72,26 @@ export function PwaRuntime() {
 
     const boot = window.setTimeout(() => {
       if (!("serviceWorker" in navigator)) return;
+
+      // Dev: unregister so Turbopack chunk hashes are never cache-first'd (404s).
+      const host = window.location.hostname;
+      const isDevHost =
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "[::1]" ||
+        host.endsWith(".local");
+      if (isDevHost || process.env.NODE_ENV !== "production") {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) =>
+            Promise.all(regs.map((reg) => reg.unregister())),
+          )
+          .catch(() => {
+            // non-fatal
+          });
+        return;
+      }
+
       void navigator.serviceWorker
         .register("/sw.js", { scope: "/", updateViaCache: "none" })
         .then((reg) => {

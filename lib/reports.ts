@@ -91,3 +91,37 @@ export function colorForCustomLabel(label: string): string {
   }
   return CUSTOM_PALETTE[hash % CUSTOM_PALETTE.length]!;
 }
+
+/**
+ * Building report: roll bill tags (آب/برق/…) into one «قبوض» slice so the
+ * donut doesn't duplicate `BuildingBillsBreakdown`.
+ */
+export function collapseBuildingBillsForChart(
+  rows: CategoryExpenseRow[],
+): CategoryExpenseRow[] {
+  const billsKey = categoryChartKey("BUILDING_BILLS");
+  let billsAmount = 0;
+  const others: CategoryExpenseRow[] = [];
+
+  for (const row of rows) {
+    if (row.category === "BUILDING_BILLS") {
+      billsAmount += row.amount;
+      continue;
+    }
+    others.push(row);
+  }
+
+  if (billsAmount <= 0) return others;
+
+  const collapsed: CategoryExpenseRow = {
+    category: "BUILDING_BILLS",
+    amount: billsAmount,
+    key: billsKey,
+    label: categoryChartLabel("BUILDING_BILLS"),
+    fill:
+      CATEGORY_CHART_COLORS.BUILDING_BILLS ??
+      `var(--color-${billsKey})`,
+  };
+
+  return [...others, collapsed].sort((a, b) => b.amount - a.amount);
+}

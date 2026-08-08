@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
-import { BuildingExpenseYearFilter } from "@/components/spaces/building-expense-year-filter";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
@@ -202,11 +201,10 @@ export function BuildingSpaceTabs({
     >
       <TabsList
         aria-label="زبانه‌های دفتر"
-        className="grid h-11 w-full grid-cols-4 rounded-2xl bg-muted/70 p-1"
+        className="grid w-full grid-cols-4"
       >
         <TabsTrigger
           value="expenses"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("expenses")}
           onFocus={() => prefetchTab("expenses")}
         >
@@ -214,7 +212,6 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
         <TabsTrigger
           value="charges"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("charges")}
           onFocus={() => prefetchTab("charges")}
         >
@@ -222,7 +219,6 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
         <TabsTrigger
           value="units"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("units")}
           onFocus={() => prefetchTab("units")}
         >
@@ -230,7 +226,6 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
         <TabsTrigger
           value="report"
-          className="rounded-xl"
           onPointerEnter={() => prefetchTab("report")}
           onFocus={() => prefetchTab("report")}
         >
@@ -238,12 +233,7 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="expenses" className="mt-3">
-        {reportPlanYear != null ? (
-          <BuildingExpenseYearFilter
-            spaceId={spaceId}
-            year={reportPlanYear}
-          />
-        ) : null}
+        {/* Year is controlled from the building hero chip — no second year filter here. */}
         {expensesWaiting ? (
           <SpacePanelFallback rows={4} />
         ) : (
@@ -303,42 +293,41 @@ export function BuildingSpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            <div className="mb-2.5 flex items-start gap-2">
+            <div className="mb-2.5">
               {reportPlanYear != null ? (
-                <div className="min-w-0 flex-1">
-                  <BuildingReportPeriodFilter
+                <BuildingReportPeriodFilter
+                  spaceId={spaceId}
+                  year={reportPlanYear}
+                  month={reportMonth}
+                  actions={
+                    <ReportExportButtons
+                      spaceId={spaceId}
+                      variant="compact"
+                      query={
+                        reportMonth != null
+                          ? `year=${reportPlanYear}&month=${reportMonth}`
+                          : `year=${reportPlanYear}`
+                      }
+                    />
+                  }
+                />
+              ) : (
+                <div className="flex justify-end">
+                  <ReportExportButtons
                     spaceId={spaceId}
-                    year={reportPlanYear}
-                    month={reportMonth}
+                    variant="compact"
+                    query=""
                   />
                 </div>
-              ) : (
-                <div className="min-w-0 flex-1" />
               )}
-              <ReportExportButtons
-                spaceId={spaceId}
-                variant="compact"
-                className="mt-5 shrink-0"
-                query={
-                  reportPlanYear != null
-                    ? reportMonth != null
-                      ? `year=${reportPlanYear}&month=${reportMonth}`
-                      : `year=${reportPlanYear}`
-                    : ""
-                }
-              />
             </div>
-            <div className="space-y-2.5 pb-16">
+            <div className="space-y-2.5 pb-6">
               <BuildingReportInsights
                 section="summary"
                 categoryRows={deferred.personalReportData}
                 expenseLines={deferred.reportExpenseLines}
                 currency={currency}
                 periodLabel={reportPeriodLabel}
-              />
-              <BuildingBillsBreakdown
-                expenseLines={deferred.reportExpenseLines}
-                currency={currency}
               />
               <PersonalReportChart
                 data={deferred.personalReportData}
@@ -350,6 +339,10 @@ export function BuildingSpaceTabs({
                 emptyHint={reportEmptyHint}
                 totalCenterLabel={reportTotalLabel}
                 dense
+              />
+              <BuildingBillsBreakdown
+                expenseLines={deferred.reportExpenseLines}
+                currency={currency}
               />
               <BuildingReportInsights
                 section="rankings"

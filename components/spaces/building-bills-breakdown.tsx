@@ -69,24 +69,24 @@ export function BuildingBillsBreakdown({
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm animate-fade-up"
+      className="overflow-hidden rounded-2xl border border-border/40 bg-card/80 animate-fade-up"
       aria-label="قبوض به‌تفکیک"
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2 px-3 py-2">
         <div className="min-w-0">
           <h2 className="text-pretty text-caption font-semibold text-foreground">
             قبوض
           </h2>
           <p className="text-[10px] text-muted-foreground">
-            {billsCount} مورد · جمع {formatMoney(billsTotal)}
+            تفکیک تگ‌ها · {billsCount} مورد
           </p>
         </div>
-        <span className="shrink-0 rounded-lg bg-sky-500/10 px-2 py-1 text-micro font-bold tabular-nums text-sky-700 dark:text-sky-300">
-          {formatCurrency(billsTotal, currency)}
-        </span>
+        <p className="shrink-0 text-caption font-semibold tabular-nums text-foreground">
+          {formatMoney(billsTotal)}
+        </p>
       </div>
 
-      <ul className="space-y-1.5 px-2.5 pb-2.5">
+      <ul className="divide-y divide-border/30 px-1 pb-1">
         {rows.map((row) => {
           const pct =
             billsTotal > 0
@@ -94,14 +94,11 @@ export function BuildingBillsBreakdown({
               : 0;
           const meta = metaFor(row.tag);
           return (
-            <li
-              key={row.tag}
-              className="rounded-xl bg-muted/35 px-2 py-1.5"
-            >
+            <li key={row.tag} className="px-2 py-1.5">
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-lg text-sm",
+                    "flex size-6 shrink-0 items-center justify-center rounded-md text-xs",
                     meta.tone,
                   )}
                   aria-hidden
@@ -110,29 +107,27 @@ export function BuildingBillsBreakdown({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-caption font-semibold text-foreground">
+                    <p className="truncate text-caption font-medium text-foreground">
                       {row.tag}
                       <span className="ms-1 font-normal text-muted-foreground">
                         · {row.count}
                       </span>
                     </p>
-                    <p className="shrink-0 text-caption font-bold tabular-nums text-foreground">
+                    <p className="shrink-0 text-caption font-semibold tabular-nums text-foreground">
                       {formatCurrency(row.amount, currency)}
+                      <span className="ms-1 text-[10px] font-medium text-muted-foreground">
+                        {pct}٪
+                      </span>
                     </p>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div
+                    className="mt-1 h-1 overflow-hidden rounded-full bg-border/50"
+                    role="presentation"
+                  >
                     <div
-                      className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-border/60"
-                      role="presentation"
-                    >
-                      <div
-                        className="h-full rounded-full bg-sky-500/80 transition-[width] duration-300 ease-out"
-                        style={{ width: `${Math.min(100, pct)}%` }}
-                      />
-                    </div>
-                    <span className="w-8 shrink-0 text-end text-[10px] font-semibold tabular-nums text-muted-foreground">
-                      {pct}٪
-                    </span>
+                      className="h-full rounded-full bg-sky-500/70 transition-[width] duration-300 ease-out"
+                      style={{ width: `${Math.min(100, pct)}%` }}
+                    />
                   </div>
                 </div>
               </div>

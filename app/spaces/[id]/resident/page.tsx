@@ -79,11 +79,11 @@ export default async function ResidentPortalPage({
           asChild
           variant="ghost"
           size="sm"
-          className="rounded-xl bg-card/50 px-3"
+          className="h-10 gap-1 rounded-full border border-border/55 bg-card px-3 text-sm font-medium shadow-none"
         >
           <Link href="/app">← خانه</Link>
         </Button>
-        <span className="rounded-xl bg-ink/90 px-3 py-1.5 text-xs font-medium text-primary-foreground">
+        <span className="max-w-[14rem] truncate rounded-full bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary">
           پرتال ساکن · {space.name}
         </span>
       </div>

@@ -42,8 +42,8 @@ export { formatCurrency } from "@/lib/formatters";
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
-/** Strip separators and normalize Eastern digits → ASCII digits string. */
-export function normalizeDigits(input: string): string {
+/** Map Persian/Arabic-Indic digits to ASCII 0–9; leave other chars unchanged. */
+export function toAsciiDigits(input: string): string {
   return input
     .split("")
     .map((ch) => {
@@ -53,8 +53,20 @@ export function normalizeDigits(input: string): string {
       if (a >= 0) return String(a);
       return ch;
     })
-    .join("")
-    .replace(/\D/g, "");
+    .join("");
+}
+
+/** Strip separators and normalize Eastern digits → ASCII digits string. */
+export function normalizeDigits(input: string): string {
+  return toAsciiDigits(input).replace(/\D/g, "");
+}
+
+/**
+ * Canonical phone for auth lookup/storage.
+ * Eastern digits → ASCII; drop spaces/dashes/parens; keep leading `+`.
+ */
+export function normalizePhone(input: string): string {
+  return toAsciiDigits(input).replace(/[\s\-()]/g, "").trim();
 }
 
 /** Parse a formatted money string into an integer (0 if empty). */
@@ -115,8 +127,11 @@ export function memberLabel(user: {
   phone: string;
   isVirtual?: boolean;
 }): string {
-  const base = user.name?.trim() || (user.isVirtual ? "همسفر" : user.phone);
-  return user.isVirtual ? `${base} (دستی)` : base;
+  const raw = user.name?.trim() || (user.isVirtual ? "همسفر" : user.phone);
+  if (!user.isVirtual) return raw;
+  // Seed / typed names may already include the tag — never double it.
+  const base = raw.replace(/\s*\(دستی\)\s*$/u, "").trim() || "همسفر";
+  return `${base} (دستی)`;
 }
 
 /** Short payer label for lists — never a phone number. */

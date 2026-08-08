@@ -77,6 +77,7 @@ export async function SpacePageBody({
           id,
           hiddenCategoriesKey,
           isBuildingShell ? planYear : undefined,
+          session.userId,
         )
       : Promise.resolve({ expenses: [], hasMore: false }),
     features.settlements
@@ -108,6 +109,7 @@ export async function SpacePageBody({
       planYear,
       reportRange,
       hiddenCategories,
+      viewerUserId: session.userId,
       includeChargeProofs: !skipChargeProofsOnRsc,
     }),
   ]);
@@ -290,6 +292,7 @@ export async function SpacePageBody({
           currency={space.currency}
           spaceType={space.type}
           hiddenCategories={hiddenCategories}
+          activeTab={activeTab}
         />
       ) : null}
     </>

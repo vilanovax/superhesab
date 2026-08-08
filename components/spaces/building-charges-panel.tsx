@@ -33,6 +33,7 @@ import {
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import {
   CHARGE_STATUS_LABELS,
+  defaultChargePaymentIso,
   formatJalaliYear,
   monthLabelFa,
   type ChargeStatusValue,
@@ -42,7 +43,6 @@ import {
   formatMoney,
   type SpaceCurrency,
 } from "@/lib/format";
-import { todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -54,13 +54,14 @@ type PayDraftBaseline = {
   date: string;
 };
 
-type ChargesView = "month" | "calendar";
+type ChargesView = "month" | "cal-month" | "cal-year";
 
 function readChargesView(): ChargesView {
-  if (typeof window === "undefined") return "calendar";
-  return new URL(window.location.href).searchParams.get("cview") === "month"
-    ? "month"
-    : "calendar";
+  if (typeof window === "undefined") return "month";
+  const v = new URL(window.location.href).searchParams.get("cview");
+  if (v === "cal" || v === "calendar") return "cal-month";
+  if (v === "year" || v === "grid") return "cal-year";
+  return "month";
 }
 
 function readChargesMonth(fallback: number): number {
@@ -77,12 +78,15 @@ function syncChargesQuery(view: ChargesView, month: number) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   const prev = `${url.pathname}${url.search}`;
-  if (view === "calendar") url.searchParams.delete("cview");
-  else url.searchParams.set("cview", "month");
+  if (view === "month") url.searchParams.set("cview", "month");
+  else if (view === "cal-month") url.searchParams.set("cview", "cal");
+  else url.searchParams.set("cview", "year");
   url.searchParams.set("cmonth", String(month));
   const next = `${url.pathname}${url.search}`;
-  if (prev === next) return;
-  window.history.replaceState(null, "", next);
+  if (prev !== next) window.history.replaceState(null, "", next);
+  window.dispatchEvent(
+    new CustomEvent("superhesab:charges-view", { detail: { view } }),
+  );
 }
 
 const JalaliDatePicker = dynamic(
@@ -128,12 +132,24 @@ export function BuildingChargesPanel({
   const defaultMonth = Math.max(1, dashboard.throughMonth || 1);
   const [view, setView] = useState<ChargesView>(readChargesView);
   const [month, setMonth] = useState(() => readChargesMonth(defaultMonth));
-  const [debtorsOpen, setDebtorsOpen] = useState(false);
+  const [debtorsOpen, setDebtorsOpen] = useState(
+    () => dashboard.debtors.length > 0 && dashboard.debtors.length <= 6,
+  );
+  const [settledOpen, setSettledOpen] = useState(false);
 
   function selectView(next: ChargesView) {
     setView(next);
     syncChargesQuery(next, month);
   }
+
+  // Announce initial view so FAB can hide on calendar/year deep-links.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("superhesab:charges-view", {
+        detail: { view: readChargesView() },
+      }),
+    );
+  }, []);
 
   function selectMonth(next: number) {
     setMonth(next);
@@ -143,7 +159,9 @@ export function BuildingChargesPanel({
   const [amount, setAmount] = useState(0);
   const [status, setStatus] = useState<ChargeStatusValue>("PAID");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(todayIsoDateTehran());
+  const [date, setDate] = useState(() =>
+    defaultChargePaymentIso(dashboard.year, defaultMonth),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
@@ -223,17 +241,32 @@ export function BuildingChargesPanel({
     });
   }, [activeUnits, paymentByUnit]);
 
+  const { unsettledUnits, settledUnits } = useMemo(() => {
+    const unsettled: UnitDTO[] = [];
+    const settled: UnitDTO[] = [];
+    for (const u of monthUnits) {
+      const s = paymentByUnit.get(u.id)?.status;
+      if (s === "PAID" || s === "WAIVED") settled.push(u);
+      else unsettled.push(u);
+    }
+    return { unsettledUnits: unsettled, settledUnits: settled };
+  }, [monthUnits, paymentByUnit]);
+
   const collectPct =
     activeUnits.length > 0
       ? Math.round((paidThisMonth / activeUnits.length) * 100)
       : 0;
+
+  function defaultPayDate(forMonth: number = month) {
+    return defaultChargePaymentIso(dashboard.year, forMonth);
+  }
 
   function openPay(unit: UnitDTO) {
     const existing = paymentByUnit.get(unit.id);
     const nextAmount = existing?.amount ?? unit.monthlyCharge ?? 0;
     const nextStatus = existing?.status ?? "PAID";
     const nextNote = existing?.note ?? "";
-    const nextDate = existing?.date ?? todayIsoDateTehran();
+    const nextDate = existing?.date ?? defaultPayDate();
     setPayUnit(unit);
     setAmount(nextAmount);
     setStatus(nextStatus);
@@ -248,6 +281,27 @@ export function BuildingChargesPanel({
       date: nextDate,
     };
   }
+
+  /** FAB «ثبت وصول» on the charges tab. */
+  useEffect(() => {
+    if (!canMutate) return;
+    const onCollect = () => {
+      setView("month");
+      syncChargesQuery("month", month);
+      const unpaid = monthUnits.find((u) => {
+        const s = paymentByUnit.get(u.id)?.status;
+        return s !== "PAID" && s !== "WAIVED";
+      });
+      if (unpaid) {
+        openPay(unpaid);
+        return;
+      }
+      showToast("همه واحدهای این ماه تسویه شده‌اند", "success");
+    };
+    window.addEventListener("superhesab:charges-collect", onCollect);
+    return () =>
+      window.removeEventListener("superhesab:charges-collect", onCollect);
+  }, [canMutate, month, monthUnits, paymentByUnit, showToast]);
 
   function openPayFromCalendar(args: {
     unitId: string;
@@ -273,7 +327,8 @@ export function BuildingChargesPanel({
     const nextAmount = args.payment?.amount ?? args.monthlyCharge ?? 0;
     const nextStatus = args.payment?.status ?? "PAID";
     const nextNote = args.payment?.note ?? "";
-    const nextDate = args.payment?.date ?? todayIsoDateTehran();
+    const nextDate =
+      args.payment?.date ?? defaultPayDate(args.month);
     setAmount(nextAmount);
     setStatus(nextStatus);
     setNote(nextNote);
@@ -351,6 +406,9 @@ export function BuildingChargesPanel({
       date,
     };
 
+    const savedUnitId = payUnit.id;
+    const savedStatus = status;
+
     startTransition(async () => {
       const result = await upsertChargePayment(payload);
       if (!result.ok) {
@@ -361,6 +419,21 @@ export function BuildingChargesPanel({
       }
       showToast("ثبت شد");
       payBaseline.current = null;
+
+      const settledOk = savedStatus === "PAID" || savedStatus === "WAIVED";
+      if (settledOk) {
+        const next = monthUnits.find((u) => {
+          if (u.id === savedUnitId) return false;
+          const s = paymentByUnit.get(u.id)?.status;
+          return s !== "PAID" && s !== "WAIVED";
+        });
+        if (next) {
+          openPay(next);
+          router.refresh();
+          return;
+        }
+      }
+
       setPayUnit(null);
       router.refresh();
     });
@@ -399,10 +472,29 @@ export function BuildingChargesPanel({
     );
   }
 
-  const { totals } = dashboard;
+  const viewOptions = [
+    {
+      value: "month" as const,
+      label: "وصول ماهانه",
+      panelId: "charges-panel-month",
+      tabId: "charges-tab-month",
+    },
+    {
+      value: "cal-month" as const,
+      label: "تقویم ماه",
+      panelId: "charges-panel-calendar",
+      tabId: "charges-tab-cal-month",
+    },
+    {
+      value: "cal-year" as const,
+      label: "نمای سال",
+      panelId: "charges-panel-calendar",
+      tabId: "charges-tab-cal-year",
+    },
+  ] as const;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-24">
       {canMutate ? (
         <BuildingProofsInbox
           spaceId={spaceId}
@@ -412,79 +504,58 @@ export function BuildingChargesPanel({
         />
       ) : null}
 
-      {/* KPI first — primary scan target after tabs */}
-      <div className="grid grid-cols-3 gap-1.5">
-        <StatCard
-          label="مقرر"
-          amount={totals.expectedYtd}
-          unit={unitLabel}
-        />
-        <StatCard
-          label="وصول"
-          amount={totals.collectedYtd}
-          unit={unitLabel}
-          tone="success"
-        />
-        <StatCard
-          label="معوق"
-          amount={totals.arrearsTotal}
-          unit={unitLabel}
-          tone={totals.arrearsTotal > 0 ? "danger" : "default"}
-        />
-      </div>
-
-      {/* View switch alone — export lives with content headers */}
+      {/* Single 3-way view — KPIs stay on the building hero */}
       <div
         role="tablist"
         aria-label="نمای شارژ"
-        className="flex gap-1 rounded-2xl bg-muted/70 p-1"
+        className="grid grid-cols-3 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
       >
-        <button
-          type="button"
-          role="tab"
-          id="charges-tab-calendar"
-          aria-controls="charges-panel-calendar"
-          aria-selected={view === "calendar"}
-          onClick={() => selectView("calendar")}
-          className={cn(
-            "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors active:scale-[0.99]",
-            view === "calendar"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          تقویم سال
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="charges-tab-month"
-          aria-controls="charges-panel-month"
-          aria-selected={view === "month"}
-          onClick={() => selectView("month")}
-          className={cn(
-            "h-9 flex-1 rounded-xl text-caption font-semibold transition-colors active:scale-[0.99]",
-            view === "month"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          وصول ماهانه
-        </button>
+        {viewOptions.map((opt) => {
+          const active = view === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              id={opt.tabId}
+              aria-controls={opt.panelId}
+              aria-selected={active}
+              onClick={() => selectView(opt.value)}
+              className={cn(
+                "flex h-10 items-center justify-center rounded-xl px-1.5 text-center transition-colors active:scale-[0.99]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              <span className="text-[11px] font-semibold leading-tight sm:text-caption">
+                {opt.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {view === "calendar" ? (
+      {view === "cal-month" || view === "cal-year" ? (
         <div
           id="charges-panel-calendar"
           role="tabpanel"
-          aria-labelledby="charges-tab-calendar"
-          className="rounded-[1.25rem] border border-border/45 bg-card px-3.5 py-4 shadow-sm"
+          aria-labelledby={
+            view === "cal-year"
+              ? "charges-tab-cal-year"
+              : "charges-tab-cal-month"
+          }
+          className="rounded-[1.25rem] border border-border/45 bg-card px-3.5 py-3.5 shadow-sm"
         >
           {calendar ? (
             <BuildingAnnualCalendar
               spaceId={spaceId}
               calendar={calendar}
               canMutate={canMutate}
+              mode={view === "cal-year" ? "grid" : "month"}
+              hideModeSwitch
+              hideYearNav
               onCellClick={canMutate ? openPayFromCalendar : undefined}
               onUnitClick={openUnitDetail}
               toolbarEnd={
@@ -492,7 +563,7 @@ export function BuildingChargesPanel({
                   spaceId={spaceId}
                   year={dashboard.year}
                   canExport={canMutate}
-                  className="h-9 rounded-xl"
+                  className="h-8 rounded-lg"
                 />
               }
             />
@@ -507,260 +578,209 @@ export function BuildingChargesPanel({
           id="charges-panel-month"
           role="tabpanel"
           aria-labelledby="charges-tab-month"
-          className="space-y-3 pb-16"
+          className="space-y-3"
         >
-          {/* Month hero + export */}
-          <section className="overflow-hidden rounded-2xl border border-border/40 bg-card shadow-sm">
-            <div className="flex items-start justify-between gap-2 px-3.5 pt-3.5">
-              <div className="min-w-0">
-                <p className="text-body font-bold tracking-tight text-foreground">
-                  وصول {monthLabelFa(month)}
-                </p>
-                <p className="mt-0.5 text-caption text-muted-foreground">
-                  {formatJalaliYear(dashboard.year)} · {paidThisMonth} از{" "}
-                  {activeUnits.length} واحد تسویه
-                </p>
-              </div>
-              <BuildingExportButtons
-                spaceId={spaceId}
-                year={dashboard.year}
-                canExport={canMutate}
-              />
+          {/* Month chips + one-line progress (hero holds year KPIs) */}
+          <div className="flex items-center gap-2">
+            <div
+              role="radiogroup"
+              aria-label="انتخاب ماه"
+              className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 scrollbar-none"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                const on = month === m;
+                const isCurrent = m === dashboard.throughMonth;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => selectMonth(m)}
+                    className={cn(
+                      "relative shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-transform active:scale-95 sm:px-3 sm:text-caption",
+                      on
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {monthLabelFa(m)}
+                    {isCurrent && !on ? (
+                      <span
+                        className="absolute inset-x-0 -bottom-1 mx-auto size-1 rounded-full bg-primary/70"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
-
-            <div className="mt-3 px-3.5">
-              <div className="flex items-center justify-between gap-2 text-micro font-medium">
-                <span className="text-muted-foreground">پیشرفت وصول</span>
-                <span className="tabular-nums text-foreground">{collectPct}٪</span>
-              </div>
-              <div
-                className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
-                role="progressbar"
-                aria-valuenow={collectPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="درصد واحدهای تسویه‌شده"
-              >
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-[width] duration-300 ease-out",
-                    collectPct >= 100
-                      ? "bg-success"
-                      : collectPct >= 50
-                        ? "bg-primary"
-                        : "bg-primary/80",
-                  )}
-                  style={{ width: `${collectPct}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-px border-t border-border/40 bg-border/40">
-              <MonthStat
-                label="مقرر ماه"
-                amount={monthStats.expected}
-                unit={unitLabel}
-              />
-              <MonthStat
-                label="وصول‌شده"
-                amount={monthStats.collected}
-                unit={unitLabel}
-                tone="success"
-              />
-              <MonthStat
-                label="مانده واحد"
-                amount={monthStats.unsettled}
-                unit="واحد"
-                tone={monthStats.unsettled > 0 ? "danger" : "success"}
-                isCount
-              />
-            </div>
-          </section>
-
-          {/* Month chips */}
-          <div
-            role="radiogroup"
-            aria-label="انتخاب ماه"
-            className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
-              const on = month === m;
-              const isCurrent = m === dashboard.throughMonth;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => selectMonth(m)}
-                  className={cn(
-                    "relative shrink-0 rounded-full px-3 py-1.5 text-caption font-semibold transition-transform active:scale-95",
-                    on
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {monthLabelFa(m)}
-                  {isCurrent && !on ? (
-                    <span
-                      className="absolute inset-x-0 -bottom-1 mx-auto size-1 rounded-full bg-primary/70"
-                      aria-hidden
-                    />
-                  ) : null}
-                </button>
-              );
-            })}
+            <BuildingExportButtons
+              spaceId={spaceId}
+              year={dashboard.year}
+              canExport={canMutate}
+              className="h-8 shrink-0 rounded-lg"
+            />
           </div>
 
-          {/* Debtors — collapsed by default, one-line */}
+          <div
+            className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-card px-3 py-2 shadow-sm"
+            aria-label="پیشرفت وصول این ماه"
+          >
+            <div
+              className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuenow={collectPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="درصد واحدهای تسویه‌شده این ماه"
+            >
+              <div
+                className={cn(
+                  "h-full rounded-full transition-[width] duration-300 ease-out",
+                  collectPct >= 100
+                    ? "bg-success"
+                    : collectPct >= 50
+                      ? "bg-primary"
+                      : "bg-primary/80",
+                )}
+                style={{ width: `${collectPct}%` }}
+              />
+            </div>
+            <p className="shrink-0 text-[11px] font-bold tabular-nums text-foreground">
+              {paidThisMonth.toLocaleString("fa-IR")}/
+              {activeUnits.length.toLocaleString("fa-IR")}
+            </p>
+            <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+              {collectPct.toLocaleString("fa-IR")}٪
+            </p>
+            {monthStats.unsettled > 0 ? (
+              <p className="shrink-0 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                {monthStats.unsettled.toLocaleString("fa-IR")} باز
+              </p>
+            ) : (
+              <p className="shrink-0 text-[11px] font-semibold text-success">
+                کامل
+              </p>
+            )}
+          </div>
+
+          {/* Year arrears glance — like trip «مانده خالص» debtors */}
           {dashboard.debtors.length > 0 ? (
-            <div className="overflow-hidden rounded-2xl border border-destructive/20 bg-destructive-soft/40">
+            <section className="overflow-hidden rounded-2xl border border-border/45 bg-card shadow-sm">
               <button
                 type="button"
                 aria-expanded={debtorsOpen}
                 aria-controls="building-debtors-panel"
                 onClick={() => setDebtorsOpen((o) => !o)}
-                className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-start transition-colors active:bg-destructive/5"
+                className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-start transition-colors active:bg-muted/40"
               >
-                <span className="text-caption font-semibold text-destructive">
-                  بدهکاران · {dashboard.debtors.length} واحد
+                <span className="text-caption font-bold text-foreground">
+                  معوق سال
+                  <span className="ms-1.5 font-normal text-muted-foreground">
+                    · {dashboard.debtors.length.toLocaleString("fa-IR")} واحد
+                  </span>
                 </span>
-                <span className="text-micro font-medium text-destructive/70">
-                  {debtorsOpen ? "بستن" : "جزئیات"}
+                <span className="text-[11px] font-semibold tabular-nums text-destructive">
+                  {formatMoney(dashboard.totals.arrearsTotal)}
+                  <span className="ms-1.5 font-medium text-muted-foreground">
+                    {debtorsOpen ? "▴" : "▾"}
+                  </span>
                 </span>
               </button>
-              <div id="building-debtors-panel">
-                {debtorsOpen ? (
-                  <ul className="space-y-0 border-t border-destructive/15 px-3.5 pb-2.5 pt-1.5">
-                    {dashboard.debtors.map((u) => (
-                      <li
-                        key={u.id}
-                        className="flex items-center justify-between gap-2 py-1.5 text-caption"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openUnitDetail(u.id)}
-                          className="text-destructive/90 underline-offset-2 hover:underline"
-                        >
-                          واحد {u.name}
-                        </button>
-                        <span className="tabular-nums font-semibold text-destructive">
-                          {formatMoney(u.arrears)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="border-t border-destructive/10 px-3.5 py-1.5 text-micro text-destructive/65">
-                    جمع معوق{" "}
-                    <span className="font-semibold tabular-nums">
-                      {formatMoney(totals.arrearsTotal)}
-                    </span>{" "}
-                    {unitLabel}
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="rounded-xl bg-success-soft/55 px-3 py-2 text-center text-caption font-medium text-success">
-              معوق فعالی نیست
-            </p>
-          )}
-
-          {/* Unit action queue — content-visibility skips offscreen paint */}
-          <ul className="space-y-2">
-            {monthUnits.map((unit) => {
-              const payment = paymentByUnit.get(unit.id);
-              const payStatus = payment?.status;
-              const settled =
-                payStatus === "PAID" || payStatus === "WAIVED";
-              return (
-                <li
-                  key={unit.id}
-                  className={cn(
-                    "rounded-2xl border bg-card p-3 shadow-sm transition-transform [content-visibility:auto] [contain-intrinsic-size:auto_5.75rem] active:scale-[0.995]",
-                    settled
-                      ? "border-border/35 opacity-[0.92]"
-                      : unit.arrears > 0
-                        ? "border-destructive/30"
-                        : "border-border/50",
-                  )}
+              {debtorsOpen ? (
+                <ul
+                  id="building-debtors-panel"
+                  className="divide-y divide-border/35 border-t border-border/40"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => openUnitDetail(unit.id)}
-                      aria-label={`جزئیات واحد ${unit.name}`}
-                      className={cn(
-                        "flex size-11 shrink-0 items-center justify-center rounded-2xl text-caption font-bold transition-transform active:scale-95",
-                        settled
-                          ? "bg-success-soft text-success"
-                          : unit.arrears > 0
-                            ? "bg-destructive-soft text-destructive"
-                            : "bg-secondary text-secondary-foreground",
-                      )}
-                    >
-                      {unit.name}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openUnitDetail(unit.id)}
-                          className="truncate text-body-sm font-semibold text-foreground"
-                        >
-                          واحد {unit.name}
-                        </button>
-                        {payStatus ? (
-                          <StatusPill status={payStatus} />
-                        ) : (
-                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
-                            ثبت نشده
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1.5 grid grid-cols-3 gap-1">
-                        <MoneyChip
-                          label="مقرر"
-                          value={formatMoney(unit.monthlyCharge)}
-                        />
-                        <MoneyChip
-                          label="پرداخت"
-                          value={
-                            payment ? formatMoney(payment.amount) : "—"
-                          }
-                          tone={settled ? "success" : "muted"}
-                        />
-                        <MoneyChip
-                          label="معوق"
-                          value={
-                            unit.arrears > 0
-                              ? formatMoney(unit.arrears)
-                              : "—"
-                          }
-                          tone={unit.arrears > 0 ? "danger" : "muted"}
-                        />
-                      </div>
-                    </div>
-                    {canMutate ? (
-                      <Button
+                  {dashboard.debtors.map((u) => (
+                    <li key={u.id}>
+                      <button
                         type="button"
-                        variant={settled ? "outline" : "default"}
-                        size="sm"
-                        className={cn(
-                          "h-10 shrink-0 rounded-xl px-3.5 text-caption font-semibold",
-                          !settled && "text-primary-foreground",
-                        )}
-                        onClick={() => openPay(unit)}
+                        onClick={() => openUnitDetail(u.id)}
+                        className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-start transition-colors active:bg-muted/30"
                       >
-                        {payment ? "ویرایش" : "ثبت"}
-                      </Button>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                        <span className="truncate text-caption font-medium text-foreground">
+                          واحد {u.name}
+                        </span>
+                        <span className="shrink-0 text-caption font-bold tabular-nums text-destructive">
+                          −{formatMoney(u.arrears)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+
+          {/* Action queue — unsettled first (trip «برای تسویه») */}
+          <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+            <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3.5 py-2.5">
+              <h3 className="text-caption font-bold text-foreground">
+                برای وصول
+              </h3>
+              <p className="text-[11px] tabular-nums text-muted-foreground">
+                {unsettledUnits.length > 0
+                  ? `${unsettledUnits.length.toLocaleString("fa-IR")} واحد`
+                  : "همه تسویه"}
+              </p>
+            </div>
+            {unsettledUnits.length === 0 ? (
+              <p className="px-3.5 py-4 text-center text-caption text-success">
+                همه واحدهای این ماه تسویه شده‌اند
+              </p>
+            ) : (
+              <ul className="divide-y divide-border/35">
+                {unsettledUnits.map((unit) => (
+                  <ChargeUnitRow
+                    key={unit.id}
+                    unit={unit}
+                    payment={paymentByUnit.get(unit.id)}
+                    canMutate={canMutate}
+                    onDetail={() => openUnitDetail(unit.id)}
+                    onPay={() => openPay(unit)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {settledUnits.length > 0 ? (
+            <section className="overflow-hidden rounded-2xl border border-border/40 bg-card/80 shadow-sm">
+              <button
+                type="button"
+                aria-expanded={settledOpen}
+                onClick={() => setSettledOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-start transition-colors active:bg-muted/30"
+              >
+                <h3 className="text-caption font-semibold text-muted-foreground">
+                  تسویه‌شده این ماه
+                  <span className="ms-1.5 tabular-nums">
+                    ({settledUnits.length.toLocaleString("fa-IR")})
+                  </span>
+                </h3>
+                <span className="text-[11px] text-muted-foreground">
+                  {settledOpen ? "بستن" : "نمایش"}
+                </span>
+              </button>
+              {settledOpen ? (
+                <ul className="divide-y divide-border/30 border-t border-border/35">
+                  {settledUnits.map((unit) => (
+                    <ChargeUnitRow
+                      key={unit.id}
+                      unit={unit}
+                      payment={paymentByUnit.get(unit.id)}
+                      canMutate={canMutate}
+                      dimmed
+                      onDetail={() => openUnitDetail(unit.id)}
+                      onPay={() => openPay(unit)}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       )}
 
@@ -778,11 +798,17 @@ export function BuildingChargesPanel({
               <DrawerTitle className="text-body font-bold text-on-hero">
                 وصول — واحد {payUnit?.name}
               </DrawerTitle>
-              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                {monthLabelFa(month)} {formatJalaliYear(dashboard.year)}
-                {payUnit
-                  ? ` · مقرر ${formatCurrency(payUnit.monthlyCharge, currency)}`
-                  : ""}
+              <DrawerDescription asChild>
+                <div className="mt-1 space-y-0.5 text-caption text-on-hero/70">
+                  <p>
+                    {monthLabelFa(month)} {formatJalaliYear(dashboard.year)}
+                  </p>
+                  {payUnit ? (
+                    <p>
+                      مقرر {formatCurrency(payUnit.monthlyCharge, currency)}
+                    </p>
+                  ) : null}
+                </div>
               </DrawerDescription>
             </DrawerHeader>
           </div>
@@ -791,11 +817,11 @@ export function BuildingChargesPanel({
             onSubmit={onSavePayment}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3">
+            <div className="surface-sheet-canvas min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
               <div
                 role="radiogroup"
                 aria-label="وضعیت پرداخت"
-                className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="grid grid-cols-2 gap-1.5"
               >
                 {(
                   ["PAID", "PARTIAL", "DUE", "WAIVED"] as const
@@ -807,15 +833,16 @@ export function BuildingChargesPanel({
                     aria-checked={status === s}
                     onClick={() => {
                       setStatus(s);
-                      if (s === "PAID" && payUnit && amount <= 0) {
+                      if (s === "PAID" && payUnit) {
                         setAmount(payUnit.monthlyCharge);
+                      } else if (s === "WAIVED" || s === "DUE") {
+                        setAmount(0);
                       }
-                      if (s === "WAIVED") setAmount(0);
                     }}
                     className={cn(
-                      "h-8 shrink-0 rounded-lg px-2.5 text-caption font-semibold transition-colors",
+                      "flex h-11 items-center justify-center rounded-xl px-2 text-caption font-semibold transition-colors",
                       status === s
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
@@ -824,35 +851,43 @@ export function BuildingChargesPanel({
                 ))}
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <label
-                    htmlFor="charge-payment-amount"
-                    className="text-label text-muted-foreground"
-                  >
-                    مبلغ ({unitLabel})
-                  </label>
-                  {payUnit &&
-                  payUnit.monthlyCharge > 0 &&
-                  amount !== payUnit.monthlyCharge ? (
-                    <button
-                      type="button"
-                      onClick={() => setAmount(payUnit.monthlyCharge)}
-                      className="text-micro font-semibold text-primary"
+              {status !== "DUE" && status !== "WAIVED" ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="charge-payment-amount"
+                      className="text-label text-muted-foreground"
                     >
-                      پر کردن مقرر
-                    </button>
-                  ) : null}
+                      مبلغ ({unitLabel})
+                    </label>
+                    {payUnit &&
+                    payUnit.monthlyCharge > 0 &&
+                    amount !== payUnit.monthlyCharge ? (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(payUnit.monthlyCharge)}
+                        className="text-micro font-semibold text-primary"
+                      >
+                        پر کردن مقرر
+                      </button>
+                    ) : null}
+                  </div>
+                  <MoneyInput
+                    id="charge-payment-amount"
+                    name="amount"
+                    autoComplete="off"
+                    value={amount}
+                    onValueChange={setAmount}
+                    className="h-11 rounded-xl text-base font-bold"
+                  />
                 </div>
-                <MoneyInput
-                  id="charge-payment-amount"
-                  name="amount"
-                  autoComplete="off"
-                  value={amount}
-                  onValueChange={setAmount}
-                  className="h-11 rounded-xl text-base font-bold"
-                />
-              </div>
+              ) : (
+                <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-caption text-muted-foreground">
+                  {status === "WAIVED"
+                    ? "معاف — مبلغ صفر ثبت می‌شود"
+                    : "بدهکار — بدون پرداخت برای این ماه"}
+                </p>
+              )}
 
               <div className="space-y-1">
                 <label
@@ -896,7 +931,7 @@ export function BuildingChargesPanel({
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="اختیاری…"
-                    className="h-10 rounded-xl"
+                    className="h-11 rounded-xl"
                     maxLength={200}
                   />
                 </div>
@@ -904,7 +939,7 @@ export function BuildingChargesPanel({
                 <button
                   type="button"
                   onClick={() => setNoteOpen(true)}
-                  className="text-caption font-medium text-muted-foreground"
+                  className="flex h-10 w-full items-center justify-center rounded-xl border border-dashed border-border/60 text-caption font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
                 >
                   + یادداشت
                 </button>
@@ -921,7 +956,15 @@ export function BuildingChargesPanel({
                   {error}
                 </p>
               ) : null}
+              {/* Save first in DOM → right side under RTL */}
               <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
+                  disabled={pending}
+                >
+                  {pending ? "در حال ذخیره…" : "ذخیره"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -930,13 +973,6 @@ export function BuildingChargesPanel({
                   onClick={closePayDrawer}
                 >
                   انصراف
-                </Button>
-                <Button
-                  type="submit"
-                  className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
-                  disabled={pending}
-                >
-                  {pending ? "در حال ذخیره…" : "ذخیره"}
                 </Button>
               </div>
             </div>
@@ -979,95 +1015,103 @@ function StatusPill({ status }: { status: ChargeStatusValue }) {
   );
 }
 
-function StatCard({
-  label,
-  amount,
+function ChargeUnitRow({
   unit,
-  tone = "default",
+  payment,
+  canMutate,
+  dimmed,
+  onDetail,
+  onPay,
 }: {
-  label: string;
-  amount: number;
-  unit: string;
-  tone?: "default" | "success" | "danger";
+  unit: UnitDTO;
+  payment?: ChargePaymentDTO;
+  canMutate: boolean;
+  dimmed?: boolean;
+  onDetail: () => void;
+  onPay: () => void;
 }) {
+  const payStatus = payment?.status;
+  const isSettled = payStatus === "PAID" || payStatus === "WAIVED";
+  const hasArrears = unit.arrears > 0;
+  const monthAmount = isSettled
+    ? (payment?.amount ?? unit.monthlyCharge)
+    : unit.monthlyCharge;
+
   return (
-    <div
+    <li
       className={cn(
-        "rounded-xl border bg-card px-2 py-2 text-center shadow-sm",
-        tone === "success" && "border-success/25",
-        tone === "danger" && "border-destructive/25",
-        tone === "default" && "border-border/45",
+        "flex items-center gap-2.5 px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]",
+        dimmed && "opacity-80",
       )}
     >
-      <p className="text-[10px] font-semibold text-foreground/55">{label}</p>
-      <p
+      <button
+        type="button"
+        onClick={onDetail}
+        aria-label={`جزئیات واحد ${unit.name}`}
         className={cn(
-          "mt-0.5 text-[13px] font-bold leading-tight tabular-nums tracking-tight",
-          tone === "success" && "text-success",
-          tone === "danger" && "text-destructive",
-          tone === "default" && "text-foreground",
+          "flex size-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold transition-transform active:scale-95",
+          isSettled
+            ? "bg-success-soft text-success"
+            : hasArrears
+              ? "bg-destructive/10 text-destructive"
+              : "bg-muted text-muted-foreground",
         )}
       >
-        {formatMoney(amount)}
-      </p>
-      <p className="mt-0.5 text-[10px] text-foreground/45">{unit}</p>
-    </div>
+        {unit.name}
+      </button>
+      <button
+        type="button"
+        onClick={() => (canMutate && !isSettled ? onPay() : onDetail())}
+        className="min-w-0 flex-1 text-start"
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="truncate text-caption font-semibold text-foreground">
+            واحد {unit.name}
+          </span>
+          {payStatus ? (
+            <StatusPill status={payStatus} />
+          ) : (
+            <span className="rounded-md bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+              باز
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+          {isSettled ? "پرداخت" : "مقرر"}{" "}
+          <span
+            className={cn(
+              "font-semibold",
+              isSettled ? "text-success" : "text-foreground",
+            )}
+          >
+            {formatMoney(monthAmount)}
+          </span>
+          {hasArrears ? (
+            <span className="text-destructive">
+              {" "}
+              · معوق {formatMoney(unit.arrears)}
+            </span>
+          ) : null}
+          {payment && !isSettled && payStatus === "PARTIAL" ? (
+            <span> · جز {formatMoney(payment.amount)}</span>
+          ) : null}
+        </p>
+      </button>
+      {canMutate ? (
+        <Button
+          type="button"
+          variant={isSettled ? "outline" : "default"}
+          size="sm"
+          className={cn(
+            "h-9 shrink-0 rounded-xl px-3 text-[11px] font-semibold",
+            !isSettled && "text-primary-foreground",
+          )}
+          onClick={onPay}
+        >
+          {isSettled ? "ویرایش" : payment ? "ادامه" : "ثبت"}
+        </Button>
+      ) : null}
+    </li>
   );
 }
 
-function MonthStat({
-  label,
-  amount,
-  unit,
-  tone = "default",
-  isCount = false,
-}: {
-  label: string;
-  amount: number;
-  unit: string;
-  tone?: "default" | "success" | "danger";
-  isCount?: boolean;
-}) {
-  return (
-    <div className="bg-card px-2 py-2.5 text-center">
-      <p className="text-[10px] font-semibold text-foreground/50">{label}</p>
-      <p
-        className={cn(
-          "mt-0.5 text-[13px] font-bold tabular-nums tracking-tight",
-          tone === "success" && "text-success",
-          tone === "danger" && "text-destructive",
-          tone === "default" && "text-foreground",
-        )}
-      >
-        {isCount ? amount : formatMoney(amount)}
-      </p>
-      <p className="mt-0.5 text-[10px] text-foreground/40">{unit}</p>
-    </div>
-  );
-}
-
-function MoneyChip({
-  label,
-  value,
-  tone = "muted",
-}: {
-  label: string;
-  value: string;
-  tone?: "muted" | "success" | "danger";
-}) {
-  return (
-    <div className="min-w-0 rounded-lg bg-muted/45 px-1.5 py-1">
-      <p className="text-[9px] font-medium text-foreground/45">{label}</p>
-      <p
-        className={cn(
-          "truncate text-[11px] font-semibold tabular-nums leading-tight",
-          tone === "success" && "text-success",
-          tone === "danger" && "text-destructive",
-          tone === "muted" && "text-foreground/80",
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}

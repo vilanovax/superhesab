@@ -63,9 +63,12 @@ type MembersListProps = {
    */
   editorOnlyRoles?: boolean;
   /**
-   * FUND: compact sheet — primary invite CTA, dense member rows + share, manual add footer.
+   * Compact sheet — primary invite CTA, dense member rows + share, manual add footer.
+   * Used by FUND, TRIP, PARTNER, FAMILY.
    */
   fundLayout?: boolean;
+  /** EDITOR label in dense role pickers (FUND: فعال · trip: ویرایشگر). */
+  editorRoleLabel?: string;
 };
 
 function CheckIcon({ className }: { className?: string }) {
@@ -132,6 +135,7 @@ export function MembersList({
   showShareControls = true,
   editorOnlyRoles = false,
   fundLayout = false,
+  editorRoleLabel = "ویرایشگر",
 }: MembersListProps) {
   const router = useRouter();
   const isOwner = currentUserRole === "OWNER";
@@ -404,18 +408,13 @@ export function MembersList({
   }
 
   if (fundLayout) {
+    const inviteCtaDone = spaceLinkState === "done";
     return (
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {isOwner ? (
-          <div className="space-y-2">
-            {inviteRolePicker ? (
-              <div className="flex items-center justify-between gap-2 px-0.5">
-                <Label
-                  htmlFor="invite-role-fund"
-                  className="text-caption text-muted-foreground"
-                >
-                  نقش لینک دعوت
-                </Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              {inviteRolePicker ? (
                 <Select
                   value={inviteRole}
                   onValueChange={(v) =>
@@ -423,60 +422,62 @@ export function MembersList({
                   }
                 >
                   <SelectTrigger
-                    id="invite-role-fund"
-                    className="h-8 w-[7.5rem] rounded-lg text-caption"
+                    className="h-10 w-[6.5rem] shrink-0 rounded-xl text-caption"
                     aria-label="نقش لینک دعوت"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="EDITOR">عضو فعال</SelectItem>
+                    <SelectItem value="EDITOR">
+                      {editorRoleLabel === "فعال" ? "عضو فعال" : editorRoleLabel}
+                    </SelectItem>
                     <SelectItem value="VIEWER">ناظر</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            ) : null}
-            <Button
-              type="button"
-              onClick={copySpaceLink}
-              className={cn(
-                "h-11 w-full gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
-                spaceLinkState === "done" &&
-                  "bg-success text-success-foreground hover:bg-success/90",
-              )}
-              aria-label={
-                spaceLinkState === "done"
-                  ? "لینک دعوت عضو کپی شد"
-                  : "کپی لینک دعوت عضو"
-              }
-            >
-              {spaceLinkState === "done" ? (
-                <CheckIcon className="size-4" />
-              ) : (
-                <CopyIcon className="size-4" />
-              )}
-              {spaceLinkState === "done" ? "لینک کپی شد" : "کپی لینک دعوت عضو"}
-            </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={copySpaceLink}
+                className={cn(
+                  "h-10 min-w-0 flex-1 gap-2 rounded-xl text-caption font-semibold active:scale-[0.98]",
+                  inviteCtaDone &&
+                    "bg-success text-success-foreground hover:bg-success/90",
+                )}
+                aria-label={
+                  inviteCtaDone ? "لینک دعوت کپی شد" : "کپی لینک دعوت"
+                }
+              >
+                {inviteCtaDone ? (
+                  <CheckIcon className="size-4" />
+                ) : (
+                  <CopyIcon className="size-4" />
+                )}
+                {inviteCtaDone ? "کپی شد" : "کپی لینک دعوت"}
+              </Button>
+            </div>
             <span className="sr-only" aria-live="polite">
-              {spaceLinkState === "done" ? "لینک دعوت عضو کپی شد" : ""}
+              {inviteCtaDone ? "لینک دعوت کپی شد" : ""}
             </span>
             {maxMembers != null ? (
-              <p className="text-center text-caption tabular-nums text-muted-foreground">
-                {members.length} / {maxMembers} عضو
+              <p className="text-center text-[11px] tabular-nums text-muted-foreground">
+                {members.length.toLocaleString("fa-IR")} /{" "}
+                {maxMembers.toLocaleString("fa-IR")} عضو
               </p>
             ) : null}
           </div>
         ) : null}
 
         <section>
-          <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
             <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               اعضا
+              <span className="ms-1 tabular-nums font-normal">
+                ({members.length.toLocaleString("fa-IR")})
+              </span>
             </h3>
-            <p className="text-caption text-muted-foreground">
-              {shareCaption}
-              <span className="ms-1.5 tabular-nums">· {members.length}</span>
-            </p>
+            {showShareControls ? (
+              <p className="text-[11px] text-muted-foreground">{shareCaption}</p>
+            ) : null}
           </div>
 
           {roleError ? (
@@ -489,7 +490,7 @@ export function MembersList({
             </p>
           ) : null}
 
-          <ul className="max-h-[min(48dvh,20rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border/50 bg-card">
+          <ul className="max-h-[min(50dvh,22rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border/50 bg-card">
             {members.map((m, i) => {
               const share = m.defaultShare ?? DEFAULT_SHARE;
               const claimDone = claimCopiedId === m.userId;
@@ -497,89 +498,33 @@ export function MembersList({
                 <li
                   key={m.userId}
                   className={cn(
-                    "px-3 py-2.5",
+                    "flex items-center gap-2 px-3 py-2",
                     i > 0 && "border-t border-border/40",
                   )}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <UserAvatar
-                      phone={m.phone}
-                      name={m.name}
-                      avatarUrl={m.avatarUrl}
-                      size={36}
-                      className="size-9 bg-secondary"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-body-sm font-semibold text-foreground">
-                        {memberLabel(m)}
-                      </p>
-                      <p className="truncate text-caption text-muted-foreground">
-                        {m.isVirtual ? "بدون حساب اپ" : m.phone}
-                      </p>
-                    </div>
-                    {isOwner && m.isVirtual ? (
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={34}
+                    className="size-8 shrink-0 bg-secondary"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-caption font-semibold text-foreground">
+                      {memberLabel(m)}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {m.isVirtual ? "بدون حساب اپ" : m.phone}
+                    </p>
+                  </div>
+
+                  {isOwner && showShareControls ? (
+                    <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className={cn(
-                          "size-8 shrink-0 rounded-lg active:scale-[0.96]",
-                          claimDone
-                            ? "bg-success-soft text-success"
-                            : "text-muted-foreground",
-                        )}
-                        onClick={() => copyClaimLink(m.userId)}
-                        aria-label={
-                          claimDone ? "لینک ادعا کپی شد" : "کپی لینک ادعا"
-                        }
-                      >
-                        {claimDone ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          <LinkIcon className="size-4" />
-                        )}
-                      </Button>
-                    ) : null}
-                    {isOwner && m.role !== "OWNER" ? (
-                      <Select
-                        value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
-                        onValueChange={(v) =>
-                          onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
-                        }
-                        disabled={pending}
-                      >
-                        <SelectTrigger
-                          className="h-8 w-[5.75rem] shrink-0 rounded-lg text-caption"
-                          aria-label={`نقش ${memberLabel(m)}`}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="EDITOR">فعال</SelectItem>
-                          <SelectItem value="VIEWER">ناظر</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-bold",
-                          m.role === "OWNER"
-                            ? "bg-primary/12 text-primary"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {m.role === "OWNER" ? "مالک" : roleLabelFa(m.role)}
-                      </span>
-                    )}
-                  </div>
-
-                  {isOwner && showShareControls ? (
-                    <div className="mt-2 flex items-center justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="size-7 rounded-md active:scale-[0.96]"
+                        className="size-7 rounded-md text-muted-foreground active:scale-[0.96]"
                         disabled={pending || share <= MIN_SHARE}
                         onClick={() =>
                           onChangeShare(
@@ -591,14 +536,14 @@ export function MembersList({
                       >
                         −
                       </Button>
-                      <span className="min-w-10 text-center text-caption font-semibold tabular-nums text-foreground">
-                        ×{formatShareLabel(share)}
+                      <span className="min-w-7 text-center text-[11px] font-bold tabular-nums text-foreground">
+                        {formatShareLabel(share)}x
                       </span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        className="size-7 rounded-md active:scale-[0.96]"
+                        className="size-7 rounded-md text-muted-foreground active:scale-[0.96]"
                         disabled={pending || share >= MAX_SHARE}
                         onClick={() =>
                           onChangeShare(
@@ -612,10 +557,66 @@ export function MembersList({
                       </Button>
                     </div>
                   ) : showShareControls && share !== DEFAULT_SHARE ? (
-                    <p className="mt-1.5 text-end text-caption tabular-nums text-muted-foreground">
-                      ×{formatShareLabel(share)}
-                    </p>
+                    <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                      {formatShareLabel(share)}x
+                    </span>
                   ) : null}
+
+                  {isOwner && m.isVirtual ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "size-8 shrink-0 rounded-lg active:scale-[0.96]",
+                        claimDone
+                          ? "bg-success-soft text-success"
+                          : "text-muted-foreground",
+                      )}
+                      onClick={() => copyClaimLink(m.userId)}
+                      aria-label={
+                        claimDone ? "لینک ادعا کپی شد" : "کپی لینک ادعا"
+                      }
+                    >
+                      {claimDone ? (
+                        <CheckIcon className="size-4" />
+                      ) : (
+                        <LinkIcon className="size-4" />
+                      )}
+                    </Button>
+                  ) : null}
+
+                  {isOwner && m.role !== "OWNER" ? (
+                    <Select
+                      value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
+                      onValueChange={(v) =>
+                        onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
+                      }
+                      disabled={pending}
+                    >
+                      <SelectTrigger
+                        className="h-8 w-[5.5rem] shrink-0 rounded-lg text-[11px]"
+                        aria-label={`نقش ${memberLabel(m)}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EDITOR">{editorRoleLabel}</SelectItem>
+                        <SelectItem value="VIEWER">ناظر</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold",
+                        m.role === "OWNER"
+                          ? "bg-primary/12 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {m.role === "OWNER" ? "مالک" : roleLabelFa(m.role)}
+                    </span>
+                  )}
                 </li>
               );
             })}
@@ -623,19 +624,13 @@ export function MembersList({
         </section>
 
         {isOwner ? (
-          <section className="border-t border-border/40 pt-3.5">
-            <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
-              افزودن بدون اپ
-            </h3>
-            <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground/90">
-              نام را بزنید؛ بعداً با لینک ادعا وصل می‌شود.
-            </p>
+          <section className="border-t border-border/40 pt-3">
             <form
               onSubmit={onAddVirtual}
-              className="mt-2.5 flex items-center gap-2"
+              className="flex items-center gap-2"
             >
               <Label htmlFor="invite-virtual-name-fund" className="sr-only">
-                نام عضو
+                نام عضو دستی
               </Label>
               <Input
                 id="invite-virtual-name-fund"
@@ -644,7 +639,7 @@ export function MembersList({
                 spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="مثلاً عضو…"
+                placeholder="عضو دستی…"
                 className="h-10 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
                 maxLength={40}
                 required
@@ -665,7 +660,7 @@ export function MembersList({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EDITOR">فعال</SelectItem>
+                  <SelectItem value="EDITOR">{editorRoleLabel}</SelectItem>
                   <SelectItem value="VIEWER">ناظر</SelectItem>
                 </SelectContent>
               </Select>
@@ -677,7 +672,7 @@ export function MembersList({
                 disabled={atCapacity || pending}
                 aria-busy={pending}
               >
-                {pending ? "در حال افزودن…" : "افزودن"}
+                {pending ? "…" : "افزودن"}
               </Button>
             </form>
             {manualError ? (

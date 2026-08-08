@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
   SelectContent,
@@ -293,16 +294,25 @@ export function ExpenseForm({
   const isEdit = Boolean(initialExpense?.expenseId);
   const features = getTemplate(spaceType).features;
   const isBuilding = features.buildingCharges;
+  /** Trip / partner sheet — same dense chrome as building (sticky footer, chips). */
+  const isPartnerEqual = spaceType === "PARTNER";
+  const isLedgerDense = spaceType === "TRIP" || isPartnerEqual;
+  const useDenseChrome = isBuilding || isLedgerDense;
   /** Income/expense toggle — not for building shared costs. */
   const showIncomeExpense = features.incomeExpense && !isBuilding;
   const showManualSplits = features.manualSplits;
   const isSoloLedger = features.solo;
   /** Family shared ledger only — do not conflate with building. */
   const isHouseholdLedger = features.householdLedger;
-  const isPartnerEqual = spaceType === "PARTNER";
   const hideSplits = !showManualSplits;
   const showPaidByPicker =
-    (!hideSplits || isHouseholdLedger) && !isBuilding;
+    (!hideSplits || isHouseholdLedger || isPartnerEqual) && !isBuilding;
+  const partnerOther = isPartnerEqual
+    ? members.find((m) => m.userId !== currentUserId)
+    : undefined;
+  const partnerOtherLabel = partnerOther
+    ? personLabel(partnerOther, currentUserId)
+    : "طرف مقابل";
   const initialDate = initialExpense?.date ?? todayIsoDateTehran();
   const initialChangeDate = Boolean(
     initialExpense && initialDate !== todayIsoDateTehran(),
@@ -392,7 +402,9 @@ export function ExpenseForm({
   );
 
   const activeCategory = manualCategory ?? predictedCategory;
-  const showSmartChip = !isEdit && debouncedTitle.length >= 2;
+  /** Building/trip use always-visible chips; others wait for a short title. */
+  const showSmartChip =
+    !useDenseChrome && !isEdit && debouncedTitle.length >= 2;
   const categoryLabelFor = (code: ExpenseCategory) =>
     (isBuilding ? BUILDING_CATEGORY_LABELS[code] : undefined) ??
     CATEGORY_LABELS[code];
@@ -690,10 +702,10 @@ export function ExpenseForm({
           : isPartnerEqual
             ? {
                 ...base,
-                paidById: isEdit ? values.paidById : currentUserId,
+                paidById: values.paidById || currentUserId,
                 splitMode: "EQUAL",
                 transactionType: "EXPENSE",
-                date: todayIsoDateTehran(),
+                date: values.date || todayIsoDateTehran(),
                 splits: (() => {
                   const percents = distributeEqualPercents(members.length);
                   return members.map((m, i) => ({
@@ -711,9 +723,9 @@ export function ExpenseForm({
                   ? (values.transactionType ?? "EXPENSE")
                   : "EXPENSE",
                 date:
-                  !changeDate && !isEdit
-                    ? todayIsoDateTehran()
-                    : values.date || todayIsoDateTehran(),
+                  isBuilding || changeDate || isEdit
+                    ? values.date || todayIsoDateTehran()
+                    : todayIsoDateTehran(),
               };
 
     startTransition(async () => {
@@ -802,8 +814,20 @@ export function ExpenseForm({
             }
           }
         })}
-        className="flex flex-col gap-3"
+        className={cn(
+          useDenseChrome
+            ? "flex min-h-0 flex-1 flex-col gap-0"
+            : "flex flex-col gap-3",
+        )}
       >
+        <div
+          className={cn(
+            useDenseChrome &&
+              "min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-2",
+            isLedgerDense && "space-y-2",
+            !useDenseChrome && "contents",
+          )}
+        >
         {showIncomeExpense ? (
           <FormField
             control={form.control}
@@ -873,7 +897,117 @@ export function ExpenseForm({
           />
         ) : null}
 
-        <div className="space-y-3 rounded-2xl border border-border/55 bg-card p-3.5">
+        <div
+          className={cn(
+            "space-y-3 rounded-2xl border border-border/55 bg-card p-3.5",
+            isBuilding && "space-y-2.5 p-3",
+            isLedgerDense &&
+              "space-y-2.5 rounded-none border-0 bg-transparent p-0 shadow-none",
+          )}
+        >
+          {(isBuilding || isLedgerDense) && !isEdit ? (
+            <div className={cn("space-y-1.5", isLedgerDense && "space-y-1")}>
+              {isBuilding ? (
+                <p className="text-label text-muted-foreground">دسته‌بندی</p>
+              ) : null}
+              <div
+                role="radiogroup"
+                aria-label={
+                  isBuilding ? "دسته‌بندی هزینه مشاع" : "دسته‌بندی هزینه"
+                }
+                className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 scrollbar-none"
+              >
+                {categoryOptions.map((code) => {
+                  const active =
+                    !customCategoryLabel && activeCategory === code;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setCustomCategoryLabel(null);
+                        setManualCategory(code);
+                        if (code !== "BUILDING_BILLS") setBillTag(null);
+                        form.setValue("category", code, {
+                          shouldDirty: true,
+                        });
+                        form.setValue(
+                          "categoryLabel",
+                          code === "BUILDING_BILLS" ? billTag : null,
+                          { shouldDirty: true },
+                        );
+                      }}
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-1 rounded-full font-semibold transition-colors",
+                        isLedgerDense
+                          ? "h-8 px-2.5 text-[11px]"
+                          : "h-9 px-3 text-caption",
+                        active
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <span aria-hidden>{CATEGORY_EMOJI[code]}</span>
+                      {categoryLabelFor(code)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {isLedgerDense ? (
+            <div className="grid grid-cols-[1.35fr_1fr] gap-2">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem className="min-w-0 space-y-1">
+                    <FormLabel className="text-[11px] text-muted-foreground">
+                      عنوان
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete="off"
+                        placeholder="مثلاً ناهار…"
+                        className="h-11 rounded-xl border-border/60 bg-card"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="totalAmount"
+                render={({ field }) => {
+                  const live = asAmount(field.value);
+                  return (
+                    <FormItem className="min-w-0 space-y-1">
+                      <FormLabel className="text-[11px] text-muted-foreground">
+                        مبلغ
+                      </FormLabel>
+                      <FormControl>
+                        <MoneyInput
+                          id="expense-amount"
+                          name={field.name}
+                          value={live}
+                          onValueChange={(n) => field.onChange(n)}
+                          onBlur={field.onBlur}
+                          placeholder="۰"
+                          className="h-11 rounded-xl border-border/60 bg-card text-base font-bold"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+            </div>
+          ) : (
           <FormField
             control={form.control}
             name="title"
@@ -900,6 +1034,7 @@ export function ExpenseForm({
               </FormItem>
             )}
           />
+          )}
 
           {showSmartChip ? (
             <>
@@ -1055,6 +1190,7 @@ export function ExpenseForm({
             />
           ) : null}
 
+          {!isLedgerDense ? (
           <FormField
             control={form.control}
             name="totalAmount"
@@ -1062,32 +1198,18 @@ export function ExpenseForm({
               const live = asAmount(field.value);
               return (
                 <FormItem className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <FormLabel className="text-label text-muted-foreground">
-                      مبلغ ({currencyLabel(_currency)})
-                    </FormLabel>
-                    {live > 0 ? (
-                      <span className="text-caption font-medium tabular-nums text-primary">
-                        {formatCurrency(live, _currency)}
-                      </span>
-                    ) : null}
-                  </div>
+                  <FormLabel className="text-label text-muted-foreground">
+                    مبلغ ({currencyLabel(_currency)})
+                  </FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      min={0}
-                      step={1}
-                      placeholder="۲۵۰۰۰۰…"
-                      className="h-12 rounded-xl border-border/70 bg-sheet-muted text-lg font-bold tabular-nums"
+                    <MoneyInput
+                      id="expense-amount"
                       name={field.name}
-                      ref={field.ref}
+                      value={live}
+                      onValueChange={(n) => field.onChange(n)}
                       onBlur={field.onBlur}
-                      value={field.value || ""}
-                      onChange={(e) =>
-                        field.onChange(parseAmountInput(e.target.value))
-                      }
+                      placeholder="۰"
+                      className="h-12 rounded-xl border-border/70 bg-sheet-muted text-lg font-bold"
                     />
                   </FormControl>
                   <FormMessage />
@@ -1095,8 +1217,84 @@ export function ExpenseForm({
               );
             }}
           />
+          ) : null}
 
-          {!isPartnerEqual ? (
+          {isLedgerDense ? (
+            <div className="grid grid-cols-2 gap-2">
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="min-w-0 space-y-1">
+                    <FormLabel className="text-[11px] text-muted-foreground">
+                      تاریخ
+                    </FormLabel>
+                    <FormControl>
+                      <JalaliDatePicker
+                        id="expense-date"
+                        value={field.value}
+                        onChange={field.onChange}
+                        variant="compact"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {showPaidByPicker ? (
+                <FormField
+                  control={form.control}
+                  name="paidById"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0 space-y-1">
+                      <FormLabel className="text-[11px] text-muted-foreground">
+                        پرداخت‌کننده
+                      </FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-11 rounded-xl border-border/60 bg-card">
+                            <SelectValue placeholder="انتخاب…" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {members.map((m) => (
+                            <SelectItem key={m.userId} value={m.userId}>
+                              {personLabel(m, currentUserId)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
+            </div>
+          ) : useDenseChrome ? (
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-label text-muted-foreground">
+                    تاریخ
+                  </FormLabel>
+                  <FormControl>
+                    <JalaliDatePicker
+                      id="expense-date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      variant="compact"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : !isPartnerEqual ? (
           <div className="space-y-2 rounded-xl bg-sheet-muted px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-label text-muted-foreground">تاریخ</p>
@@ -1145,7 +1343,7 @@ export function ExpenseForm({
           </div>
           ) : null}
 
-          {showPaidByPicker ? (
+          {showPaidByPicker && !isLedgerDense ? (
           <FormField
             control={form.control}
             name="paidById"
@@ -1179,12 +1377,20 @@ export function ExpenseForm({
             control={form.control}
             name="splitMode"
             render={({ field }) => (
-              <FormItem className="space-y-1.5">
-                <FormLabel className="text-label text-muted-foreground">
+              <FormItem className={cn("space-y-1.5", isLedgerDense && "space-y-1")}>
+                <FormLabel
+                  className={cn(
+                    "text-muted-foreground",
+                    isLedgerDense ? "text-[11px]" : "text-label",
+                  )}
+                >
                   تسهیم
                 </FormLabel>
                 <div
-                  className="grid grid-cols-3 gap-1 rounded-xl bg-muted/80 p-1"
+                  className={cn(
+                    "grid grid-cols-3 gap-1 rounded-xl bg-muted/80 p-1",
+                    isLedgerDense && "rounded-lg",
+                  )}
                   role="radiogroup"
                   aria-label="روش تسهیم"
                 >
@@ -1212,7 +1418,8 @@ export function ExpenseForm({
                         }
                       }}
                       className={cn(
-                        "h-9 rounded-lg text-body-sm font-semibold transition-colors duration-150",
+                        "rounded-lg font-semibold transition-colors duration-150",
+                        isLedgerDense ? "h-8 text-[11px]" : "h-9 text-body-sm",
                         field.value === opt.value
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground",
@@ -1227,14 +1434,10 @@ export function ExpenseForm({
             )}
           />
           ) : isPartnerEqual ? (
-            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
-              هزینه به‌صورت مساوی بین شما و طرف مقابل تسهیم می‌شود.
+            <p className="rounded-xl bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+              تسهیم مساوی (۵۰–۵۰) بین شما و {partnerOtherLabel}.
             </p>
-          ) : isBuilding ? (
-            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
-              این هزینه مشاع از صندوق ساختمان کسر می‌شود.
-            </p>
-          ) : isHouseholdLedger ? (
+          ) : isBuilding ? null : isHouseholdLedger ? (
             <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
               این تراکنش در لجر مشترک خانواده ثبت می‌شود — بدون بدهی بین اعضا.
             </p>
@@ -1248,7 +1451,12 @@ export function ExpenseForm({
         </div>
 
         {!hideSplits ? (
-        <div className="rounded-2xl border border-border/55 bg-card p-3.5">
+        <div
+          className={cn(
+            "rounded-2xl border border-border/55 bg-card p-3.5",
+            isLedgerDense && "rounded-xl p-2.5",
+          )}
+        >
           <button
             type="button"
             onClick={() => setSplitsOpen((o) => !o)}
@@ -1257,23 +1465,33 @@ export function ExpenseForm({
             aria-controls="expense-splits-panel"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold text-foreground">
+              <p
+                className={cn(
+                  "font-semibold text-foreground",
+                  isLedgerDense ? "text-caption" : "text-body-sm",
+                )}
+              >
                 چه کسانی
               </p>
-              <p className="mt-0.5 text-caption text-muted-foreground">
-                {selectedCount} نفر
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {selectedCount.toLocaleString("fa-IR")} نفر
                 {splitMode === "EQUAL" && totalShareWeight > 0
-                  ? ` · ${totalShareWeight} سهم`
+                  ? ` · ${totalShareWeight.toLocaleString("fa-IR")} سهم`
                   : ""}
                 {splitMode === "PERCENT"
                   ? ` · ${new Intl.NumberFormat("fa-IR").format(percentAllocated)}٪`
                   : ""}
-                {!splitsOpen ? " · برای ویرایش باز کنید" : ""}
+                {splitMode === "EQUAL" && !splitsOpen
+                  ? " · مساوی"
+                  : !splitsOpen
+                    ? " · ویرایش"
+                    : ""}
               </p>
             </div>
             <span
               className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-transform duration-200 ease-out",
+                "flex shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-transform duration-200 ease-out",
+                isLedgerDense ? "size-7" : "size-8",
                 splitsOpen && "rotate-180",
               )}
               aria-hidden
@@ -1584,11 +1802,26 @@ export function ExpenseForm({
             {form.formState.errors.splits.root.message}
           </p>
         ) : null}
+        </div>
 
-        <div className="pt-1">
+        <div
+          className={cn(
+            useDenseChrome
+              ? "shrink-0 space-y-1.5 border-t border-border/45 bg-card px-0 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5"
+              : "pt-1",
+          )}
+        >
+          {isBuilding ? (
+            <p className="text-center text-micro text-muted-foreground">
+              کسر از صندوق ساختمان
+            </p>
+          ) : null}
           <Button
             type="submit"
-            className="h-11 w-full rounded-xl text-body-sm font-semibold text-primary-foreground"
+            className={cn(
+              "w-full rounded-xl font-semibold text-primary-foreground",
+              isLedgerDense ? "h-11 text-caption" : "h-11 text-body-sm",
+            )}
             disabled={pending}
           >
             {pending

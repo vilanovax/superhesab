@@ -47,25 +47,31 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
       <div className="flex items-center justify-between gap-2">
         <Button
           asChild
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="h-9 gap-1 rounded-xl border-border/70 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
+          className="h-10 gap-1 rounded-full border border-border/55 bg-card px-3 text-sm font-medium shadow-none"
         >
           <Link href={`/spaces/${space.id}`}>← بازگشت</Link>
         </Button>
-        <span className="rounded-xl bg-ink/90 px-3 py-1.5 text-xs font-medium text-primary-foreground">
+        <span className="rounded-full bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary">
           برد
         </span>
       </div>
 
-      <header className="surface-hero animate-fade-up rounded-2xl px-4 py-4">
-        <p className="text-caption font-medium text-on-hero/70">{space.name}</p>
-        <h1 className="mt-0.5 text-pretty text-xl font-bold text-on-hero">
-          برد ساختمان
-        </h1>
-        <p className="mt-1 text-caption text-on-hero/75">
-          اعلان‌ها برای ساکنین و صندوق پیشنهادات
-        </p>
+      <header className="surface-hero animate-fade-up relative overflow-hidden rounded-3xl px-5 py-5 shadow-md">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -end-10 -top-12 size-32 rounded-full bg-on-hero/12 blur-3xl"
+        />
+        <div className="relative">
+          <p className="text-caption font-medium text-on-hero/70">{space.name}</p>
+          <h1 className="mt-0.5 text-pretty text-xl font-bold text-on-hero">
+            برد ساختمان
+          </h1>
+          <p className="mt-1 text-caption text-on-hero/75">
+            اعلان‌ها برای ساکنین و صندوق پیشنهادات
+          </p>
+        </div>
       </header>
 
       <BuildingCommunityHub

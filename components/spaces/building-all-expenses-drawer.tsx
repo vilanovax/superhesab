@@ -135,7 +135,7 @@ export function BuildingAllExpensesDrawer({
           <div
             role="radiogroup"
             aria-label="مرتب‌سازی"
-            className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1"
+            className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
           >
             <SortTab
               label="مبلغ"
@@ -259,16 +259,23 @@ function SortTab({
       title={hint}
       aria-checked={active}
       className={cn(
-        "flex h-11 flex-col items-center justify-center rounded-xl transition-[transform,background-color,color,box-shadow] active:scale-[0.98]",
+        "flex h-11 flex-col items-center justify-center rounded-xl transition-[transform,background-color,color] active:scale-[0.98]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
       <span className="flex items-center gap-1 text-caption font-bold">
         {label}
         {dir ? (
-          <span className="text-micro font-semibold text-primary" aria-hidden>
+          <span
+            className={cn(
+              "text-micro font-semibold",
+              active ? "text-primary-foreground/80" : "text-primary",
+            )}
+            aria-hidden
+          >
             {dir === "desc" ? "↓" : "↑"}
           </span>
         ) : null}
@@ -276,7 +283,7 @@ function SortTab({
       <span
         className={cn(
           "text-[10px]",
-          active ? "text-muted-foreground" : "text-muted-foreground/70",
+          active ? "text-primary-foreground/70" : "text-muted-foreground/70",
         )}
       >
         {active ? hint : "بزن برای سورت"}

@@ -18,6 +18,7 @@ import type {
 import { parseBackupFile } from "@/lib/backup/validate";
 import { requirePlatformAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import { normalizePhone } from "@/lib/format";
 import {
   assertFeatureEnabled,
   ensureFeatureFlags,
@@ -183,7 +184,7 @@ export async function exportUserSpacesBackup(input: {
   const { user: admin } = await requirePlatformAdmin();
 
   let targetId = input.userId?.trim();
-  let phone = input.phone?.replace(/[\s\-()]/g, "").trim();
+  let phone = input.phone ? normalizePhone(input.phone) : "";
   if (!targetId && phone) {
     const found = await prisma.user.findUnique({
       where: { phone },

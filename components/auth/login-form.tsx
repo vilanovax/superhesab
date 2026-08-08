@@ -7,8 +7,14 @@ import { loginWithPassword, requestOtp, verifyOtp } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeDigits, toAsciiDigits } from "@/lib/format";
 import { PASSWORD_MIN_LEN } from "@/lib/password-policy";
 import { cn } from "@/lib/utils";
+
+/** Live phone field: Eastern digits → ASCII; keep + and digits. */
+function phoneFromInput(raw: string): string {
+  return toAsciiDigits(raw).replace(/[^\d+]/g, "");
+}
 
 type Step = "phone" | "otp";
 type AuthMode = "otp" | "password";
@@ -206,8 +212,8 @@ export function LoginForm({
                     dir="ltr"
                     placeholder="مثلاً 0912…"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-12 rounded-xl text-base"
+                    onChange={(e) => setPhone(phoneFromInput(e.target.value))}
+                    className="h-12 rounded-xl text-base tabular-nums"
                     required
                   />
                 </div>
@@ -248,8 +254,8 @@ export function LoginForm({
                     dir="ltr"
                     placeholder="مثلاً 0912…"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-12 rounded-xl text-base"
+                    onChange={(e) => setPhone(phoneFromInput(e.target.value))}
+                    className="h-12 rounded-xl text-base tabular-nums"
                     required
                   />
                 </div>
@@ -337,7 +343,9 @@ export function LoginForm({
                 placeholder="• • • • • •"
                 maxLength={6}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setOtp(normalizeDigits(e.target.value).slice(0, 6))
+                }
                 className="h-14 rounded-xl text-center text-xl tracking-[0.45em] placeholder:tracking-[0.2em] placeholder:text-muted-foreground/50"
                 required
               />

@@ -51,13 +51,13 @@ export default async function FundMemberPage({
       <div className="mb-3 flex items-center gap-2">
         <Button
           asChild
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="h-9 gap-1 rounded-xl border-border/60 bg-card pe-3 ps-2 text-sm font-medium shadow-sm"
+          className="h-10 gap-1 rounded-full border border-border/55 bg-card px-3 text-sm font-medium shadow-none"
         >
           <Link href="/app">← بازگشت</Link>
         </Button>
-        <span className="rounded-xl bg-muted px-2.5 py-1 text-caption font-medium text-muted-foreground">
+        <span className="rounded-full bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary">
           پرتال عضو
         </span>
       </div>

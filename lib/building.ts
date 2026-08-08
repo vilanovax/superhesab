@@ -3,6 +3,8 @@
  * multiplier is thousandths: 1000 = 1.0×.
  */
 
+import { jalaliDaysInMonth, jalaliToGregorian } from "@/lib/jalali";
+
 export type ChargeStatusValue = "DUE" | "PARTIAL" | "PAID" | "WAIVED";
 
 export const CHARGE_STATUS_LABELS: Record<ChargeStatusValue, string> = {
@@ -77,6 +79,37 @@ export function tehranCivilMonth(date: Date = new Date()): number {
 }
 
 export const jalaliMonth = tehranCivilMonth;
+
+/** Jalali day-of-month 1–31 in Asia/Tehran. */
+export function tehranCivilDay(date: Date = new Date()): number {
+  const d = persianParts(date).day;
+  return d >= 1 && d <= 31 ? d : 1;
+}
+
+export const jalaliDay = tehranCivilDay;
+
+/**
+ * Default ISO (yyyy-mm-dd) for a charge payment in a plan month.
+ * Uses today when it falls in that Jalali month; otherwise the 1st of the month
+ * — avoids picking "today" in a different Shamsi year than the open plan.
+ */
+export function defaultChargePaymentIso(
+  planYear: number,
+  planMonth: number,
+): string {
+  const last = jalaliDaysInMonth(planYear, planMonth);
+  const nowY = tehranCivilYear();
+  const nowM = tehranCivilMonth();
+  const nowD = tehranCivilDay();
+  const jd =
+    nowY === planYear && nowM === planMonth
+      ? Math.min(Math.max(nowD, 1), last)
+      : 1;
+  const g = jalaliToGregorian(planYear, planMonth, jd);
+  const mm = String(g.gm).padStart(2, "0");
+  const dd = String(g.gd).padStart(2, "0");
+  return `${g.gy}-${mm}-${dd}`;
+}
 
 /** Persian digits for a Jalali year badge (۱۴۰۵). */
 export function formatJalaliYear(year: number): string {

@@ -186,6 +186,7 @@ export const loadSpaceExpensesPage = cache(
     hiddenCategoriesKey: string,
     /** Jalali year bound (BUILDING expenses tab). */
     year?: number,
+    viewerUserId?: string,
   ) => {
     const hidden = hiddenCategoriesKey
       ? (hiddenCategoriesKey.split(",") as ExpenseCategory[])
@@ -199,6 +200,7 @@ export const loadSpaceExpensesPage = cache(
       hiddenCategories: hidden,
       dateFrom: bounds?.start,
       dateTo: bounds?.end,
+      viewerUserId,
     });
   },
 );

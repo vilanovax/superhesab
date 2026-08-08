@@ -48,17 +48,17 @@ function personName(member: BalanceMember, currentUserId?: string): string {
 
 function BalanceAmount({ amount, currency = "TOMAN" }: { amount: number; currency?: SpaceCurrency }) {
   if (amount === 0) {
-    return <span className="text-body-sm text-muted-foreground">صفر</span>;
+    return <span className="text-[11px] text-muted-foreground">صفر</span>;
   }
   if (amount > 0) {
     return (
-      <span className="text-body-sm font-semibold tabular-nums text-success">
+      <span className="text-caption font-bold tabular-nums text-success">
         +{formatCurrency(amount, currency)}
       </span>
     );
   }
   return (
-    <span className="text-body-sm font-semibold tabular-nums text-destructive">
+    <span className="text-caption font-bold tabular-nums text-destructive">
       −{formatCurrency(Math.abs(amount), currency)}
     </span>
   );
@@ -193,34 +193,56 @@ function SuggestionCard({
     });
   }
 
+  const involvesMe =
+    Boolean(currentUserId) &&
+    (suggestion.fromUserId === currentUserId ||
+      suggestion.toUserId === currentUserId);
+  const iPay =
+    Boolean(currentUserId) && suggestion.fromUserId === currentUserId;
+
   return (
-    <li className="rounded-2xl border border-border/55 bg-card px-3.5 py-3">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body-sm text-foreground">
-            <span className="font-semibold">{fromName}</span>
-            <span className="mx-1.5 text-muted-foreground/70">←</span>
-            <span className="font-semibold">{toName}</span>
-          </p>
-          <p className="mt-0.5 text-body font-bold tabular-nums text-ink">
-            {formatCurrency(amount, currency)}
-          </p>
-        </div>
-        {canMutate ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-10 shrink-0 rounded-xl px-3.5 text-body-sm"
-            disabled={pending}
-            onClick={() => {
-              setError(null);
-              setConfirmOpen(true);
-            }}
-          >
-            پرداخت شد
-          </Button>
-        ) : null}
+    <li className="flex items-center gap-2.5 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-caption text-foreground">
+          {iPay ? (
+            <>
+              شما به <span className="font-semibold">{toName}</span> بدهید
+            </>
+          ) : suggestion.toUserId === currentUserId ? (
+            <>
+              <span className="font-semibold">{fromName}</span> به شما بدهد
+            </>
+          ) : (
+            <>
+              <span className="font-semibold">{fromName}</span>
+              {" باید به "}
+              <span className="font-semibold">{toName}</span>
+              {" بدهد"}
+            </>
+          )}
+        </p>
+        <p className="mt-0.5 text-caption font-bold tabular-nums text-foreground">
+          {formatCurrency(amount, currency)}
+        </p>
       </div>
+      {canMutate ? (
+        <Button
+          type="button"
+          size="sm"
+          variant={involvesMe ? "default" : "outline"}
+          className={cn(
+            "h-9 shrink-0 rounded-xl px-3 text-[11px] font-semibold",
+            involvesMe && "text-primary-foreground",
+          )}
+          disabled={pending}
+          onClick={() => {
+            setError(null);
+            setConfirmOpen(true);
+          }}
+        >
+          {pending ? "…" : "ثبت"}
+        </Button>
+      ) : null}
 
       {canMutate ? (
         <SettleConfirmDialog
@@ -271,6 +293,15 @@ function PartnerRollingBalance({
     members.map((m) => [m.userId, m]),
   ) as Record<string, BalanceMember>;
 
+  const me = membersById[currentUserId];
+  const partner = members.find((m) => m.userId !== currentUserId);
+  const partnerName = partner
+    ? personName(partner, currentUserId)
+    : "طرف مقابل";
+  const partnerBalance = partner
+    ? maybeCeilToThousand(balances[partner.userId] ?? 0, roundUpToThousand)
+    : 0;
+
   // Prefer a settlement involving the current user; else first suggestion
   const suggestion =
     suggestions.find(
@@ -280,7 +311,7 @@ function PartnerRollingBalance({
 
   const settleAmount = suggestion
     ? maybeCeilToThousand(suggestion.amount, roundUpToThousand)
-    : 0;
+    : Math.abs(myBalance);
 
   const from = suggestion ? membersById[suggestion.fromUserId] : undefined;
   const to = suggestion ? membersById[suggestion.toUserId] : undefined;
@@ -290,6 +321,11 @@ function PartnerRollingBalance({
   const toName = to
     ? personName(to, currentUserId)
     : suggestion?.toUserId ?? "";
+
+  const iPay =
+    Boolean(suggestion) && suggestion!.fromUserId === currentUserId;
+  const iReceive =
+    Boolean(suggestion) && suggestion!.toUserId === currentUserId;
 
   function onConfirmPaid() {
     if (!suggestion) return;
@@ -310,60 +346,164 @@ function PartnerRollingBalance({
     });
   }
 
-  return (
-    <div className="animate-fade-up space-y-3">
-      <div
-        className={cn(
-          "rounded-2xl border px-5 py-6 text-center",
-          myBalance === 0
-            ? "border-success/25 bg-success-soft/50"
-            : myBalance > 0
-              ? "border-success/30 bg-success-soft/40"
-              : "border-destructive/25 bg-destructive-soft/50",
-        )}
-      >
-        {myBalance === 0 ? (
-          <p className="text-lg font-bold text-success">حساب‌ها صاف است</p>
-        ) : myBalance > 0 ? (
-          <p className="text-body leading-relaxed text-success">
-            شما{" "}
-            <span className="text-2xl font-bold tabular-nums">
-              {formatCurrency(myBalance, currency)}
-            </span>{" "}
-            طلبکار هستید
+  if (myBalance === 0) {
+    return (
+      <div className="animate-fade-up space-y-3 pb-6">
+        <div className="rounded-2xl border border-success/25 bg-success-soft/50 px-4 py-4 text-center">
+          <p className="text-body-sm font-bold text-success">حساب‌ها صاف است</p>
+          <p className="mt-1 text-caption text-muted-foreground">
+            با {partnerName} بدهی‌ای نیست
           </p>
-        ) : (
-          <p className="text-body leading-relaxed text-destructive">
-            شما{" "}
-            <span className="text-2xl font-bold tabular-nums">
-              {formatCurrency(Math.abs(myBalance), currency)}
-            </span>{" "}
-            بدهکار هستید
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+          <p className="border-b border-border/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+            مانده خالص
           </p>
-        )}
+          <ul className="divide-y divide-border/35 px-3">
+            {me ? (
+              <MemberRow
+                member={me}
+                currentUserId={currentUserId}
+                trailing={
+                  <span className="text-[11px] text-muted-foreground">صاف</span>
+                }
+              />
+            ) : null}
+            {partner ? (
+              <MemberRow
+                member={partner}
+                currentUserId={currentUserId}
+                trailing={
+                  <span className="text-[11px] text-muted-foreground">صاف</span>
+                }
+              />
+            ) : null}
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
-        {canMutate && suggestion && myBalance !== 0 ? (
-          <div className="mt-4 flex justify-center">
+  return (
+    <div className="animate-fade-up space-y-3 pb-6">
+      <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3 py-2">
+          <h2 className="text-caption font-bold text-foreground">برای تسویه</h2>
+          {roundUpToThousand ? (
+            <span className="text-[11px] text-muted-foreground">رند به هزار</span>
+          ) : null}
+        </div>
+
+        <div className="space-y-3 px-3 py-3.5">
+          {from && to ? (
+            <div className="flex items-center justify-center gap-2.5">
+              <div className="flex flex-col items-center gap-1">
+                <UserAvatar
+                  phone={from.phone}
+                  name={from.name}
+                  size={36}
+                  className="size-9 bg-secondary"
+                />
+                <span className="max-w-[5.5rem] truncate text-[11px] font-medium text-foreground">
+                  {fromName}
+                </span>
+              </div>
+              <span
+                className="pb-4 text-caption text-muted-foreground"
+                aria-hidden
+              >
+                ←
+              </span>
+              <div className="flex flex-col items-center gap-1">
+                <UserAvatar
+                  phone={to.phone}
+                  name={to.name}
+                  size={36}
+                  className="size-9 bg-secondary"
+                />
+                <span className="max-w-[5.5rem] truncate text-[11px] font-medium text-foreground">
+                  {toName}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="text-center">
+            <p className="text-caption text-muted-foreground">
+              {iPay ? (
+                <>
+                  شما به{" "}
+                  <span className="font-semibold text-foreground">{toName}</span>{" "}
+                  بدهید
+                </>
+              ) : iReceive ? (
+                <>
+                  <span className="font-semibold text-foreground">
+                    {fromName}
+                  </span>{" "}
+                  به شما بدهد
+                </>
+              ) : myBalance > 0 ? (
+                <>
+                  {partnerName} به شما بدهد
+                </>
+              ) : (
+                <>
+                  شما به {partnerName} بدهید
+                </>
+              )}
+            </p>
+            <p
+              className={cn(
+                "mt-1.5 text-2xl font-bold tabular-nums tracking-tight",
+                myBalance > 0 ? "text-success" : "text-destructive",
+              )}
+            >
+              {formatCurrency(settleAmount, currency)}
+            </p>
+          </div>
+
+          {canMutate && suggestion ? (
             <Button
               type="button"
-              className="h-11 rounded-xl px-5"
+              className="h-11 w-full rounded-xl text-caption font-semibold"
               disabled={pending}
               onClick={() => {
                 setError(null);
                 setConfirmOpen(true);
               }}
             >
-              تسویه دستی
+              {pending ? "در حال ثبت…" : iPay ? "پرداخت کردم" : "ثبت تسویه"}
             </Button>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      </section>
 
-      {suggestion && myBalance !== 0 ? (
-        <p className="px-1 text-center text-label text-muted-foreground">
-          {fromName} ← {toName} · {formatCurrency(settleAmount, currency)}
+      <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        <p className="border-b border-border/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+          مانده خالص
         </p>
-      ) : null}
+        <ul className="divide-y divide-border/35 px-3">
+          {me ? (
+            <MemberRow
+              member={me}
+              currentUserId={currentUserId}
+              trailing={
+                <BalanceAmount currency={currency} amount={myBalance} />
+              }
+            />
+          ) : null}
+          {partner ? (
+            <MemberRow
+              member={partner}
+              currentUserId={currentUserId}
+              trailing={
+                <BalanceAmount currency={currency} amount={partnerBalance} />
+              }
+            />
+          ) : null}
+        </ul>
+      </section>
 
       {canMutate && suggestion ? (
         <SettleConfirmDialog
@@ -393,15 +533,15 @@ function MemberRow({
   trailing: React.ReactNode;
 }) {
   return (
-    <li className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <li className="flex items-center justify-between gap-3 py-2 first:pt-0.5 last:pb-0.5">
+      <div className="flex min-w-0 items-center gap-2">
         <UserAvatar
           phone={member.phone}
           name={member.name}
           size={28}
           className="size-7 bg-secondary"
         />
-        <span className="truncate text-body-sm font-medium text-foreground">
+        <span className="truncate text-caption font-medium text-foreground">
           {personName(member, currentUserId)}
         </span>
       </div>
@@ -466,26 +606,26 @@ export function SpaceBalances({
 
   if (allSettled) {
     return (
-      <div className="animate-fade-up space-y-3.5">
-        <div className="rounded-2xl border border-success/25 bg-success-soft/50 px-4 py-5 text-center">
-          <p className="text-base font-semibold text-success">حساب‌ها صاف است</p>
-          <p className="mt-1 text-body-sm text-muted-foreground">
+      <div className="animate-fade-up space-y-3 pb-6">
+        <div className="rounded-2xl border border-success/25 bg-success-soft/50 px-4 py-4 text-center">
+          <p className="text-body-sm font-bold text-success">حساب‌ها صاف است</p>
+          <p className="mt-1 text-caption text-muted-foreground">
             بعد از ثبت هزینه، مانده‌ها اینجا می‌آید
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border/55 bg-card px-3.5 py-3">
-          <p className="mb-1 text-caption font-medium text-muted-foreground">
-            {members.length} عضو
+        <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+          <p className="border-b border-border/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+            {members.length.toLocaleString("fa-IR")} عضو · همه صاف
           </p>
-          <ul className="divide-y divide-border/45">
+          <ul className="divide-y divide-border/35 px-3">
             {sortedMembers.map((member) => (
               <MemberRow
                 key={member.userId}
                 member={member}
                 currentUserId={currentUserId}
                 trailing={
-                  <span className="text-caption text-muted-foreground">صاف</span>
+                  <span className="text-[11px] text-muted-foreground">صاف</span>
                 }
               />
             ))}
@@ -496,23 +636,21 @@ export function SpaceBalances({
   }
 
   return (
-    <div className="animate-fade-up space-y-4">
-      <section className="space-y-2">
-        <div className="flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-body-sm font-semibold text-foreground">
-            برای تسویه
-          </h2>
-          <span className="text-caption text-muted-foreground">
-            {suggestions.length} پرداخت
-            {roundUpToThousand ? " · رند‌شده" : ""}
+    <div className="animate-fade-up space-y-3 pb-6">
+      <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3 py-2">
+          <h2 className="text-caption font-bold text-foreground">برای تسویه</h2>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {suggestions.length.toLocaleString("fa-IR")} پرداخت
+            {roundUpToThousand ? " · رند" : ""}
           </span>
         </div>
         {suggestions.length === 0 ? (
-          <p className="rounded-xl bg-muted/55 px-3 py-3 text-body-sm text-muted-foreground">
+          <p className="px-3 py-3.5 text-caption text-muted-foreground">
             پیشنهاد پرداختی نیست — مانده‌ها را پایین ببین.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border/35">
             {suggestions.map((suggestion) => (
               <SuggestionCard
                 key={`${suggestion.fromUserId}-${suggestion.toUserId}-${suggestion.amount}`}
@@ -529,73 +667,69 @@ export function SpaceBalances({
         )}
       </section>
 
-      <section className="space-y-2">
-        <div className="flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-body-sm font-semibold text-foreground">
-            مانده خالص
-          </h2>
+      <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3 py-2">
+          <h2 className="text-caption font-bold text-foreground">مانده خالص</h2>
           {roundUpToThousand ? (
-            <span className="text-caption text-muted-foreground">رند به هزار</span>
+            <span className="text-[11px] text-muted-foreground">رند به هزار</span>
           ) : null}
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border/55 bg-card">
-          {debtors.length > 0 ? (
-            <div
-              className={cn(
-                "px-3.5 py-3",
-                creditors.length > 0 && "border-b border-border/45",
-              )}
-            >
-              <p className="mb-1 text-caption font-medium text-destructive">
-                بدهکار
-              </p>
-              <ul className="divide-y divide-border/40">
-                {debtors.map((member) => (
-                  <MemberRow
-                    key={member.userId}
-                    member={member}
-                    currentUserId={currentUserId}
-                    trailing={
-                      <BalanceAmount
-                        currency={currency}
-                        amount={displayBalances[member.userId] ?? 0}
-                      />
-                    }
-                  />
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {creditors.length > 0 ? (
-            <div className="px-3.5 py-3">
-              <p className="mb-1 text-caption font-medium text-success">
-                طلبکار
-              </p>
-              <ul className="divide-y divide-border/40">
-                {creditors.map((member) => (
-                  <MemberRow
-                    key={member.userId}
-                    member={member}
-                    currentUserId={currentUserId}
-                    trailing={
-                      <BalanceAmount
-                        currency={currency}
-                        amount={displayBalances[member.userId] ?? 0}
-                      />
-                    }
-                  />
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {debtors.length === 0 && creditors.length === 0 ? (
-            <p className="px-3.5 py-4 text-center text-body-sm text-muted-foreground">
-              مانده‌ای نیست
+        {debtors.length > 0 ? (
+          <div
+            className={cn(
+              "px-3 pb-1 pt-2",
+              creditors.length > 0 && "border-b border-border/40",
+            )}
+          >
+            <p className="mb-0.5 text-[11px] font-semibold text-destructive">
+              بدهکار
             </p>
-          ) : null}
-        </div>
+            <ul className="divide-y divide-border/30">
+              {debtors.map((member) => (
+                <MemberRow
+                  key={member.userId}
+                  member={member}
+                  currentUserId={currentUserId}
+                  trailing={
+                    <BalanceAmount
+                      currency={currency}
+                      amount={displayBalances[member.userId] ?? 0}
+                    />
+                  }
+                />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {creditors.length > 0 ? (
+          <div className="px-3 pb-1 pt-2">
+            <p className="mb-0.5 text-[11px] font-semibold text-success">
+              طلبکار
+            </p>
+            <ul className="divide-y divide-border/30">
+              {creditors.map((member) => (
+                <MemberRow
+                  key={member.userId}
+                  member={member}
+                  currentUserId={currentUserId}
+                  trailing={
+                    <BalanceAmount
+                      currency={currency}
+                      amount={displayBalances[member.userId] ?? 0}
+                    />
+                  }
+                />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {debtors.length === 0 && creditors.length === 0 ? (
+          <p className="px-3 py-4 text-center text-caption text-muted-foreground">
+            مانده‌ای نیست
+          </p>
+        ) : null}
       </section>
     </div>
   );

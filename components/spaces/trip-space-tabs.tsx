@@ -5,7 +5,6 @@ import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
 import { SpaceBalances } from "@/components/SpaceBalances";
 import { SpaceChecklist } from "@/components/SpaceChecklist";
-import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
 import { useDeferredSpaceTabs } from "@/components/spaces/use-deferred-space-tabs";
@@ -106,7 +105,6 @@ export function TripSpaceTabs({
 
   const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
-  const showExport = tab === "expenses" || tab === "balances";
 
   const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
   const liveExpensesHasMore = loaded.has("expenses")
@@ -123,40 +121,37 @@ export function TripSpaceTabs({
       onValueChange={onTabChange}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="flex items-center gap-2">
-        <TabsList
-          aria-label="زبانه‌های دفتر"
-          className={cn(
-            "grid h-10 min-w-0 flex-1",
-            tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
-          )}
+      <TabsList
+        aria-label="زبانه‌های دفتر"
+        className={cn(
+          "grid w-full",
+          tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
+        <TabsTrigger
+          value="expenses"
+          onPointerEnter={() => prefetchTab("expenses")}
+          onFocus={() => prefetchTab("expenses")}
         >
+          هزینه‌ها
+        </TabsTrigger>
+        <TabsTrigger
+          value="balances"
+          onPointerEnter={() => prefetchTab("balances")}
+          onFocus={() => prefetchTab("balances")}
+        >
+          تراز
+        </TabsTrigger>
+        {showChecklist ? (
           <TabsTrigger
-            value="expenses"
-            onPointerEnter={() => prefetchTab("expenses")}
-            onFocus={() => prefetchTab("expenses")}
+            value="checklist"
+            onPointerEnter={() => prefetchTab("checklist")}
+            onFocus={() => prefetchTab("checklist")}
           >
-            هزینه‌ها
+            چک‌لیست
           </TabsTrigger>
-          <TabsTrigger
-            value="balances"
-            onPointerEnter={() => prefetchTab("balances")}
-            onFocus={() => prefetchTab("balances")}
-          >
-            تراز
-          </TabsTrigger>
-          {showChecklist ? (
-            <TabsTrigger
-              value="checklist"
-              onPointerEnter={() => prefetchTab("checklist")}
-              onFocus={() => prefetchTab("checklist")}
-            >
-              چک‌لیست
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-        {showExport ? <ReportExportButtons spaceId={spaceId} /> : null}
-      </div>
+        ) : null}
+      </TabsList>
 
       <TabsContent value="expenses" className="mt-3">
         {expensesWaiting ? (
@@ -174,6 +169,7 @@ export function TripSpaceTabs({
             currency={currency}
             spaceType={spaceType}
             canMutate={canMutate}
+            showExport
           />
         )}
       </TabsContent>

@@ -1,8 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { formatJalaliYear, monthLabelFa } from "@/lib/building";
+import {
+  formatJalaliYear,
+  jalaliMonth,
+  jalaliYear,
+  monthLabelFa,
+} from "@/lib/building";
 import { cn } from "@/lib/utils";
 
 type BuildingReportPeriodFilterProps = {
@@ -10,19 +16,44 @@ type BuildingReportPeriodFilterProps = {
   year: number;
   /** `null` = full Jalali year. */
   month: number | null;
+  /** Aligned with the «بازه گزارش» label row (e.g. Excel/PDF). */
+  actions?: ReactNode;
 };
 
 /**
- * Minimal Jalali period chips for building shared-cost reports.
- * Navigates via `?year=&tab=report&rm=` (rm omitted = whole year).
+ * Compact Jalali period chips — current/selected month + neighbors,
+ * with «بیشتر» to expand all 12. Navigates via `?year=&tab=report&rm=`.
  */
 export function BuildingReportPeriodFilter({
   spaceId,
   year,
   month,
+  actions,
 }: BuildingReportPeriodFilterProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [expanded, setExpanded] = useState(false);
+
+  const nowY = jalaliYear();
+  const nowM = jalaliMonth();
+
+  const visibleMonths = useMemo(() => {
+    if (expanded) {
+      return Array.from({ length: 12 }, (_, i) => i + 1);
+    }
+    const focus =
+      month ?? (year === nowY ? nowM : Math.min(12, Math.max(1, nowM)));
+    const set = new Set<number>();
+    for (let d = -1; d <= 1; d++) {
+      const m = focus + d;
+      if (m >= 1 && m <= 12) set.add(m);
+    }
+    if (year === nowY) set.add(nowM);
+    if (month != null) set.add(month);
+    return [...set].sort((a, b) => a - b);
+  }, [expanded, month, year, nowY, nowM]);
+
+  const showToggle = expanded || visibleMonths.length < 12;
 
   function go(nextMonth: number | null) {
     const params = new URLSearchParams();
@@ -43,13 +74,16 @@ export function BuildingReportPeriodFilter({
         pending && "pointer-events-none opacity-70",
       )}
     >
-      <div className="flex items-baseline justify-between gap-2 px-0.5">
-        <p className="text-caption font-medium text-muted-foreground">
-          بازه گزارش
-        </p>
-        <p className="text-micro text-muted-foreground">
-          {formatJalaliYear(year)}
-        </p>
+      <div className="flex items-center justify-between gap-2 px-0.5">
+        <div className="min-w-0 flex items-baseline gap-2">
+          <p className="text-caption font-medium text-muted-foreground">
+            بازه گزارش
+          </p>
+          <p className="text-micro text-muted-foreground">
+            {formatJalaliYear(year)}
+          </p>
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
       <div
         role="radiogroup"
@@ -70,8 +104,9 @@ export function BuildingReportPeriodFilter({
         >
           کل سال
         </button>
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+        {visibleMonths.map((m) => {
           const on = month === m;
+          const isNow = year === nowY && m === nowM;
           return (
             <button
               key={m}
@@ -84,12 +119,23 @@ export function BuildingReportPeriodFilter({
                 on
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
+                !on && isNow && "ring-1 ring-primary/35",
               )}
             >
               {monthLabelFa(m)}
             </button>
           );
         })}
+        {showToggle ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="shrink-0 rounded-xl px-2.5 py-1.5 text-caption font-semibold text-primary/90 transition-colors hover:bg-primary/10"
+          >
+            {expanded ? "کمتر" : "بیشتر"}
+          </button>
+        ) : null}
       </div>
     </div>
   );

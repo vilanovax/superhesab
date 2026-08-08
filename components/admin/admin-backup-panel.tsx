@@ -14,6 +14,7 @@ import { AdminSection } from "@/components/admin/admin-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toAsciiDigits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 function downloadJson(data: unknown, filename: string) {
@@ -201,9 +202,11 @@ export function AdminBackupPanel() {
                 spellCheck={false}
                 dir="ltr"
                 value={userPhone}
-                onChange={(e) => setUserPhone(e.target.value)}
-                placeholder="۰۹۱۲۳۴۵۶۷۸۹…"
-                className="h-10 rounded-xl"
+                onChange={(e) =>
+                  setUserPhone(toAsciiDigits(e.target.value).replace(/[^\d+]/g, ""))
+                }
+                placeholder="09123456789…"
+                className="h-10 rounded-xl tabular-nums"
               />
               <Button
                 type="button"

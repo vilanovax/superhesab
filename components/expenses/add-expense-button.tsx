@@ -47,6 +47,8 @@ type AddExpenseButtonProps = {
   spaceType?: SpaceType;
   /** خانه: categories hidden from this viewer (others' private). */
   hiddenCategories?: ExpenseCategory[];
+  /** Active space tab — charges FAB opens collection, not expense form. */
+  activeTab?: string;
 };
 
 function useIsDesktop() {
@@ -99,58 +101,72 @@ function ExpenseSheetBody({
   children: React.ReactNode;
   variant: "drawer" | "dialog";
   title?: string;
-  /** Content-sized sheet (building shared cost) — no tall empty footer. */
+  /** Building / trip — form owns sticky footer; shell does not scroll. */
   compact?: boolean;
 }) {
+  const showDesc = description.trim().length > 0;
   return (
     <div
       className={cn(
         "flex min-h-0 flex-col",
         variant === "drawer"
           ? compact
-            ? "max-h-[min(85dvh,100%)]"
+            ? "max-h-[min(88dvh,100%)]"
             : "max-h-[85dvh]"
           : "max-h-[inherit] flex-1",
       )}
     >
       <div
         className={cn(
-          "surface-hero relative shrink-0 overflow-hidden px-5 pt-1.5",
-          compact ? "pb-2.5" : "pb-3.5 pt-2",
+          "surface-hero relative shrink-0 overflow-hidden px-4 pt-1",
+          compact ? "pb-2.5" : "px-5 pb-3.5 pt-2",
         )}
       >
         {variant === "drawer" ? (
-          <DrawerHeader className="relative space-y-0.5 p-0 text-start">
+          <DrawerHeader className="relative space-y-0 p-0 text-start">
             <DrawerTitle
+              className={cn(
+                "font-bold text-on-hero",
+                compact ? "text-body-sm" : "text-lg",
+              )}
+            >
+              {title}
+            </DrawerTitle>
+            {showDesc ? (
+              <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
+                {description}
+              </DrawerDescription>
+            ) : (
+              <DrawerDescription className="sr-only">{title}</DrawerDescription>
+            )}
+          </DrawerHeader>
+        ) : (
+          <DialogHeader className="relative space-y-0 text-start">
+            <DialogTitle
               className={cn(
                 "font-bold text-on-hero",
                 compact ? "text-body" : "text-lg",
               )}
             >
               {title}
-            </DrawerTitle>
-            <DrawerDescription className="text-caption text-on-hero/70">
-              {description}
-            </DrawerDescription>
-          </DrawerHeader>
-        ) : (
-          <DialogHeader className="relative space-y-0.5 text-start">
-            <DialogTitle className="text-lg font-bold text-on-hero">
-              {title}
             </DialogTitle>
-            <DialogDescription className="text-body-sm text-on-hero/70">
-              {description}
-            </DialogDescription>
+            {showDesc ? (
+              <DialogDescription className="mt-0.5 text-caption text-on-hero/70">
+                {description}
+              </DialogDescription>
+            ) : (
+              <DialogDescription className="sr-only">{title}</DialogDescription>
+            )}
           </DialogHeader>
         )}
       </div>
 
       <div
         className={cn(
-          "surface-sheet-canvas min-h-0 overflow-y-auto overscroll-contain px-4",
+          "surface-sheet-canvas flex min-h-0 flex-1 flex-col px-4",
           compact
-            ? "py-3 pb-[calc(0.65rem+env(safe-area-inset-bottom))]"
-            : "min-h-0 py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
+            ? "overflow-hidden py-2.5"
+            : "min-h-0 overflow-y-auto overscroll-contain py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
           variant === "drawer" && !compact && "max-h-[calc(85dvh-4.5rem)]",
           variant === "dialog" && "min-h-0 flex-1",
         )}
@@ -168,6 +184,7 @@ export function AddExpenseButton({
   currency = "TOMAN",
   spaceType = "TRIP",
   hiddenCategories,
+  activeTab,
 }: AddExpenseButtonProps) {
   const expenseFormOpen = useUiStore((s) => s.expenseFormOpen);
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
@@ -179,25 +196,89 @@ export function AddExpenseButton({
     useUnsavedCloseGuard(formBlocked);
   const features = getTemplate(spaceType).features;
   const isBuilding = features.buildingCharges;
+  /** Client tab may diverge from RSC `activeTab` after in-app tab switches. */
+  const [liveTab, setLiveTab] = useState(activeTab ?? "");
+  const [chargesCalendarView, setChargesCalendarView] = useState(false);
+
+  useEffect(() => {
+    setLiveTab(activeTab ?? "");
+  }, [activeTab]);
+
+  useEffect(() => {
+    const fromUrl = () =>
+      new URL(window.location.href).searchParams.get("tab") ?? "";
+    setLiveTab((prev) => fromUrl() || prev || activeTab || "");
+    const onTab = (e: Event) => {
+      const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (tab) setLiveTab(tab);
+      else setLiveTab(fromUrl() || activeTab || "");
+    };
+    window.addEventListener("superhesab:space-tab", onTab);
+    window.addEventListener("popstate", onTab);
+    return () => {
+      window.removeEventListener("superhesab:space-tab", onTab);
+      window.removeEventListener("popstate", onTab);
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!(isBuilding && liveTab === "charges")) {
+      setChargesCalendarView(false);
+      return;
+    }
+    const fromUrl = () => {
+      const v = new URL(window.location.href).searchParams.get("cview");
+      return v === "cal" || v === "calendar" || v === "year" || v === "grid";
+    };
+    setChargesCalendarView(fromUrl());
+    const onView = (e: Event) => {
+      const view = (e as CustomEvent<{ view?: string }>).detail?.view;
+      if (view === "cal-month" || view === "cal-year" || view === "calendar") {
+        setChargesCalendarView(true);
+        return;
+      }
+      if (view === "month") {
+        setChargesCalendarView(false);
+        return;
+      }
+      setChargesCalendarView(fromUrl());
+    };
+    window.addEventListener("superhesab:charges-view", onView);
+    window.addEventListener("popstate", onView);
+    return () => {
+      window.removeEventListener("superhesab:charges-view", onView);
+      window.removeEventListener("popstate", onView);
+    };
+  }, [isBuilding, liveTab]);
+  /** FAB only on وصول ماهانه — calendar/year register from cells. */
+  const chargesCollectFab =
+    isBuilding && liveTab === "charges" && !chargesCalendarView;
+  const isTrip = spaceType === "TRIP";
+  const isPartner = spaceType === "PARTNER";
+  const denseSheet = isBuilding || isTrip || isPartner;
   const description = isBuilding
-    ? "هزینه مشاع ساختمان — از صندوق مشترک"
-    : features.householdLedger
-      ? "درآمد یا هزینه خانواده — بدون دنگ‌ودونگ"
-      : features.incomeExpense
-        ? "درآمد یا هزینه — سریع و بدون تسهیم"
-        : spaceType === "PARTNER"
-          ? "عنوان و مبلغ — تسهیم مساوی"
+    ? "کسر از صندوق ساختمان"
+    : isTrip || isPartner
+      ? ""
+      : features.householdLedger
+        ? "درآمد یا هزینه خانواده — بدون دنگ‌ودونگ"
+        : features.incomeExpense
+          ? "درآمد یا هزینه — سریع و بدون تسهیم"
           : "عنوان، مبلغ و سهم‌ها";
   const sheetTitle = isBuilding
     ? "ثبت هزینه مشاع"
-    : features.incomeExpense
-      ? "ثبت تراکنش"
-      : "ثبت هزینه جدید";
-  const fabLabel = isBuilding
-    ? "ثبت هزینه"
-    : features.incomeExpense
-      ? "ثبت تراکنش"
-      : "ثبت هزینه";
+    : isTrip || isPartner
+      ? "ثبت هزینه"
+      : features.incomeExpense
+        ? "ثبت تراکنش"
+        : "ثبت هزینه جدید";
+  const fabLabel = chargesCollectFab
+    ? "ثبت وصول"
+    : isBuilding
+      ? "ثبت هزینه"
+      : features.incomeExpense
+        ? "ثبت تراکنش"
+        : "ثبت هزینه";
 
   const open = expenseFormOpen || localOpen;
 
@@ -237,6 +318,34 @@ export function AddExpenseButton({
     return <Fab className="pointer-events-none opacity-0" tabIndex={-1} />;
   }
 
+  /** Units/report own their CTAs — don't float expense/collect here. */
+  if (isBuilding && (liveTab === "units" || liveTab === "report")) {
+    return null;
+  }
+
+  /** Checklist / balances own the focus — hide expense FAB. */
+  if (liveTab === "checklist" || liveTab === "balances") {
+    return null;
+  }
+
+  if (chargesCollectFab) {
+    return (
+      <Fab
+        type="button"
+        onClick={() => {
+          window.dispatchEvent(
+            new CustomEvent("superhesab:charges-collect"),
+          );
+        }}
+      >
+        <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
+          +
+        </span>
+        {fabLabel}
+      </Fab>
+    );
+  }
+
   if (isDesktop) {
     return (
       <>
@@ -254,7 +363,7 @@ export function AddExpenseButton({
               description={description}
               variant="dialog"
               title={sheetTitle}
-              compact={isBuilding}
+              compact={denseSheet}
             >
               {form}
             </ExpenseSheetBody>
@@ -281,7 +390,7 @@ export function AddExpenseButton({
             description={description}
             variant="drawer"
             title={sheetTitle}
-            compact={isBuilding}
+            compact={denseSheet}
           >
             {form}
           </ExpenseSheetBody>

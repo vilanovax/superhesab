@@ -9,10 +9,14 @@ import { formatDateFaShort, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import {
   CATEGORY_CHART_COLORS,
+  categoryChartKey,
   categoryChartLabel,
+  collapseBuildingBillsForChart,
   type CategoryExpenseRow,
   type ReportExpenseLine,
 } from "@/lib/reports";
+
+const DENSE_LEGEND_PREVIEW = 5;
 import { categoryBudgetProgress } from "@/lib/personal";
 import { cn } from "@/lib/utils";
 import {
@@ -100,27 +104,61 @@ export function PersonalReportChart({
   dense = false,
 }: PersonalReportChartProps) {
   const [activeKey, setActiveKey] = useState<string | null>(readCategoryQuery);
-  const total = data.reduce((sum, row) => sum + row.amount, 0);
-  const canDrill = expenseLines.length > 0;
+  const [legendOpen, setLegendOpen] = useState(false);
+
+  const chartData = useMemo(
+    () => (dense ? collapseBuildingBillsForChart(data) : data),
+    [data, dense],
+  );
+
+  const drillLines = useMemo(() => {
+    if (!dense) return expenseLines;
+    const billsKey = categoryChartKey("BUILDING_BILLS");
+    return expenseLines.map((line) =>
+      line.category === "BUILDING_BILLS"
+        ? { ...line, chartKey: billsKey }
+        : line,
+    );
+  }, [expenseLines, dense]);
+
+  const total = chartData.reduce((sum, row) => sum + row.amount, 0);
+  const canDrill = drillLines.length > 0;
 
   const activeRow = useMemo(
-    () => data.find((r) => r.key === activeKey) ?? null,
-    [data, activeKey],
+    () => chartData.find((r) => r.key === activeKey) ?? null,
+    [chartData, activeKey],
   );
 
   const activeLines = useMemo(() => {
     if (!activeKey) return [];
-    return expenseLines.filter((line) => line.chartKey === activeKey);
-  }, [expenseLines, activeKey]);
+    return drillLines.filter((line) => line.chartKey === activeKey);
+  }, [drillLines, activeKey]);
+
+  const legendRows = useMemo(() => {
+    if (
+      !dense ||
+      legendOpen ||
+      chartData.length <= DENSE_LEGEND_PREVIEW + 1
+    ) {
+      return { visible: chartData, hiddenCount: 0, hiddenAmount: 0 };
+    }
+    const visible = chartData.slice(0, DENSE_LEGEND_PREVIEW);
+    const hidden = chartData.slice(DENSE_LEGEND_PREVIEW);
+    return {
+      visible,
+      hiddenCount: hidden.length,
+      hiddenAmount: hidden.reduce((s, r) => s + r.amount, 0),
+    };
+  }, [chartData, dense, legendOpen]);
 
   useEffect(() => {
-    if (activeKey && !data.some((r) => r.key === activeKey)) {
+    if (activeKey && !chartData.some((r) => r.key === activeKey)) {
       setActiveKey(null);
       syncCategoryQuery(null);
     }
-  }, [activeKey, data]);
+  }, [activeKey, chartData]);
 
-  if (total <= 0 || data.length === 0) {
+  if (total <= 0 || chartData.length === 0) {
     return (
       <div className="animate-fade-up rounded-2xl border border-dashed border-border/70 bg-card/70 px-5 py-10 text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/8 text-primary">
@@ -156,7 +194,7 @@ export function PersonalReportChart({
     );
   }
 
-  const chartConfig = buildChartConfig(data);
+  const chartConfig = buildChartConfig(chartData);
 
   function openCategory(key: string) {
     if (!canDrill) return;
@@ -175,7 +213,7 @@ export function PersonalReportChart({
         <div
           className={cn(
             "border-b border-border/45",
-            dense ? "flex items-center justify-between gap-2 px-3 py-2" : "px-4 py-3",
+            dense ? "px-3 py-2" : "px-4 py-3",
           )}
         >
           <div className="min-w-0">
@@ -187,22 +225,22 @@ export function PersonalReportChart({
             >
               سهم دسته‌ها
             </h2>
-            {!dense ? (
+            {dense ? (
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {chartData.length} دسته
+                {canDrill ? " · برای جزئیات بزنید" : ""}
+              </p>
+            ) : (
               <p className="mt-0.5 text-caption text-muted-foreground">
                 {periodLabel} · {formatCurrency(total, currency)}
               </p>
-            ) : null}
+            )}
             {canDrill && !dense ? (
               <p className="mt-1 text-micro text-muted-foreground">
                 روی هر دسته بزنید تا جزئیات را ببینید
               </p>
             ) : null}
           </div>
-          {dense ? (
-            <p className="shrink-0 text-micro tabular-nums text-muted-foreground">
-              {formatCurrency(total, currency)}
-            </p>
-          ) : null}
         </div>
 
         <div className={cn("px-2 sm:px-4", dense ? "pb-1 pt-2" : "pb-2 pt-4")}>
@@ -210,7 +248,7 @@ export function PersonalReportChart({
             config={chartConfig}
             className={cn(
               "mx-auto aspect-square w-full",
-              dense ? "max-h-[200px]" : "max-h-[260px]",
+              dense ? "max-h-[180px]" : "max-h-[260px]",
             )}
           >
             <PieChart>
@@ -243,11 +281,11 @@ export function PersonalReportChart({
                 }
               />
               <Pie
-                data={data}
+                data={chartData}
                 dataKey="amount"
                 nameKey="key"
-                innerRadius={dense ? 56 : 68}
-                outerRadius={dense ? 84 : 100}
+                innerRadius={dense ? 52 : 68}
+                outerRadius={dense ? 76 : 100}
                 strokeWidth={3}
                 stroke="var(--card)"
                 className={
@@ -256,11 +294,11 @@ export function PersonalReportChart({
                     : undefined
                 }
                 onClick={(_, index) => {
-                  const row = data[index];
+                  const row = chartData[index];
                   if (row) openCategory(row.key);
                 }}
               >
-                {data.map((entry) => (
+                {chartData.map((entry) => (
                   <Cell
                     key={entry.key}
                     fill={
@@ -279,6 +317,32 @@ export function PersonalReportChart({
                     ) {
                       return null;
                     }
+                    // Dense (building report): total already lives in «خلاصه بازه».
+                    if (dense) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy ?? 0) - 4}
+                            className="fill-foreground text-base font-bold tabular-nums"
+                          >
+                            {chartData.length}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy ?? 0) + 12}
+                            className="fill-muted-foreground text-[10px]"
+                          >
+                            دسته
+                          </tspan>
+                        </text>
+                      );
+                    }
                     return (
                       <text
                         x={viewBox.cx}
@@ -288,23 +352,15 @@ export function PersonalReportChart({
                       >
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy ?? 0) - (dense ? 8 : 10)}
-                          className={
-                            dense
-                              ? "fill-muted-foreground text-[10px]"
-                              : "fill-muted-foreground text-[11px]"
-                          }
+                          y={(viewBox.cy ?? 0) - 10}
+                          className="fill-muted-foreground text-[11px]"
                         >
                           {totalCenterLabel}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy ?? 0) + (dense ? 10 : 12)}
-                          className={
-                            dense
-                              ? "fill-foreground text-xs font-bold"
-                              : "fill-foreground text-sm font-bold"
-                          }
+                          y={(viewBox.cy ?? 0) + 12}
+                          className="fill-foreground text-sm font-bold"
                         >
                           {formatCurrency(total, currency)}
                         </tspan>
@@ -323,7 +379,7 @@ export function PersonalReportChart({
             dense ? "space-y-1 px-2.5 py-2.5" : "space-y-2 px-4 py-4",
           )}
         >
-          {data.map((row) => {
+          {legendRows.visible.map((row) => {
             const pct = Math.round((row.amount * 100) / total);
             const color =
               chartConfig[row.key]?.color ??
@@ -425,6 +481,33 @@ export function PersonalReportChart({
               </li>
             );
           })}
+          {dense && legendRows.hiddenCount > 0 ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => setLegendOpen(true)}
+                className="flex w-full items-center justify-between gap-2 rounded-xl px-2 py-1.5 text-caption font-semibold text-primary transition-colors hover:bg-primary/8"
+              >
+                <span>
+                  +{legendRows.hiddenCount.toLocaleString("fa-IR")} دسته دیگر
+                </span>
+                <span className="tabular-nums text-muted-foreground">
+                  {formatCurrency(legendRows.hiddenAmount, currency)}
+                </span>
+              </button>
+            </li>
+          ) : null}
+          {dense && legendOpen && chartData.length > DENSE_LEGEND_PREVIEW + 1 ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => setLegendOpen(false)}
+                className="w-full rounded-xl px-2 py-1.5 text-center text-caption font-semibold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                کمتر
+              </button>
+            </li>
+          ) : null}
         </ul>
       </div>
 

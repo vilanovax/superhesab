@@ -21,9 +21,9 @@ type SpacePageContentProps = {
 function TabsFallback() {
   return (
     <div className="space-y-3" aria-hidden>
-      <div className="grid h-11 grid-cols-4 gap-1 rounded-2xl bg-muted/70 p-1">
+      <div className="grid h-12 grid-cols-4 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="animate-pulse rounded-xl bg-card/80" />
+          <div key={i} className="animate-pulse rounded-xl bg-muted/60" />
         ))}
       </div>
       <SpacePanelFallback rows={5} />

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { assertFeatureEnabled } from "@/lib/feature-flags";
 import { PASSWORD_MAX_LEN } from "@/lib/password-policy";
 import { verifyPassword } from "@/lib/password";
+import { normalizeDigits, normalizePhone } from "@/lib/format";
 import {
   clearSessionCookie,
   setSessionCookie,
@@ -18,13 +19,13 @@ export type AuthActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
-function normalizePhone(phone: string): string {
-  return phone.replace(/[\s\-()]/g, "").trim();
-}
-
 function isValidPhone(phone: string): boolean {
   // Accept IR mobile (+98 / 09) and generic E.164-ish digits for MVP
   return /^(\+98|0)?9\d{9}$/.test(phone) || /^\+?\d{10,15}$/.test(phone);
+}
+
+function normalizeOtp(otp: string): string {
+  return normalizeDigits(otp);
 }
 
 function normalizeName(name: string): string {
@@ -92,7 +93,7 @@ export async function verifyOtp(
     return { ok: false, error: "شماره موبایل معتبر نیست." };
   }
 
-  if (otp.trim() !== MOCK_OTP) {
+  if (normalizeOtp(otp) !== MOCK_OTP) {
     return { ok: false, error: "کد تأیید نادرست است." };
   }
 
@@ -164,7 +165,7 @@ export async function verifyRegisterOtp(input: {
   if (!normalized || !isValidPhone(normalized)) {
     return { ok: false, error: "شماره موبایل معتبر نیست." };
   }
-  if (input.otp.trim() !== MOCK_OTP) {
+  if (normalizeOtp(input.otp) !== MOCK_OTP) {
     return { ok: false, error: "کد تأیید نادرست است." };
   }
 

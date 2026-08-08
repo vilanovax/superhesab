@@ -112,29 +112,20 @@ function SheetBody({
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   return (
-    <div className="flex max-h-[min(88dvh,640px)] flex-col">
-      <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-4 pt-2 md:pt-4">
+    // Hug content height — avoid flex-1 stretch that leaves empty gray under the CTA.
+    <div className="flex w-full flex-col overflow-hidden">
+      <div className="surface-hero relative shrink-0 overflow-hidden px-5 py-2">
         <div
           aria-hidden
-          className="pointer-events-none absolute -end-10 -top-12 size-36 rounded-full bg-on-hero/12 blur-3xl"
+          className="pointer-events-none absolute -end-10 -top-12 size-28 rounded-full bg-on-hero/12 blur-3xl"
         />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -start-8 bottom-[-1rem] size-28 rounded-full bg-highlight/20 blur-2xl"
-        />
-        <div className="relative space-y-1 text-start">
-          <p className="text-micro font-medium tracking-[0.14em] text-on-hero/45">
-            SUPERHESAB
-          </p>
-          <h2 className="text-pretty text-xl font-bold tracking-tight text-on-hero">
+        <div className="relative text-start">
+          <h2 className="text-pretty text-base font-bold tracking-tight text-on-hero md:text-lg">
             دفتر جدید
           </h2>
-          <p className="max-w-[16rem] text-caption leading-relaxed text-on-hero/72">
-            نام بگذار، قالب را انتخاب کن، بساز.
-          </p>
         </div>
       </div>
-      <div className="surface-sheet-canvas flex min-h-0 flex-1 flex-col px-5 pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="surface-sheet-canvas flex flex-col px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-5">
         <CreateSpaceForm
           key={initialType ?? "default"}
           error={error}
@@ -242,7 +233,7 @@ export function CreateSpaceSheet({
             <CreateTrigger layout={layout} />
           </DrawerTrigger>
         ) : null}
-        <DrawerContent className="mt-0! max-h-[min(88dvh,640px)] gap-0 overflow-hidden border-border/50 bg-background p-0">
+        <DrawerContent className="mt-0! h-auto gap-0 overflow-hidden border-border/50 bg-background p-0">
           <DrawerHeader className="sr-only">
             <DrawerTitle>دفتر جدید</DrawerTitle>
             <DrawerDescription>

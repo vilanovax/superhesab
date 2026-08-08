@@ -10,6 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeDigits, toAsciiDigits } from "@/lib/format";
+
+function phoneFromInput(raw: string): string {
+  return toAsciiDigits(raw).replace(/[^\d+]/g, "");
+}
 
 type Step = "details" | "otp";
 
@@ -159,8 +164,8 @@ export function RegisterForm({
                 dir="ltr"
                 placeholder="مثلاً 0912…"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="h-12 rounded-xl text-base"
+                onChange={(e) => setPhone(phoneFromInput(e.target.value))}
+                className="h-12 rounded-xl text-base tabular-nums"
                 required
               />
             </div>
@@ -228,7 +233,9 @@ export function RegisterForm({
                 placeholder="• • • • • •"
                 maxLength={6}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setOtp(normalizeDigits(e.target.value).slice(0, 6))
+                }
                 className="h-14 rounded-xl text-center text-xl tracking-[0.45em] placeholder:tracking-[0.2em] placeholder:text-muted-foreground/50"
                 required
               />

@@ -99,6 +99,7 @@ export async function loadSpaceTabData(input: {
     planYear,
     reportRange,
     hiddenCategories,
+    viewerUserId: session.userId,
     // Proofs hydrate after charges paint on the client.
     includeChargeProofs: false,
   });

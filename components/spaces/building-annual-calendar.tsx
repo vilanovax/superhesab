@@ -34,8 +34,15 @@ type BuildingAnnualCalendarProps = {
   }) => void;
   /** Tap unit label → open unit detail sheet. */
   onUnitClick?: (unitId: string) => void;
-  /** Export controls — rendered on the same row as the year chip. */
+  /** Export controls — compact, beside the title. */
   toolbarEnd?: ReactNode;
+  /** Controlled mode when parent owns the view switch. */
+  mode?: CalendarMode;
+  onModeChange?: (mode: CalendarMode) => void;
+  /** Hide internal ماه/سال switch (parent already has a 3-way control). */
+  hideModeSwitch?: boolean;
+  /** Year is controlled from the building hero — don't duplicate here. */
+  hideYearNav?: boolean;
 };
 
 type CalendarMode = "month" | "grid";
@@ -58,11 +65,14 @@ function cellTone(kind: CalendarCellKind): string {
     case "PARTIAL":
       return "bg-amber-500/15 text-amber-800 ring-amber-500/30 dark:text-amber-200";
     case "DUE":
+      // Explicit debtor mark — strongest danger
+      return "bg-rose-500/18 text-rose-700 ring-rose-500/30 dark:text-rose-300";
     case "MISSING_DUE":
-      return "bg-rose-500/15 text-rose-700 ring-rose-500/25 dark:text-rose-300";
+      // Unregistered past month — softer than explicit DUE
+      return "bg-rose-500/10 text-rose-600/90 ring-rose-500/15 dark:text-rose-300/80";
     case "FUTURE":
     default:
-      return "bg-muted/60 text-muted-foreground/55 ring-border/30";
+      return "bg-muted/35 text-muted-foreground/40 ring-border/20";
   }
 }
 
@@ -86,7 +96,7 @@ function cellGlyph(kind: CalendarCellKind): string {
 
 function cellStatusLabel(kind: CalendarCellKind): string {
   if (kind === "FUTURE") return "آینده";
-  if (kind === "MISSING_DUE") return "بدهکار";
+  if (kind === "MISSING_DUE") return "تسویه‌نشده";
   return CHARGE_STATUS_LABELS[kind];
 }
 
@@ -149,9 +159,19 @@ export function BuildingAnnualCalendar({
   onCellClick,
   onUnitClick,
   toolbarEnd,
+  mode: modeProp,
+  onModeChange,
+  hideModeSwitch = false,
+  hideYearNav = true,
 }: BuildingAnnualCalendarProps) {
   const { year, throughMonth, units, byUnitMonth } = calendar;
-  const [mode, setMode] = useState<CalendarMode>("month");
+  const [modeUncontrolled, setModeUncontrolled] =
+    useState<CalendarMode>("month");
+  const mode = modeProp ?? modeUncontrolled;
+  function setMode(next: CalendarMode) {
+    onModeChange?.(next);
+    if (modeProp === undefined) setModeUncontrolled(next);
+  }
   const [month, setMonth] = useState(() => {
     const now = jalaliMonth();
     if (throughMonth > 0) return Math.min(Math.max(now, 1), 12);
@@ -200,40 +220,68 @@ export function BuildingAnnualCalendar({
     [],
   );
 
-  function goMonth(delta: number) {
-    setMonth((m) => Math.min(12, Math.max(1, m + delta)));
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Header: title · year + export on one baseline */}
+    <div className="space-y-3">
+      {/* Compact header — year lives on the building hero */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="text-body font-bold tracking-tight text-foreground">
-            تقویم وصول
-          </h3>
-          {throughMonth > 0 ? (
-            <p className="mt-0.5 whitespace-nowrap text-caption text-muted-foreground">
-              تا {MONTH_LABELS_FA[throughMonth]}:{" "}
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                {faDigits(stats.paid)} تسویه
+          <h3 className="text-body-sm font-bold tracking-tight text-foreground">
+            {mode === "grid" ? "نمای سال" : "تقویم ماه"}
+            {!hideYearNav ? (
+              <span className="ms-1.5 font-semibold text-muted-foreground">
+                {formatJalaliYear(year)}
               </span>
-              {stats.due > 0 ? (
-                <>
-                  {" · "}
-                  <span className="font-semibold text-rose-700 dark:text-rose-400">
-                    {faDigits(stats.due)} بدهکار
-                  </span>
-                </>
-              ) : null}
-            </p>
+            ) : null}
+          </h3>
+          {mode === "grid" ? (
+            throughMonth > 0 ? (
+              <p className="mt-0.5 text-caption leading-snug text-muted-foreground">
+                واحد×ماه تا {MONTH_LABELS_FA[throughMonth]}:{" "}
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {faDigits(stats.paid)} تسویه
+                </span>
+                {stats.due > 0 ? (
+                  <>
+                    {" · "}
+                    <span className="font-semibold text-rose-700 dark:text-rose-400">
+                      {faDigits(stats.due)} تسویه‌نشده
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                سال آینده — هنوز موعدی نرسیده
+              </p>
+            )
           ) : (
-            <p className="mt-0.5 whitespace-nowrap text-caption text-muted-foreground">
-              سال آینده — هنوز موعدی نرسیده
+            <p className="mt-0.5 text-caption leading-snug text-muted-foreground">
+              {month > throughMonth ? (
+                "هنوز موعد نرسیده"
+              ) : (
+                <>
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    {faDigits(monthStats.paid)} تسویه
+                  </span>
+                  {monthStats.due > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="font-semibold text-rose-700 dark:text-rose-400">
+                        {faDigits(monthStats.due)} تسویه‌نشده
+                      </span>
+                    </>
+                  ) : null}
+                </>
+              )}
             </p>
           )}
         </div>
-        <div className="flex h-9 shrink-0 items-center gap-1.5 self-start">
+        {toolbarEnd ? (
+          <div className="flex h-9 shrink-0 items-center self-start">
+            {toolbarEnd}
+          </div>
+        ) : null}
+        {!hideYearNav ? (
           <div
             className="flex h-9 items-center gap-0.5 rounded-xl bg-muted/80 p-0.5 ring-1 ring-border/40"
             role="group"
@@ -257,55 +305,43 @@ export function BuildingAnnualCalendar({
               ›
             </Link>
           </div>
-          {toolbarEnd}
-        </div>
+        ) : null}
       </div>
 
-      {/* Mode switch — month-first for mobile readability */}
-      <div
-        className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
-        role="tablist"
-        aria-label="حالت تقویم"
-      >
-        {(
-          [
-            { value: "month" as const, label: "ماه به ماه", hint: "خوانا" },
-            { value: "grid" as const, label: "نمای سال", hint: "اسکرول" },
-          ] as const
-        ).map((opt) => {
-          const active = mode === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setMode(opt.value)}
-              className={cn(
-                "flex h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-2 transition-colors duration-150",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-              )}
-            >
-              <span className="text-body-sm font-semibold leading-none">
-                {opt.label}
-              </span>
-              <span
+      {!hideModeSwitch ? (
+        <div
+          className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
+          role="tablist"
+          aria-label="حالت تقویم"
+        >
+          {(
+            [
+              { value: "month" as const, label: "ماه به ماه" },
+              { value: "grid" as const, label: "نمای سال" },
+            ] as const
+          ).map((opt) => {
+            const active = mode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setMode(opt.value)}
                 className={cn(
-                  "mt-0.5 text-[10px] leading-none",
+                  "flex h-10 cursor-pointer items-center justify-center rounded-xl px-2 text-body-sm font-semibold transition-colors duration-150",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active
-                    ? "text-primary-foreground/72"
-                    : "text-muted-foreground/70",
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
-                {opt.hint}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {units.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-body-sm text-muted-foreground">
@@ -315,12 +351,10 @@ export function BuildingAnnualCalendar({
         <MonthPagerView
           month={month}
           setMonth={setMonth}
-          goMonth={goMonth}
           allMonths={allMonths}
           throughMonth={throughMonth}
           units={units}
           byUnitMonth={byUnitMonth}
-          monthStats={monthStats}
           canMutate={canMutate}
           onCellClick={onCellClick}
           onUnitClick={onUnitClick}
@@ -347,7 +381,7 @@ export function BuildingAnnualCalendar({
           [
             { kind: "PAID" as const, label: "پرداخت", glyph: "✓" },
             { kind: "PARTIAL" as const, label: "نیمه", glyph: "½" },
-            { kind: "MISSING_DUE" as const, label: "بدهکار", glyph: "!" },
+            { kind: "MISSING_DUE" as const, label: "تسویه‌نشده", glyph: "!" },
             { kind: "FUTURE" as const, label: "آینده", glyph: "" },
           ] as const
         ).map((item) => (
@@ -376,24 +410,20 @@ export function BuildingAnnualCalendar({
 function MonthPagerView({
   month,
   setMonth,
-  goMonth,
   allMonths,
   throughMonth,
   units,
   byUnitMonth,
-  monthStats,
   canMutate,
   onCellClick,
   onUnitClick,
 }: {
   month: number;
   setMonth: (m: number) => void;
-  goMonth: (delta: number) => void;
   allMonths: number[];
   throughMonth: number;
   units: AnnualChargeCalendarDTO["units"];
   byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"];
-  monthStats: { paid: number; due: number; partial: number };
   canMutate: boolean;
   onCellClick?: BuildingAnnualCalendarProps["onCellClick"];
   onUnitClick?: BuildingAnnualCalendarProps["onUnitClick"];
@@ -402,53 +432,7 @@ function MonthPagerView({
 
   return (
     <div className="space-y-3">
-      {/* Month pager */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => goMonth(-1)}
-          disabled={month <= 1}
-          aria-label="ماه قبل"
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-border/55 bg-card text-foreground shadow-sm transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Chevron dir="prev" className="size-5 text-muted-foreground" />
-        </button>
-        <div className="min-w-0 flex-1 rounded-2xl border border-border/45 bg-muted/40 px-3 py-2.5 text-center">
-          <p className="text-body font-bold text-foreground">
-            {MONTH_LABELS_FA[month]}
-          </p>
-          {!isFutureMonth ? (
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                {faDigits(monthStats.paid)} تسویه
-              </span>
-              {monthStats.due > 0 ? (
-                <>
-                  {" · "}
-                  <span className="font-semibold text-rose-700 dark:text-rose-400">
-                    {faDigits(monthStats.due)} بدهکار
-                  </span>
-                </>
-              ) : null}
-            </p>
-          ) : (
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              هنوز موعد نرسیده
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => goMonth(1)}
-          disabled={month >= 12}
-          aria-label="ماه بعد"
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-border/55 bg-card text-foreground shadow-sm transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Chevron dir="next" className="size-5 text-muted-foreground" />
-        </button>
-      </div>
-
-      {/* Month chips — horizontal scroll, full names */}
+      {/* Month chips — single month selector (no chevron pager) */}
       <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-0.5 scrollbar-none">
         <div className="flex w-max gap-1.5">
           {allMonths.map((m) => {
@@ -477,7 +461,7 @@ function MonthPagerView({
       </div>
 
       {/* Unit rows — large touch targets */}
-      <ul className="space-y-2">
+      <ul className="space-y-2 pb-20">
         {units.map((unit) => {
           const payment = byUnitMonth[unit.id]?.[month];
           const kind = resolveCellKind(payment, month, throughMonth);
@@ -617,10 +601,7 @@ function YearGridView({
   onMonthHeaderClick: (month: number) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <p className="text-caption text-muted-foreground">
-        برای خواندن راحت‌تر به چپ/راست بکشید · روی نام ماه برای نمای ماهانه
-      </p>
+    <div className="space-y-2 pb-20">
       <div className="-mx-1 overflow-x-auto overscroll-x-contain pb-1">
         <table className="w-max border-separate border-spacing-x-1.5 border-spacing-y-2">
           <thead>

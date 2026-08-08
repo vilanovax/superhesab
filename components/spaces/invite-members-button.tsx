@@ -94,7 +94,9 @@ export function InviteMembersButton({
   const isDesktop = useIsDesktop();
   const isBuilding = spaceType === "BUILDING";
   const isFund = spaceType === "FUND";
-  const compactSheet = isBuilding || isFund;
+  const isTripLike =
+    spaceType === "TRIP" || spaceType === "PARTNER" || spaceType === "FAMILY";
+  const compactSheet = isBuilding || isFund || isTripLike;
 
   // Invite / member management is OWNER-only (VIEWER and EDITOR cannot share)
   if (currentUserRole !== "OWNER") {
@@ -169,9 +171,13 @@ export function InviteMembersButton({
     ? "لینک دعوت برای هم‌مدیر · ساکن‌ها از لینک واحد می‌آیند"
     : isFund
       ? "لینک دعوت، ضریب سهم و عضو دستی"
-      : variant === "banner"
-        ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
-        : `نقش‌ها، لینک ادعا و عضو دستی برای «${spaceName}»`;
+      : spaceType === "TRIP"
+        ? "لینک دعوت، نقش و ضریب تسهیم"
+        : spaceType === "PARTNER"
+          ? "لینک دعوت، نقش و ضریب"
+          : variant === "banner"
+            ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
+            : "لینک دعوت، نقش و عضو دستی";
 
   const panel = (
     <MembersList
@@ -184,7 +190,8 @@ export function InviteMembersButton({
       maxMembers={maxMembers}
       showShareControls={!isBuilding}
       editorOnlyRoles={isBuilding}
-      fundLayout={isFund}
+      fundLayout={isFund || isTripLike}
+      editorRoleLabel={isFund ? "فعال" : "ویرایشگر"}
     />
   );
 
@@ -193,9 +200,11 @@ export function InviteMembersButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
         <DialogContent className="max-h-[85vh] overflow-y-auto overscroll-contain border-border/70 bg-card/95 sm:max-w-md">
-          <DialogHeader className="text-start">
-            <DialogTitle className="text-pretty">{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+          <DialogHeader className="text-start space-y-1">
+            <DialogTitle className="text-pretty text-lg">{title}</DialogTitle>
+            <DialogDescription className="text-caption">
+              {description}
+            </DialogDescription>
           </DialogHeader>
           {panel}
         </DialogContent>

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { BuildingAllExpensesDrawer } from "@/components/spaces/building-all-expenses-drawer";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
@@ -19,8 +20,10 @@ type BuildingReportInsightsProps = {
   expenseLines: ReportExpenseLine[];
   currency: SpaceCurrency;
   periodLabel?: string;
+  /** Optional slot (e.g. export) in the summary header. */
+  headerAction?: ReactNode;
   /**
-   * summary — KPIs (above chart)
+   * summary — slim KPIs (above chart)
    * rankings — top expenses (below chart)
    */
   section?: "summary" | "rankings" | "all";
@@ -30,8 +33,7 @@ const TOP_PREVIEW = 3;
 const TOP_MAX = 5;
 
 /**
- * Dense building-report stats — split so the donut can sit between
- * summary KPIs and the rankings list without a wall of cards.
+ * Dense building-report stats — slim summary + rankings.
  * قبوض live in `BuildingBillsBreakdown`.
  */
 export function BuildingReportInsights({
@@ -39,6 +41,7 @@ export function BuildingReportInsights({
   expenseLines,
   currency,
   periodLabel,
+  headerAction,
   section = "all",
 }: BuildingReportInsightsProps) {
   const [topsOpen, setTopsOpen] = useState(false);
@@ -47,7 +50,6 @@ export function BuildingReportInsights({
   const stats = useMemo(() => {
     const total = expenseLines.reduce((s, e) => s + e.totalAmount, 0);
     const count = expenseLines.length;
-    const average = count > 0 ? Math.trunc(total / count) : 0;
 
     const topCategory = [...categoryRows].sort(
       (a, b) => b.amount - a.amount,
@@ -64,7 +66,6 @@ export function BuildingReportInsights({
     return {
       total,
       count,
-      average,
       topCategory,
       topCategoryPct,
       topExpenses,
@@ -89,76 +90,60 @@ export function BuildingReportInsights({
           aria-label="خلاصه بازه"
         >
           <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
-            <h2 className="text-pretty text-caption font-bold text-foreground">
-              خلاصه بازه
-            </h2>
-            {periodLabel ? (
-              <span className="truncate rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-foreground/70">
-                {periodLabel}
-              </span>
+            <div className="min-w-0">
+              <h2 className="text-pretty text-caption font-bold text-foreground">
+                خلاصه بازه
+              </h2>
+              {periodLabel ? (
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                  {periodLabel}
+                  {stats.count > 0 ? ` · ${stats.count} هزینه` : ""}
+                </p>
+              ) : stats.count > 0 ? (
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  {stats.count} هزینه
+                </p>
+              ) : null}
+            </div>
+            {headerAction ? (
+              <div className="shrink-0">{headerAction}</div>
             ) : null}
           </div>
 
-          {/* Hero total — primary scan target */}
-          <div className="mx-2.5 mt-2.5 rounded-2xl bg-linear-to-br from-primary/12 via-primary/6 to-transparent px-3.5 py-3 ring-1 ring-primary/15">
-            <p className="text-micro font-semibold text-primary/90">
-              جمع مشاع
-            </p>
-            <p className="mt-0.5 text-[1.35rem] font-bold leading-none tracking-tight tabular-nums text-foreground">
-              {formatMoney(stats.total)}
-            </p>
-            <p className="mt-1 text-micro font-medium text-muted-foreground">
-              {unit}
-            </p>
-          </div>
-
-          {/* Secondary metrics */}
-          <div className="mt-2 grid grid-cols-2 gap-1.5 px-2.5">
-            <div className="rounded-xl bg-muted/50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-foreground/55">
-                تعداد تراکنش
+          <div className="mx-2.5 mt-2 flex items-end justify-between gap-3 rounded-2xl bg-linear-to-br from-primary/12 via-primary/6 to-transparent px-3.5 py-2.5 ring-1 ring-primary/15">
+            <div className="min-w-0">
+              <p className="text-micro font-semibold text-primary/90">
+                جمع مشاع
               </p>
-              <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
-                {formatMoney(stats.count)}
+              <p className="mt-0.5 text-[1.25rem] font-bold leading-none tracking-tight tabular-nums text-foreground">
+                {formatMoney(stats.total)}
+              </p>
+              <p className="mt-0.5 text-micro font-medium text-muted-foreground">
+                {unit}
               </p>
             </div>
-            <div className="rounded-xl bg-muted/50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-foreground/55">
-                میانگین هر هزینه
-              </p>
-              <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
-                {formatMoney(stats.average)}
-              </p>
-              <p className="text-[10px] text-foreground/45">{unit}</p>
-            </div>
-          </div>
-
-          {/* Top category with share bar — clarifies the % relationship */}
-          {stats.topCategory ? (
-            <div className="m-2.5 mt-2 rounded-2xl border border-border/40 bg-muted/30 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold text-muted-foreground">
-                    بالاترین دسته
-                  </p>
-                  <p className="mt-0.5 truncate text-caption font-bold text-foreground">
-                    <span aria-hidden className="me-1">
-                      {CATEGORY_EMOJI[stats.topCategory.category] ?? "📦"}
-                    </span>
-                    {stats.topCategory.label}
-                  </p>
-                </div>
-                <div className="shrink-0 text-end">
-                  <p className="text-caption font-bold tabular-nums text-primary">
-                    {stats.topCategoryPct}٪
-                  </p>
-                  <p className="text-[10px] tabular-nums text-muted-foreground">
-                    {formatCurrency(stats.topCategory.amount, currency)}
-                  </p>
-                </div>
+            {stats.topCategory ? (
+              <div className="min-w-0 max-w-[48%] text-end">
+                <p className="text-[10px] font-semibold text-muted-foreground">
+                  بالاترین دسته
+                </p>
+                <p className="mt-0.5 truncate text-caption font-bold text-foreground">
+                  <span aria-hidden className="me-0.5">
+                    {CATEGORY_EMOJI[stats.topCategory.category] ?? "📦"}
+                  </span>
+                  {stats.topCategory.label}
+                </p>
+                <p className="text-[10px] font-bold tabular-nums text-primary">
+                  {stats.topCategoryPct}٪
+                </p>
               </div>
+            ) : null}
+          </div>
+
+          {stats.topCategory ? (
+            <div className="mx-2.5 mb-2.5 mt-2">
               <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-border/70"
+                className="h-1.5 overflow-hidden rounded-full bg-border/70"
                 role="progressbar"
                 aria-valuenow={stats.topCategoryPct}
                 aria-valuemin={0}
@@ -280,4 +265,3 @@ export function BuildingReportInsights({
     </div>
   );
 }
-

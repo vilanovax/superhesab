@@ -19,6 +19,11 @@ type BuildingMonthHeroProps = {
   managersAction?: ReactNode;
   /** Preserve active tab when changing year in the hero chip. */
   yearNavTab?: "expenses" | "charges" | "units" | "report";
+  /**
+   * Slim one-line وصول strip (bar + % + معوق).
+   * Full 3-up KPIs stay on تب شارژ (building balance surface).
+   */
+  compactStats?: boolean;
 };
 
 export function BuildingMonthHero({
@@ -33,6 +38,7 @@ export function BuildingMonthHero({
   isOwner,
   managersAction,
   yearNavTab = "charges",
+  compactStats = false,
 }: BuildingMonthHeroProps) {
   const unit = currencyLabel(currency);
   const activeUnits = dashboard?.totals.activeUnits ?? 0;
@@ -113,6 +119,36 @@ export function BuildingMonthHero({
             ←
           </span>
         </Link>
+      ) : compactStats ? (
+        <div
+          className="flex items-center gap-2.5 rounded-xl bg-black/15 px-3 py-2 backdrop-blur-[2px]"
+          aria-label="پیشرفت وصول سال"
+        >
+          <div
+            className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-on-hero/15"
+            role="progressbar"
+            aria-valuenow={collectPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={`${collectPct}٪ پیشرفت وصول سال`}
+          >
+            <div
+              className={cn(
+                "h-full rounded-full transition-[width] duration-500 ease-out",
+                arrears > 0 ? "bg-amber-200" : "bg-on-hero",
+              )}
+              style={{ width: `${collectPct}%` }}
+            />
+          </div>
+          <p className="shrink-0 text-micro font-bold tabular-nums text-on-hero">
+            {collectPct}٪ وصول
+          </p>
+          {arrears > 0 ? (
+            <p className="shrink-0 text-micro tabular-nums text-amber-100/95">
+              معوق {formatMoney(arrears)}
+            </p>
+          ) : null}
+        </div>
       ) : (
         <div className="rounded-2xl bg-black/15 px-3.5 py-3 backdrop-blur-[2px]">
           <div className="flex items-baseline justify-between gap-2">

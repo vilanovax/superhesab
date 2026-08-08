@@ -15,14 +15,21 @@ import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceSettingsSubmitButton } from "@/components/spaces/space-settings-submit";
 import { SpaceTheme } from "@/components/spaces/space-theme";
+import { PartnerSettingsForm } from "@/components/spaces/partner-settings-form";
+import { TripSettingsForm } from "@/components/spaces/trip-settings-form";
 import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
 import { SpaceBackupButton } from "@/components/settings/backup-panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { tehranCivilYear } from "@/lib/building";
-import { CURRENCY_LABELS, type SpaceCurrency } from "@/lib/format";
+import {
+  CURRENCY_LABELS,
+  memberLabel,
+  type SpaceCurrency,
+} from "@/lib/format";
 import { prisma } from "@/lib/db/prisma";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import {
@@ -79,6 +86,7 @@ export default async function SpaceSettingsPage({
     buildingPlan,
     fundPlan,
     buildingManagers,
+    tripMembers,
   ] = await Promise.all([
     categoryPrivacyPossible
       ? isFeatureEnabled("category_privacy")
@@ -112,6 +120,23 @@ export default async function SpaceSettingsPage({
           orderBy: { createdAt: "asc" },
         })
       : Promise.resolve([]),
+    showRoundUp
+      ? prisma.spaceMember.findMany({
+          where: { spaceId: id },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                avatarUrl: true,
+                isVirtual: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const showCategoryPrivacy =
@@ -130,6 +155,19 @@ export default async function SpaceSettingsPage({
     defaultShare: m.defaultShare,
   }));
 
+  const tripInviteRows = tripMembers.map((m) => ({
+    userId: m.user.id,
+    name: m.user.name,
+    phone: m.user.phone,
+    avatarUrl: m.user.avatarUrl,
+    role: m.role as SpaceRole,
+    isVirtual: m.user.isVirtual,
+    defaultShare: m.defaultShare,
+  }));
+
+  const slimHeader = showBuilding || showRoundUp;
+  const isPartnerSpace = space.type === "PARTNER";
+
   const roleLabel =
     membership.role === "OWNER"
       ? "مالک"
@@ -137,10 +175,19 @@ export default async function SpaceSettingsPage({
         ? "ویرایشگر"
         : membership.role;
 
+  const atPartnerCap =
+    isPartnerSpace &&
+    template.maxMembers != null &&
+    tripInviteRows.length >= template.maxMembers;
+
   return (
     <main
       data-template={templateDataset}
-      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6"
+      className={
+        isPartnerSpace
+          ? "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-3.5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6"
+          : "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6"
+      }
     >
       <SpaceTheme type={space.type} />
       <div className="flex items-center justify-between gap-3">
@@ -148,34 +195,91 @@ export default async function SpaceSettingsPage({
           asChild
           variant="ghost"
           size="sm"
-          className="rounded-xl bg-card/50 px-3 backdrop-blur-sm"
+          className="h-9 gap-1 rounded-full border border-border/55 bg-card px-3 text-sm font-medium shadow-none"
         >
           <Link href={`/spaces/${space.id}`}>← بازگشت</Link>
         </Button>
-        <span className="rounded-xl bg-ink/90 px-3 py-1.5 text-xs font-medium text-primary-foreground">
+        <span className="rounded-full bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary">
           تنظیمات · {template.label}
         </span>
       </div>
 
-      <header className="surface-hero animate-fade-up rounded-2xl p-5">
-        <p className="text-xs font-medium text-on-hero/70">تنظیمات فضا</p>
-        <h1 className="mt-1 text-pretty text-2xl font-bold text-on-hero">
-          {space.name}
-        </h1>
-        <p className="mt-2 text-sm text-on-hero/75">
-          {showBuilding
-            ? "نام، سال مالی، پایه شارژ و مدیران ساختمان."
-            : showFundPlan
-              ? "نام، واحد پول و پلن سهم / دوره‌های صندوق."
-              : showBudget
-                ? showCategoryBudgets || showRecurring
-                  ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
-                  : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
-                : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
-        </p>
+      <header
+        className={
+          slimHeader
+            ? "animate-fade-up space-y-0.5 px-0.5"
+            : "surface-hero animate-fade-up relative overflow-hidden rounded-3xl px-5 py-5 shadow-md"
+        }
+      >
+        {showBuilding ? (
+          <>
+            <p className="text-micro font-semibold tracking-[0.06em] text-muted-foreground">
+              تنظیمات ساختمان
+            </p>
+            <h1 className="text-pretty text-[1.45rem] font-bold leading-tight tracking-tight text-foreground">
+              {space.name}
+            </h1>
+            <p className="text-caption text-muted-foreground">
+              نام، سال مالی، پایه شارژ و مدیران.
+            </p>
+          </>
+        ) : isPartnerSpace ? (
+          <>
+            <h1 className="text-pretty text-xl font-bold leading-tight tracking-tight text-foreground">
+              {space.name}
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              نام، واحد پول و طرف مقابل
+            </p>
+          </>
+        ) : showRoundUp ? (
+          <>
+            <p className="text-micro font-semibold tracking-[0.06em] text-muted-foreground">
+              تنظیمات سفر
+            </p>
+            <h1 className="text-pretty text-[1.45rem] font-bold leading-tight tracking-tight text-foreground">
+              {space.name}
+            </h1>
+            <p className="text-caption text-muted-foreground">
+              نام، واحد پول، رند و اعضا
+            </p>
+          </>
+        ) : (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -end-10 -top-12 size-32 rounded-full bg-on-hero/12 blur-3xl"
+            />
+            <div className="relative">
+              <p className="text-caption font-medium text-on-hero/70">
+                تنظیمات فضا
+              </p>
+              <h1 className="mt-1 text-pretty text-2xl font-bold text-on-hero">
+                {space.name}
+              </h1>
+              <p className="mt-2 text-sm text-on-hero/75">
+                {showFundPlan
+                  ? "نام، واحد پول و پلن سهم / دوره‌های صندوق."
+                  : showBudget
+                    ? showCategoryBudgets || showRecurring
+                      ? "نام، بودجه ماهانه، سقف دسته و تراکنش‌های تکرارپذیر."
+                      : "نام، واحد پول و سقف بودجه ماهانه این حساب شخصی."
+                    : "نام، واحد پول و نحوه نمایش مبالغ این پروژه را مدیریت کنید."}
+              </p>
+            </div>
+          </>
+        )}
       </header>
 
-      <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+      <section
+        className={
+          isPartnerSpace
+            ? "animate-fade-up rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm sm:p-4"
+            : slimHeader
+              ? "animate-fade-up rounded-2xl border border-border/55 bg-card p-4 shadow-sm sm:p-5"
+              : "animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm"
+        }
+      >
         {showBuilding ? (
           <BuildingSettingsForm
             spaceId={space.id}
@@ -185,6 +289,28 @@ export default async function SpaceSettingsPage({
             baseCharge={buildingPlan?.baseCharge ?? 0}
             templateLabel={template.label}
             roleLabel={roleLabel}
+            disabled={!isOwner}
+            error={error}
+          />
+        ) : isPartnerSpace ? (
+          <PartnerSettingsForm
+            spaceId={space.id}
+            initialName={space.name}
+            currency={space.currency}
+            roundUpToThousand={space.roundUpToThousand}
+            roleLabel={roleLabel}
+            disabled={!isOwner}
+            error={error}
+          />
+        ) : showRoundUp ? (
+          <TripSettingsForm
+            spaceId={space.id}
+            initialName={space.name}
+            currency={space.currency}
+            roundUpToThousand={space.roundUpToThousand}
+            templateLabel={template.label}
+            roleLabel={roleLabel}
+            spaceKind="trip"
             disabled={!isOwner}
             error={error}
           />
@@ -248,27 +374,6 @@ export default async function SpaceSettingsPage({
                   خالی = بدون نوار بودجه در داشبورد.
                 </p>
               </div>
-            ) : showRoundUp ? (
-              <label
-                className={`flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-sheet-muted px-3.5 py-3.5 ${!isOwner ? "opacity-60" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  name="roundUpToThousand"
-                  defaultChecked={space.roundUpToThousand}
-                  disabled={!isOwner}
-                  className="mt-0.5 size-5 shrink-0 rounded-md border border-input accent-[var(--primary)]"
-                />
-                <span className="min-w-0 space-y-1">
-                  <span className="block text-body-sm font-semibold text-foreground">
-                    رند کردن مبالغ به هزار
-                  </span>
-                  <span className="block text-label leading-relaxed text-muted-foreground">
-                    در تب ترازها، مانده و پیشنهاد تسویه به سمت بالا به نزدیک‌ترین
-                    هزار رند می‌شود.
-                  </span>
-                </span>
-              </label>
             ) : null}
 
             {showBudget ? (
@@ -276,9 +381,7 @@ export default async function SpaceSettingsPage({
             ) : (
               <>
                 <input type="hidden" name="monthlyBudget" value="" />
-                {!showRoundUp ? (
-                  <input type="hidden" name="roundUpToThousand" value="" />
-                ) : null}
+                <input type="hidden" name="roundUpToThousand" value="" />
               </>
             )}
             <input type="hidden" name="defaultPlanYear" value="" />
@@ -315,15 +418,57 @@ export default async function SpaceSettingsPage({
       </section>
 
       {showBuilding && isOwner ? (
-        <section className="animate-fade-up space-y-3 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
-          <div>
-            <h2 className="text-body-sm font-semibold text-foreground">
-              مدیران ساختمان
-            </h2>
-            <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
-              {managerInviteRows.length} مدیر · ساکن‌ها از لینک واحد دعوت می‌شوند
-            </p>
+        <section className="animate-fade-up space-y-3.5 rounded-2xl border border-border/55 bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-caption font-bold text-foreground">
+                مدیران ساختمان
+              </h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                {managerInviteRows.length.toLocaleString("fa-IR")} مدیر · ساکن‌ها
+                از لینک واحد دعوت می‌شوند
+              </p>
+            </div>
+            {managerInviteRows.length > 0 ? (
+              <div className="flex shrink-0 -space-x-2 space-x-reverse">
+                {managerInviteRows.slice(0, 4).map((m) => (
+                  <UserAvatar
+                    key={m.userId}
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={32}
+                    className="ring-2 ring-card"
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
+          {managerInviteRows.length > 0 ? (
+            <ul className="divide-y divide-border/35 rounded-xl border border-border/40 bg-muted/20">
+              {managerInviteRows.slice(0, 3).map((m) => (
+                <li
+                  key={m.userId}
+                  className="flex items-center gap-2.5 px-3 py-2"
+                >
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={32}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-caption font-semibold text-foreground">
+                      {m.name?.trim() || m.phone}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {m.role === "OWNER" ? "مالک" : "مدیر"}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <InviteMembersButton
             spaceId={space.id}
             spaceName={space.name}
@@ -333,12 +478,116 @@ export default async function SpaceSettingsPage({
             trigger={
               <Button
                 type="button"
-                className="h-11 w-full rounded-xl active:scale-[0.98]"
+                variant="outline"
+                className="h-11 w-full rounded-xl border-border/70 font-semibold active:scale-[0.98]"
               >
                 مدیریت مدیران
               </Button>
             }
           />
+        </section>
+      ) : null}
+
+      {showRoundUp ? (
+        <section
+          className={
+            isPartnerSpace
+              ? "animate-fade-up space-y-2.5 rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm sm:p-4"
+              : "animate-fade-up space-y-3 rounded-2xl border border-border/55 bg-card p-4 shadow-sm sm:p-5"
+          }
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-caption font-bold text-foreground">
+              {isPartnerSpace ? "طرفین حساب" : "اعضای سفر"}
+            </h2>
+            <p className="text-[11px] tabular-nums text-muted-foreground">
+              {isPartnerSpace && atPartnerCap
+                ? "کامل · ۲ نفر"
+                : `${tripInviteRows.length.toLocaleString("fa-IR")} نفر${
+                    template.maxMembers != null
+                      ? ` / ${template.maxMembers.toLocaleString("fa-IR")}`
+                      : ""
+                  }`}
+            </p>
+          </div>
+
+          {tripInviteRows.length > 0 ? (
+            <ul
+              className={
+                isPartnerSpace
+                  ? "divide-y divide-border/30"
+                  : "divide-y divide-border/35 overflow-hidden rounded-xl border border-border/40"
+              }
+            >
+              {tripInviteRows.map((m) => (
+                <li
+                  key={m.userId}
+                  className={
+                    isPartnerSpace
+                      ? "flex items-center gap-2.5 py-2 first:pt-0.5 last:pb-0.5"
+                      : "flex items-center gap-2.5 px-3 py-2"
+                  }
+                >
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={isPartnerSpace ? 28 : 32}
+                    className={isPartnerSpace ? "size-7" : undefined}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-caption font-semibold text-foreground">
+                      {memberLabel(m)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {m.role === "OWNER"
+                        ? "مالک"
+                        : m.role === "EDITOR"
+                          ? isPartnerSpace
+                            ? "طرف مقابل"
+                            : "ویرایشگر"
+                          : "ناظر"}
+                      {m.isVirtual ? " · بدون اپ" : ""}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-xl border border-dashed border-border/50 px-3 py-4 text-center text-caption text-muted-foreground">
+              هنوز عضوی نیست
+            </p>
+          )}
+
+          {isPartnerSpace && tripInviteRows.length < 2 ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              یک نفر دیگر دعوت کنید تا حساب دونفره کامل شود.
+            </p>
+          ) : null}
+
+          {isOwner ? (
+            <InviteMembersButton
+              spaceId={space.id}
+              spaceName={space.name}
+              members={tripInviteRows}
+              currentUserRole={membership.role}
+              spaceType={space.type}
+              maxMembers={template.maxMembers}
+              trigger={
+                <Button
+                  type="button"
+                  variant={isPartnerSpace ? "outline" : "default"}
+                  className="h-11 w-full rounded-xl border-border/70 font-semibold active:scale-[0.98]"
+                >
+                  مدیریت اعضا
+                </Button>
+              }
+            />
+          ) : (
+            <p className="text-center text-[11px] text-muted-foreground">
+              فقط مالک می‌تواند عضو اضافه یا نقش عوض کند.
+            </p>
+          )}
         </section>
       ) : null}
 

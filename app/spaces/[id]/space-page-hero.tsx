@@ -7,6 +7,8 @@ import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { BuildingMonthHero } from "@/components/spaces/building-dashboard";
 import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
+import { PartnerHeroStats } from "@/components/spaces/partner-hero-stats";
+import { TripHeroStats } from "@/components/spaces/trip-hero-stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -432,6 +434,8 @@ async function SpacePageHeroCard({
               currency={space.currency}
               settingsHref={`/spaces/${space.id}/settings`}
               isOwner={isOwner}
+              // Full وصول KPIs on شارژ (building «تراز»); slim elsewhere.
+              compactStats={activeTab !== "charges"}
               yearNavTab={
                 activeTab === "expenses" ||
                 activeTab === "charges" ||
@@ -556,18 +560,16 @@ async function SpacePageHeroCard({
                     ) : null}
                   </>
                 )}
-                {isPartner && totalExpenses > 0 ? (
-                  <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
-                ) : null}
               </p>
             </div>
           )}
 
-          {!isPersonalShell &&
-          !isBuildingShell &&
-          !isFundShell &&
-          features.invites ? (
-            <div className="flex items-center gap-2">
+          {(() => {
+            const atPartnerCap =
+              isPartner &&
+              template.maxMembers != null &&
+              space.members.length >= template.maxMembers;
+            const memberAvatars = (
               <div className="flex -space-x-2 space-x-reverse">
                 {space.members.slice(0, 4).map((m) => (
                   <UserAvatar
@@ -585,61 +587,83 @@ async function SpacePageHeroCard({
                   </span>
                 ) : null}
               </div>
-              {isOwner ? (
-                <InviteMembersButton
-                  spaceId={space.id}
-                  spaceName={space.name}
-                  members={inviteMembers}
-                  currentUserRole={myRole}
-                  inviteRolePicker={isFamilyShell}
-                  spaceType={space.type}
-                  maxMembers={template.maxMembers}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          {isBuildingShell || isFundShell ? null : isPersonalShell ||
-            isFamilyShell ? (
-            <PersonalMonthHero
-              income={monthIncome}
-              expenses={monthExpense}
-              monthlyBudget={space.monthlyBudget}
-              currency={space.currency}
-              settingsHref={`/spaces/${space.id}/settings`}
-            />
-          ) : isPartner ? (
-            <div className="rounded-2xl bg-on-hero/10 px-3.5 py-3 ring-1 ring-on-hero/10">
-              <p className="text-caption font-medium text-on-hero/70">مانده شما</p>
-              <p className="mt-1.5 text-lg font-bold tabular-nums text-on-hero">
-                {myBalance === 0
-                  ? "صاف"
-                  : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance), space.currency)}`}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <HeroStat label="مانده شما">
-                {myBalance === 0 ? (
-                  <span className="text-on-hero/90">تسویه‌شده</span>
-                ) : (
-                  <span
-                    className={
-                      myBalance > 0 ? "text-emerald-100" : "text-rose-100"
+            );
+            const membersSlot =
+              !isPersonalShell &&
+              !isBuildingShell &&
+              !isFundShell &&
+              features.invites ? (
+                isOwner ? (
+                  <InviteMembersButton
+                    spaceId={space.id}
+                    spaceName={space.name}
+                    members={inviteMembers}
+                    currentUserRole={myRole}
+                    inviteRolePicker={isFamilyShell}
+                    spaceType={space.type}
+                    maxMembers={template.maxMembers}
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-full py-0.5 pe-1 ps-0.5 transition-opacity active:opacity-80"
+                        aria-label={
+                          atPartnerCap ? "مدیریت اعضا" : "دعوت یا مدیریت اعضا"
+                        }
+                      >
+                        {memberAvatars}
+                        {!atPartnerCap ? (
+                          <span className="flex size-8 items-center justify-center rounded-full border border-on-hero/35 bg-on-hero/15 text-on-hero">
+                            <span className="text-base leading-none">+</span>
+                          </span>
+                        ) : null}
+                      </button>
                     }
+                  />
+                ) : (
+                  <div
+                    className="flex items-center gap-2"
+                    aria-label={`${space.members.length} عضو`}
                   >
-                    {myBalance > 0 ? "+" : "−"}
-                    {formatCurrency(Math.abs(myBalance), space.currency)}
-                  </span>
-                )}
-              </HeroStat>
-              <HeroStat label="تسویه باز">
-                {openSettlementAmount === 0
-                  ? "صفر"
-                  : formatCurrency(openSettlementAmount, space.currency)}
-              </HeroStat>
-            </div>
-          )}
+                    {memberAvatars}
+                  </div>
+                )
+              ) : null;
+
+            if (isBuildingShell || isFundShell) return null;
+            if (isPersonalShell || isFamilyShell) {
+              return (
+                <>
+                  {membersSlot}
+                  <PersonalMonthHero
+                    income={monthIncome}
+                    expenses={monthExpense}
+                    monthlyBudget={space.monthlyBudget}
+                    currency={space.currency}
+                    settingsHref={`/spaces/${space.id}/settings`}
+                  />
+                </>
+              );
+            }
+            if (isPartner) {
+              return (
+                <PartnerHeroStats
+                  myBalance={myBalance}
+                  currency={space.currency}
+                  initialTab={activeTab}
+                  membersSlot={membersSlot}
+                />
+              );
+            }
+            return (
+              <TripHeroStats
+                myBalance={myBalance}
+                openSettlementAmount={openSettlementAmount}
+                currency={space.currency}
+                initialTab={activeTab}
+                membersSlot={membersSlot}
+              />
+            );
+          })()}
         </div>
       </header>
 

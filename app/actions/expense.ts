@@ -726,6 +726,7 @@ export async function loadMoreSpaceExpenses(
     cursor: { date: cursorDate, id: cursor.id },
     dateFrom: bounds?.start,
     dateTo: bounds?.end,
+    viewerUserId: session.userId,
   });
 
   return { ok: true, expenses: page.expenses, hasMore: page.hasMore };

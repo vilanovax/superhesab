@@ -2,7 +2,7 @@
  * SuperHesab — minimal offline shell + update handshake.
  * Network-first navigations; fall back to /offline when offline.
  */
-const CACHE = "superhesab-shell-v2";
+const CACHE = "superhesab-shell-v3";
 const PRECACHE = [
   "/offline",
   "/icons/icon-192.png",
@@ -10,6 +10,16 @@ const PRECACHE = [
   "/icons/icon-maskable-512.png",
   "/favicon.png",
 ];
+
+/** Localhost / private IP — never cache Turbopack hashed chunks (stale → 404). */
+function isDevHost(hostname) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".local")
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -47,6 +57,11 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Dev: let Next/Turbopack serve fresh chunks — cache-first breaks after HMR.
+  if (isDevHost(url.hostname) && url.pathname.startsWith("/_next/")) {
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(

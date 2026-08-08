@@ -76,7 +76,7 @@ function CreateTrigger({
             ]
           : isCompact
             ? [
-                "h-8 min-h-8 gap-1 rounded-full border border-primary/20 bg-primary/8 px-2.5",
+                "h-10 min-h-10 gap-1 rounded-full border border-primary/20 bg-primary/8 px-3",
                 "text-caption font-semibold text-primary shadow-none",
                 "hover:bg-primary/14 hover:border-primary/30",
                 "cursor-pointer transition-colors duration-150",

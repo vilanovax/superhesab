@@ -109,43 +109,45 @@ export function LoginForm({
 
   const subtitle =
     step === "otp"
-      ? `کد ارسال‌شده به ${phone} را وارد کنید.`
+      ? "کد ۶ رقمی ارسال‌شده را وارد کنید."
       : mode === "password"
-        ? "شماره و رمزی که در تنظیمات گذاشته‌اید."
-        : "با موبایل وارد دفترهای خود شوید.";
+        ? "با موبایل و رمزی که در تنظیمات گذاشته‌اید."
+        : "شماره موبایل را وارد کنید تا کد برایتان بیاید.";
 
   return (
-    <div className="overflow-hidden rounded-[1.35rem] border border-border/60 bg-card shadow-lg">
-      <div className="surface-hero relative overflow-hidden px-5 py-5 sm:px-6">
+    <div className="overflow-hidden rounded-3xl border border-border/50 bg-card shadow-md">
+      <div className="surface-hero relative overflow-hidden px-5 py-4 sm:px-6">
         <div
           aria-hidden
-          className="pointer-events-none absolute -end-10 -top-12 size-28 rounded-full bg-on-hero/15 blur-2xl"
+          className="pointer-events-none absolute -inset-e-10 -top-14 size-36 rounded-full bg-on-hero/12 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-10 -start-8 size-24 rounded-full bg-on-hero/10 blur-2xl"
+          className="pointer-events-none absolute -inset-s-12 -bottom-10 size-32 rounded-full bg-ink/20 blur-3xl"
         />
-        <p className="relative text-[11px] font-semibold tracking-[0.2em] text-on-hero/70">
-          ورود
-        </p>
-        <h2 className="relative mt-1.5 text-xl font-bold tracking-tight text-on-hero sm:text-2xl">
-          خوش آمدید
-        </h2>
-        <p className="relative mt-1.5 text-sm text-on-hero/75">{subtitle}</p>
+        <div className="relative">
+          <p className="text-caption font-medium text-on-hero/70">ورود</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-on-hero">
+            خوش آمدید
+          </h2>
+          <p className="mt-1 text-caption leading-relaxed text-on-hero/75">
+            {subtitle}
+          </p>
+        </div>
       </div>
 
       <div className="space-y-4 p-5 sm:p-6">
         {step === "phone" ? (
           <>
             <div
-              className="grid grid-cols-2 gap-1 rounded-xl bg-muted/70 p-1"
+              className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-muted/40 p-1"
               role="tablist"
               aria-label="روش ورود"
             >
               {(
                 [
-                  { id: "otp" as const, label: "کد تأیید" },
-                  { id: "password" as const, label: "رمز عبور" },
+                  { id: "otp" as const, label: "کد تأیید", hint: "پیامک" },
+                  { id: "password" as const, label: "رمز عبور", hint: "سریع" },
                 ] as const
               ).map((item) => {
                 const active = mode === item.id;
@@ -162,13 +164,26 @@ export function LoginForm({
                       setPassword("");
                     }}
                     className={cn(
-                      "h-10 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow] duration-150",
+                      "flex h-12 cursor-pointer flex-col items-center justify-center rounded-xl px-2 transition-colors duration-150",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       active
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-card/80 hover:text-foreground",
                     )}
                   >
-                    {item.label}
+                    <span className="text-body-sm font-semibold leading-none">
+                      {item.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-0.5 text-[10px] leading-none",
+                        active
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground/70",
+                      )}
+                    >
+                      {item.hint}
+                    </span>
                   </button>
                 );
               })}
@@ -176,8 +191,10 @@ export function LoginForm({
 
             {mode === "otp" ? (
               <form onSubmit={onRequestOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">موبایل</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-caption font-semibold">
+                    موبایل
+                  </Label>
                   <Input
                     ref={phoneOtpRef}
                     id="phone"
@@ -187,7 +204,7 @@ export function LoginForm({
                     autoComplete="tel"
                     spellCheck={false}
                     dir="ltr"
-                    placeholder="09123456789…"
+                    placeholder="مثلاً 0912…"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="h-12 rounded-xl text-base"
@@ -196,7 +213,7 @@ export function LoginForm({
                 </div>
                 {error ? (
                   <p
-                    className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
+                    className="rounded-xl bg-destructive-soft px-3 py-2.5 text-caption font-medium text-destructive"
                     role="alert"
                     aria-live="assertive"
                   >
@@ -205,7 +222,7 @@ export function LoginForm({
                 ) : null}
                 <Button
                   type="submit"
-                  className="h-12 w-full rounded-xl text-base font-semibold"
+                  className="h-12 w-full cursor-pointer rounded-xl text-base font-semibold"
                   disabled={pending}
                 >
                   {pending ? "در حال ارسال…" : "دریافت کد"}
@@ -213,8 +230,13 @@ export function LoginForm({
               </form>
             ) : (
               <form onSubmit={onLoginPassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone-password">موبایل</Label>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="phone-password"
+                    className="text-caption font-semibold"
+                  >
+                    موبایل
+                  </Label>
                   <Input
                     ref={phonePasswordRef}
                     id="phone-password"
@@ -224,15 +246,20 @@ export function LoginForm({
                     autoComplete="tel"
                     spellCheck={false}
                     dir="ltr"
-                    placeholder="09123456789…"
+                    placeholder="مثلاً 0912…"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="h-12 rounded-xl text-base"
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">رمز عبور</Label>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="login-password"
+                    className="text-caption font-semibold"
+                  >
+                    رمز عبور
+                  </Label>
                   <Input
                     ref={passwordRef}
                     id="login-password"
@@ -241,7 +268,7 @@ export function LoginForm({
                     autoComplete="current-password"
                     spellCheck={false}
                     dir="ltr"
-                    placeholder="••••••…"
+                    placeholder="رمز خود را وارد کنید"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-12 rounded-xl text-base"
@@ -251,7 +278,7 @@ export function LoginForm({
                 </div>
                 {error ? (
                   <p
-                    className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
+                    className="rounded-xl bg-destructive-soft px-3 py-2.5 text-caption font-medium text-destructive"
                     role="alert"
                     aria-live="assertive"
                   >
@@ -260,7 +287,7 @@ export function LoginForm({
                 ) : null}
                 <Button
                   type="submit"
-                  className="h-12 w-full rounded-xl text-base font-semibold"
+                  className="h-12 w-full cursor-pointer rounded-xl text-base font-semibold"
                   disabled={pending}
                 >
                   {pending ? "در حال ورود…" : "ورود با رمز"}
@@ -270,8 +297,34 @@ export function LoginForm({
           </>
         ) : (
           <form onSubmit={onVerifyOtp} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="otp">کد تأیید</Label>
+            <div className="flex items-center justify-between gap-2 rounded-2xl border border-border/45 bg-muted/40 px-3.5 py-3">
+              <div className="min-w-0">
+                <p className="text-caption text-muted-foreground">کد برای</p>
+                <p
+                  className="mt-0.5 truncate text-body-sm font-semibold tabular-nums text-foreground"
+                  dir="ltr"
+                >
+                  {phone}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setStep("phone");
+                  setOtp("");
+                  setError(null);
+                }}
+                className="shrink-0 cursor-pointer rounded-full border border-border/55 bg-card px-3 py-1.5 text-caption font-semibold text-primary transition-colors hover:border-primary/25"
+              >
+                تغییر
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="otp" className="text-caption font-semibold">
+                کد تأیید
+              </Label>
               <Input
                 ref={otpRef}
                 id="otp"
@@ -281,23 +334,23 @@ export function LoginForm({
                 autoComplete="one-time-code"
                 spellCheck={false}
                 dir="ltr"
-                placeholder="111111…"
+                placeholder="• • • • • •"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                className="h-14 rounded-xl text-center text-xl tracking-[0.4em] placeholder:tracking-normal"
+                className="h-14 rounded-xl text-center text-xl tracking-[0.45em] placeholder:tracking-[0.2em] placeholder:text-muted-foreground/50"
                 required
               />
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="text-center text-caption text-muted-foreground">
                 کد نمونه:{" "}
-                <span className="font-mono font-semibold text-foreground">
+                <span className="font-semibold tabular-nums text-foreground">
                   111111
                 </span>
               </p>
             </div>
             {error ? (
               <p
-                className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive"
+                className="rounded-xl bg-destructive-soft px-3 py-2.5 text-caption font-medium text-destructive"
                 role="alert"
                 aria-live="assertive"
               >
@@ -306,28 +359,15 @@ export function LoginForm({
             ) : null}
             <Button
               type="submit"
-              className="h-12 w-full rounded-xl text-base font-semibold"
+              className="h-12 w-full cursor-pointer rounded-xl text-base font-semibold"
               disabled={pending}
             >
               {pending ? "در حال ورود…" : "تأیید و ورود"}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 w-full rounded-xl"
-              disabled={pending}
-              onClick={() => {
-                setStep("phone");
-                setOtp("");
-                setError(null);
-              }}
-            >
-              تغییر شماره
-            </Button>
           </form>
         )}
 
-        <p className="border-t border-border/50 pt-4 text-center text-sm text-muted-foreground">
+        <p className="border-t border-border/40 pt-4 text-center text-caption text-muted-foreground">
           حساب ندارید؟{" "}
           <Link
             href={

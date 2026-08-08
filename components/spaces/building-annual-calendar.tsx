@@ -210,10 +210,10 @@ export function BuildingAnnualCalendar({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="text-body font-bold tracking-tight text-foreground">
-            تقویم وصول {formatJalaliYear(year)}
+            تقویم وصول
           </h3>
           {throughMonth > 0 ? (
-            <p className="mt-0.5 text-caption text-muted-foreground">
+            <p className="mt-0.5 whitespace-nowrap text-caption text-muted-foreground">
               تا {MONTH_LABELS_FA[throughMonth]}:{" "}
               <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                 {faDigits(stats.paid)} تسویه
@@ -228,7 +228,7 @@ export function BuildingAnnualCalendar({
               ) : null}
             </p>
           ) : (
-            <p className="mt-0.5 text-caption text-muted-foreground">
+            <p className="mt-0.5 whitespace-nowrap text-caption text-muted-foreground">
               سال آینده — هنوز موعدی نرسیده
             </p>
           )}

@@ -131,6 +131,12 @@ export function HomeQuickActions({
 }) {
   if (!recentSpace && !settleSpace) return null;
 
+  /**
+   * When only «ثبت خرج» shows, keep it as a card (not a second blue bar)
+   * so it doesn't compete with the hero summary above.
+   */
+  const expenseTone = settleSpace ? "primary" : "muted";
+
   return (
     <nav
       className="animate-fade-up mb-5 flex gap-2.5"
@@ -143,7 +149,7 @@ export function HomeQuickActions({
           icon={<ExpenseIcon className="size-[1.15rem]" />}
           label="ثبت خرج"
           hint={recentSpace.name}
-          tone="primary"
+          tone={expenseTone}
         />
       ) : null}
       {settleSpace ? (

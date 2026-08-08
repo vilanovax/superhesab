@@ -228,15 +228,18 @@ export default async function AppHomePage({
           <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-foreground">
             سلام، {greetingName}
           </h1>
-          {!isEmpty ? (
-            <p className="mt-1 text-caption text-muted-foreground">
-              {spaceCount === 1
+          <p className="mt-1 text-caption text-muted-foreground">
+            {isEmpty
+              ? "اولین دفتر را بساز تا شروع کنیم"
+              : spaceCount === 1
                 ? "یک دفتر فعال"
                 : `${spaceCount} دفتر فعال`}
-            </p>
-          ) : null}
+          </p>
         </div>
-        <HomeUserMenu isPlatformAdmin={user.platformRole === "ADMIN"} />
+        <HomeUserMenu
+          isPlatformAdmin={user.platformRole === "ADMIN"}
+          displayName={user.name?.trim() || user.phone}
+        />
       </header>
 
       {!isEmpty ? <HomeSummaryCard summary={summary} /> : null}
@@ -275,47 +278,6 @@ export default async function AppHomePage({
         </div>
       ) : null}
 
-      {/* Empty home: compact brand strip + template picker (one job) */}
-      {isEmpty ? (
-        <div className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-3xl px-5 py-4 shadow-md">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -inset-e-8 -top-10 size-28 rounded-full bg-on-hero/15 blur-2xl"
-          />
-          <div className="relative flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-on-hero/55">
-                SUPERHESAB
-              </p>
-              <p className="mt-0.5 text-xl font-bold tracking-tight text-on-hero">
-                اولین دفترت
-              </p>
-              <p className="mt-1 max-w-[16rem] text-caption leading-relaxed text-on-hero/75">
-                خرج ثبت کن؛ تراز و تسویه خودش جور می‌شود.
-              </p>
-            </div>
-            <span
-              aria-hidden
-              className="mb-0.5 flex size-12 shrink-0 items-center justify-center rounded-2xl bg-on-hero/12 text-on-hero ring-1 ring-on-hero/20"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 5.5h10.5A2.5 2.5 0 0 1 18 8v11.5H7.5A2.5 2.5 0 0 1 5 17z" />
-                <path d="M5 5.5V17a2.5 2.5 0 0 0 2.5 2.5" />
-                <path d="M9 9.5h6M9 13h4" />
-              </svg>
-            </span>
-          </div>
-        </div>
-      ) : null}
-
       {!isEmpty ? (
         <HomeQuickActions
           recentSpace={recentSpace}
@@ -332,7 +294,7 @@ export default async function AppHomePage({
             <div className="flex items-center gap-1.5">
               <Link
                 href="/app/archive"
-                className="inline-flex h-8 cursor-pointer items-center rounded-full border border-border/55 bg-card/80 px-2.5 text-caption font-semibold text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex h-10 cursor-pointer items-center rounded-full border border-border/55 bg-card/80 px-3 text-caption font-semibold text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 آرشیو
                 {archivedCount > 0 ? (

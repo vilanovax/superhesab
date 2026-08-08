@@ -10,6 +10,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { currencyLabel, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { cn } from "@/lib/utils";
 
 type FundPlanSettingsProps = {
   spaceId: string;
@@ -70,99 +71,98 @@ export function FundPlanSettings({
   }
 
   return (
-    <div className="space-y-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-pretty text-body-sm font-semibold text-foreground">
-            پلن صندوق
-          </h2>
-          <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
-            {hasPlan
-              ? "کاهش دوره‌ها، نوبت‌های بعدی را حذف می‌کند."
-              : "مبلغ یک سهم کامل (۱×) و تعداد دوره‌ها."}
-          </p>
-        </div>
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-caption font-bold text-foreground">پلن صندوق</h2>
         {hasPlan ? (
-          <div className="shrink-0 rounded-xl bg-muted/60 px-2.5 py-1.5 text-end">
-            <p className="text-[0.65rem] font-medium text-muted-foreground">
-              فعلی
-            </p>
-            <p className="text-caption font-semibold tabular-nums text-foreground">
-              {formatCurrency(initialShareAmount!, currency)}
-            </p>
-            <p className="text-[0.65rem] tabular-nums text-muted-foreground">
-              {initialPeriodCount} دوره
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <form onSubmit={onSubmit} className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="fundShareAmount" className="text-caption">
-              مبلغ هر سهم (۱×)
-            </Label>
-            <MoneyInput
-              id="fundShareAmount"
-              name="shareAmount"
-              value={shareAmount}
-              onValueChange={setShareAmount}
-              disabled={disabled || pending}
-              placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}…`}
-              className="h-11 rounded-xl"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="fundPeriodCount" className="text-caption">
-              تعداد دوره
-            </Label>
-            <Input
-              id="fundPeriodCount"
-              name="periodCount"
-              autoComplete="off"
-              inputMode="numeric"
-              value={periodCount}
-              onChange={(e) => setPeriodCount(e.target.value)}
-              disabled={disabled || pending}
-              placeholder="مثلاً ۱۲…"
-              className="h-11 rounded-xl tabular-nums"
-              required
-            />
-            <p className="text-[0.65rem] text-muted-foreground">۲ تا ۶۰</p>
-          </div>
-        </div>
-
-        {error ? (
-          <p
-            className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-sm text-destructive"
-            role="alert"
-            aria-live="assertive"
-          >
-            {error}
-          </p>
-        ) : null}
-
-        {disabled ? (
-          <p className="text-sm text-muted-foreground">
-            فقط مالک می‌تواند پلن را تغییر دهد.
+          <p className="text-[11px] tabular-nums text-muted-foreground">
+            فعلی: {formatCurrency(initialShareAmount!, currency)} ·{" "}
+            {initialPeriodCount!.toLocaleString("fa-IR")} دوره
           </p>
         ) : (
-          <Button
-            type="submit"
-            className="h-11 w-full rounded-xl active:scale-[0.98]"
-            disabled={pending}
-          >
-            {pending
-              ? "در حال ذخیره…"
-              : hasPlan
-                ? "ذخیره پلن"
-                : "ایجاد پلن و دوره‌ها"}
-          </Button>
+          <p className="text-[11px] text-muted-foreground">هنوز تعریف نشده</p>
         )}
-      </form>
-    </div>
+      </div>
+
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        {hasPlan
+          ? "کاهش دوره‌ها، نوبت‌های بعدی را حذف می‌کند."
+          : "مبلغ یک سهم کامل (۱×) و تعداد دوره‌ها را مشخص کنید."}
+      </p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="min-w-0 space-y-1">
+          <Label
+            htmlFor="fundShareAmount"
+            className="text-[11px] text-muted-foreground"
+          >
+            مبلغ سهم (۱×)
+          </Label>
+          <MoneyInput
+            id="fundShareAmount"
+            name="shareAmount"
+            value={shareAmount}
+            onValueChange={setShareAmount}
+            disabled={disabled || pending}
+            placeholder={`مثلاً ۱٬۰۰۰٬۰۰۰ ${unit}`}
+            className="h-11 rounded-xl"
+            required
+          />
+        </div>
+
+        <div className="min-w-0 space-y-1">
+          <Label
+            htmlFor="fundPeriodCount"
+            className="text-[11px] text-muted-foreground"
+          >
+            تعداد دوره
+          </Label>
+          <Input
+            id="fundPeriodCount"
+            name="periodCount"
+            autoComplete="off"
+            inputMode="numeric"
+            value={periodCount}
+            onChange={(e) => setPeriodCount(e.target.value)}
+            disabled={disabled || pending}
+            placeholder="۱۲"
+            className="h-11 rounded-xl tabular-nums"
+            required
+          />
+          <p className="text-[10px] text-muted-foreground">۲ تا ۶۰</p>
+        </div>
+      </div>
+
+      {error ? (
+        <p
+          className="rounded-xl bg-destructive-soft px-3 py-2 text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      {disabled ? (
+        <p className="text-caption text-muted-foreground">
+          فقط مالک می‌تواند پلن را تغییر دهد.
+        </p>
+      ) : (
+        <Button
+          type="submit"
+          className={cn(
+            "h-11 w-full rounded-xl text-caption font-bold",
+            "shadow-sm transition-[transform,opacity] active:scale-[0.98]",
+          )}
+          disabled={pending}
+        >
+          {pending
+            ? "در حال ذخیره…"
+            : hasPlan
+              ? "ذخیره پلن"
+              : "ایجاد پلن و دوره‌ها"}
+        </Button>
+      )}
+    </form>
   );
 }

@@ -15,6 +15,7 @@ import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { RecurringSettings } from "@/components/spaces/recurring-settings";
 import { SpaceSettingsSubmitButton } from "@/components/spaces/space-settings-submit";
 import { SpaceTheme } from "@/components/spaces/space-theme";
+import { FundSettingsForm } from "@/components/spaces/fund-settings-form";
 import { PartnerSettingsForm } from "@/components/spaces/partner-settings-form";
 import { TripSettingsForm } from "@/components/spaces/trip-settings-form";
 import { SpaceArchiveButton } from "@/components/spaces/space-card-actions";
@@ -165,26 +166,33 @@ export default async function SpaceSettingsPage({
     defaultShare: m.defaultShare,
   }));
 
-  const slimHeader = showBuilding || showRoundUp;
   const isPartnerSpace = space.type === "PARTNER";
+  const isFundSpace = space.type === "FUND";
+  const slimHeader = showBuilding || showRoundUp || isFundSpace;
 
   const roleLabel =
     membership.role === "OWNER"
       ? "مالک"
       : membership.role === "EDITOR"
-        ? "ویرایشگر"
-        : membership.role;
+        ? isFundSpace
+          ? "فعال"
+          : "ویرایشگر"
+        : membership.role === "VIEWER"
+          ? "ناظر"
+          : membership.role;
 
   const atPartnerCap =
     isPartnerSpace &&
     template.maxMembers != null &&
     tripInviteRows.length >= template.maxMembers;
 
+  const denseSettings = isPartnerSpace || isFundSpace;
+
   return (
     <main
       data-template={templateDataset}
       className={
-        isPartnerSpace
+        denseSettings
           ? "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-3.5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6"
           : "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6"
       }
@@ -232,6 +240,15 @@ export default async function SpaceSettingsPage({
               نام، واحد پول و طرف مقابل
             </p>
           </>
+        ) : isFundSpace ? (
+          <>
+            <h1 className="text-pretty text-xl font-bold leading-tight tracking-tight text-foreground">
+              {space.name}
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              نام، واحد پول و پلن دوره‌ها
+            </p>
+          </>
         ) : showRoundUp ? (
           <>
             <p className="text-micro font-semibold tracking-[0.06em] text-muted-foreground">
@@ -273,7 +290,7 @@ export default async function SpaceSettingsPage({
 
       <section
         className={
-          isPartnerSpace
+          denseSettings
             ? "animate-fade-up rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm sm:p-4"
             : slimHeader
               ? "animate-fade-up rounded-2xl border border-border/55 bg-card p-4 shadow-sm sm:p-5"
@@ -298,6 +315,15 @@ export default async function SpaceSettingsPage({
             initialName={space.name}
             currency={space.currency}
             roundUpToThousand={space.roundUpToThousand}
+            roleLabel={roleLabel}
+            disabled={!isOwner}
+            error={error}
+          />
+        ) : isFundSpace ? (
+          <FundSettingsForm
+            spaceId={space.id}
+            initialName={space.name}
+            currency={space.currency}
             roleLabel={roleLabel}
             disabled={!isOwner}
             error={error}
@@ -592,7 +618,7 @@ export default async function SpaceSettingsPage({
       ) : null}
 
       {showFundPlan ? (
-        <section className="animate-fade-up rounded-2xl border border-border/70 bg-card/90 p-4 backdrop-blur-sm sm:p-5">
+        <section className="animate-fade-up rounded-2xl border border-border/50 bg-card p-3.5 shadow-sm sm:p-4">
           <FundPlanSettings
             spaceId={space.id}
             currency={space.currency}

@@ -10,7 +10,7 @@ export default async function AdminFlagsPage() {
   return (
     <AdminShell
       title="پرچم‌ها"
-      subtitle="قطع‌کن‌های پلتفرم — خاموش کردن بدون دیپلوی"
+      subtitle="قطع‌کن‌ها بدون دیپلوی"
       adminName={user.name?.trim() || user.phone}
       pathname="/admin/flags"
     >

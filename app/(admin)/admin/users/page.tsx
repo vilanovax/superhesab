@@ -63,7 +63,7 @@ export default async function AdminUsersPage({
   return (
     <AdminShell
       title="کاربران"
-      subtitle="جستجو، ویرایش نام، فعال/غیرفعال، نقش ادمین"
+      subtitle="جستجو، نام، نقش و وضعیت حساب"
       adminName={admin.name?.trim() || admin.phone}
       pathname="/admin/users"
     >
@@ -102,7 +102,7 @@ export default async function AdminUsersPage({
           کاربری با این فیلتر پیدا نشد.
         </p>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="space-y-1.5">
           {users.map((u) => (
             <AdminUserRow
               key={u.id}

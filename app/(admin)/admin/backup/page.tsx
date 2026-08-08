@@ -8,7 +8,7 @@ export default async function AdminBackupPage() {
   return (
     <AdminShell
       title="بک‌آپ"
-      subtitle="خروجی پلتفرم / انتخابی و بازیابی با dry-run"
+      subtitle="خروجی کامل، انتخابی و بازیابی"
       adminName={user.name?.trim() || user.phone}
       pathname="/admin/backup"
     >

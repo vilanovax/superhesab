@@ -72,7 +72,7 @@ export default async function AdminSpacesPage({
   return (
     <AdminShell
       title="دفاتر"
-      subtitle="وضعیت فضاها، مالک، اعضا و هزینه‌ها"
+      subtitle="جستجو و مرور فضاها"
       adminName={admin.name?.trim() || admin.phone}
       pathname="/admin/spaces"
     >
@@ -98,6 +98,7 @@ export default async function AdminSpacesPage({
             <option value="TRIP">سفر</option>
             <option value="PARTNER">مشترک</option>
             <option value="FAMILY">خانه</option>
+            <option value="PERSONAL">شخصی</option>
             <option value="BUILDING">ساختمان</option>
             <option value="FUND">صندوق</option>
           </select>
@@ -122,7 +123,7 @@ export default async function AdminSpacesPage({
           دفتری با این فیلتر پیدا نشد.
         </p>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="space-y-1.5">
           {spaces.map((space) => (
             <li key={space.id}>
               <AdminSpaceCard

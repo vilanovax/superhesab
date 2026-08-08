@@ -457,7 +457,7 @@ async function SpacePageHeroCard({
               }
             />
           ) : isFundShell ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 text-start">
                   <p className="text-[0.6875rem] font-semibold tracking-[0.08em] text-on-hero/55">
@@ -467,9 +467,9 @@ async function SpacePageHeroCard({
                     {space.name}
                   </h1>
                   <p className="mt-1.5 text-caption text-on-hero/65">
-                    {space.members.length} عضو
+                    {space.members.length.toLocaleString("fa-IR")} عضو
                     {fundDashboard?.plan
-                      ? ` · ${fundDashboard.plan.periodCount} دوره`
+                      ? ` · دوره ${fundDashboard.periodIndex.toLocaleString("fa-IR")} از ${fundDashboard.plan.periodCount.toLocaleString("fa-IR")}`
                       : " · پلن تعریف نشده"}
                   </p>
                 </div>
@@ -485,19 +485,7 @@ async function SpacePageHeroCard({
                   />
                 ) : null}
               </div>
-              {fundDashboard?.plan ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <HeroStat label="جمع‌شده این دوره">
-                    {formatCurrency(
-                      fundDashboard.collectedTotal,
-                      space.currency,
-                    )}
-                  </HeroStat>
-                  <HeroStat label="نوبت">
-                    {fundDashboard.winnerName ?? "—"}
-                  </HeroStat>
-                </div>
-              ) : isOwner ? (
+              {!fundDashboard?.plan && isOwner ? (
                 <Link
                   href={`/spaces/${space.id}/settings`}
                   className="group flex items-center gap-3 rounded-2xl bg-on-hero px-3.5 py-3 text-primary shadow-sm transition-[transform,opacity] active:scale-[0.98] hover:opacity-95"

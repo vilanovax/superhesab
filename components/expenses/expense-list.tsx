@@ -309,6 +309,14 @@ function EditSheet({
   const { requestOpenChange, discardConfirm } =
     useUnsavedCloseGuard(formBlocked);
 
+  const denseEdit = spaceType === "TRIP" || spaceType === "PARTNER";
+  const editDescription =
+    spaceType === "PARTNER"
+      ? "عنوان، مبلغ یا پرداخت‌کننده"
+      : denseEdit
+        ? "عنوان، مبلغ، پرداخت‌کننده یا تسهیم"
+        : "مبلغ، پرداخت‌کننده یا تسهیم را عوض کن";
+
   useEffect(() => {
     if (!open) {
       setConfirmDelete(false);
@@ -337,8 +345,76 @@ function EditSheet({
     });
   }
 
+  const deleteBlock = (
+    <div
+      className={cn(
+        denseEdit
+          ? "pt-1"
+          : "rounded-2xl border border-destructive/20 bg-destructive-soft/40 p-3",
+      )}
+    >
+      {!confirmDelete ? (
+        <Button
+          type="button"
+          variant={denseEdit ? "ghost" : "outline"}
+          className={cn(
+            denseEdit
+              ? "h-9 w-full rounded-xl text-caption font-medium text-destructive hover:bg-destructive/8 hover:text-destructive"
+              : "h-11 w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10",
+          )}
+          onClick={() => setConfirmDelete(true)}
+        >
+          حذف هزینه
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-center text-[11px] text-destructive">
+            {spaceType === "PARTNER"
+              ? "این هزینه برای همیشه حذف می‌شود."
+              : "مطمئنی؟ این هزینه و سهم‌ها برای همیشه حذف می‌شوند."}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl text-caption"
+              onClick={() => setConfirmDelete(false)}
+              disabled={pendingDelete}
+            >
+              انصراف
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-10 rounded-xl text-caption"
+              onClick={onDelete}
+              disabled={pendingDelete}
+            >
+              {pendingDelete ? "در حال حذف…" : "بله، حذف شود"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {deleteError ? (
+        <p
+          className="mt-2 text-center text-[11px] text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
+          {deleteError}
+        </p>
+      ) : null}
+    </div>
+  );
+
   const form = (
-    <div className="space-y-4">
+    <div
+      className={cn(
+        denseEdit
+          ? "flex min-h-0 flex-1 flex-col gap-0"
+          : "space-y-4",
+      )}
+    >
       <ExpenseForm
         key={expense.expenseId}
         spaceId={spaceId}
@@ -352,54 +428,7 @@ function EditSheet({
           onOpenChange(false);
         }}
       />
-
-      <div className="rounded-2xl border border-destructive/20 bg-destructive-soft/40 p-3">
-        {!confirmDelete ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
-            onClick={() => setConfirmDelete(true)}
-          >
-            حذف هزینه
-          </Button>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs text-destructive">
-              مطمئنی؟ این هزینه و سهم‌ها برای همیشه حذف می‌شوند.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 rounded-xl"
-                onClick={() => setConfirmDelete(false)}
-                disabled={pendingDelete}
-              >
-                انصراف
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                className="h-11 rounded-xl"
-                onClick={onDelete}
-                disabled={pendingDelete}
-              >
-                {pendingDelete ? "در حال حذف…" : "بله، حذف شود"}
-              </Button>
-            </div>
-          </div>
-        )}
-        {deleteError ? (
-          <p
-            className="mt-2 text-xs text-destructive"
-            role="alert"
-            aria-live="assertive"
-          >
-            {deleteError}
-          </p>
-        ) : null}
-      </div>
+      {deleteBlock}
     </div>
   );
 
@@ -408,17 +437,39 @@ function EditSheet({
       <>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden overscroll-contain border-border/60 bg-background p-0 sm:max-w-md">
-            <div className="surface-hero shrink-0 px-5 pb-4 pt-5">
-              <DialogHeader className="space-y-1 text-start">
-                <DialogTitle className="text-xl font-bold text-on-hero">
+            <div
+              className={cn(
+                "surface-hero shrink-0 px-4",
+                denseEdit ? "pb-2.5 pt-4" : "px-5 pb-4 pt-5",
+              )}
+            >
+              <DialogHeader className="space-y-0 text-start">
+                <DialogTitle
+                  className={cn(
+                    "font-bold text-on-hero",
+                    denseEdit ? "text-body" : "text-xl",
+                  )}
+                >
                   ویرایش هزینه
                 </DialogTitle>
-                <DialogDescription className="text-sm text-on-hero/75">
-                  مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
+                <DialogDescription
+                  className={cn(
+                    "text-on-hero/70",
+                    denseEdit ? "mt-0.5 text-[11px]" : "mt-1 text-sm text-on-hero/75",
+                  )}
+                >
+                  {editDescription}
                 </DialogDescription>
               </DialogHeader>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-8">
+            <div
+              className={cn(
+                "surface-sheet-canvas min-h-0 flex-1 px-4",
+                denseEdit
+                  ? "flex flex-col overflow-hidden py-2.5"
+                  : "overflow-y-auto overscroll-contain py-4 pb-8",
+              )}
+            >
               {form}
             </div>
           </DialogContent>
@@ -435,18 +486,45 @@ function EditSheet({
         onOpenChange={handleOpenChange}
         repositionInputs={false}
       >
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-5 pb-4 pt-2">
-            <DrawerHeader className="space-y-1 p-0 text-start">
-              <DrawerTitle className="text-xl font-bold text-on-hero">
+        <DrawerContent
+          className={cn(
+            "mt-0! gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0",
+            denseEdit ? "h-auto max-h-[min(88dvh,100%)]" : "h-auto max-h-[85dvh]",
+          )}
+        >
+          <div
+            className={cn(
+              "surface-hero shrink-0 px-4 pt-1",
+              denseEdit ? "pb-2.5" : "px-5 pb-4 pt-2",
+            )}
+          >
+            <DrawerHeader className="space-y-0 p-0 text-start">
+              <DrawerTitle
+                className={cn(
+                  "font-bold text-on-hero",
+                  denseEdit ? "text-body-sm" : "text-xl",
+                )}
+              >
                 ویرایش هزینه
               </DrawerTitle>
-              <DrawerDescription className="text-sm text-on-hero/75">
-                مبلغ، پرداخت‌کننده یا تسهیم را عوض کن
+              <DrawerDescription
+                className={cn(
+                  "text-on-hero/70",
+                  denseEdit ? "mt-0.5 text-[11px]" : "mt-1 text-sm text-on-hero/75",
+                )}
+              >
+                {editDescription}
               </DrawerDescription>
             </DrawerHeader>
           </div>
-          <div className="min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain surface-sheet-canvas px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div
+            className={cn(
+              "surface-sheet-canvas px-4",
+              denseEdit
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden py-2.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+                : "min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]",
+            )}
+          >
             {form}
           </div>
         </DrawerContent>

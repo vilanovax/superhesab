@@ -88,8 +88,11 @@ export function JalaliDatePicker({
           <span className="text-body-sm font-semibold text-foreground">
             {label}
           </span>
-          <span className="text-caption text-muted-foreground">
-            {open ? "بستن" : "تغییر"}
+          <span
+            className="text-caption text-muted-foreground"
+            aria-hidden
+          >
+            {open ? "▴" : "▾"}
           </span>
         </button>
       ) : (

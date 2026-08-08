@@ -49,6 +49,8 @@ export type FundMemberRow = {
   memberId: string;
   userId: string;
   name: string;
+  phone: string;
+  avatarUrl?: string | null;
   defaultShare: number;
   shareLabel: string;
   expectedAmount: number;
@@ -115,7 +117,9 @@ export async function getFundDashboard(
     prisma.fundPlan.findUnique({ where: { spaceId } }),
     prisma.spaceMember.findMany({
       where: { spaceId },
-      include: { user: { select: { name: true, phone: true } } },
+      include: {
+        user: { select: { name: true, phone: true, avatarUrl: true } },
+      },
       orderBy: { createdAt: "asc" },
     }),
     prisma.fundTurn.findMany({
@@ -153,6 +157,8 @@ export async function getFundDashboard(
       memberId: m.id,
       userId: m.userId,
       name: memberName(m.user),
+      phone: m.user.phone,
+      avatarUrl: m.user.avatarUrl,
       defaultShare: m.defaultShare,
       shareLabel: formatShareLabel(m.defaultShare),
       expectedAmount: expected,

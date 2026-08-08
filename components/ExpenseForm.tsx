@@ -401,7 +401,9 @@ export function ExpenseForm({
     [debouncedTitle, showIncomeExpense, transactionType, isBuilding],
   );
 
-  const activeCategory = manualCategory ?? predictedCategory;
+  const activeCategory =
+    manualCategory ??
+    (isEdit ? (watchedCategory ?? predictedCategory) : predictedCategory);
   /** Building/trip use always-visible chips; others wait for a short title. */
   const showSmartChip =
     !useDenseChrome && !isEdit && debouncedTitle.length >= 2;
@@ -905,7 +907,7 @@ export function ExpenseForm({
               "space-y-2.5 rounded-none border-0 bg-transparent p-0 shadow-none",
           )}
         >
-          {(isBuilding || isLedgerDense) && !isEdit ? (
+          {(isBuilding && !isEdit) || isLedgerDense ? (
             <div className={cn("space-y-1.5", isLedgerDense && "space-y-1")}>
               {isBuilding ? (
                 <p className="text-label text-muted-foreground">دسته‌بندی</p>
@@ -1133,7 +1135,7 @@ export function ExpenseForm({
             />
           ) : null}
 
-          {isEdit ? (
+          {isEdit && !isLedgerDense ? (
             <FormField
               control={form.control}
               name="category"
@@ -1167,9 +1169,8 @@ export function ExpenseForm({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-caption text-muted-foreground">
-                    اگر عوض کنید، همین دسته قفل می‌شود و با تغییر عنوان عوض
-                    نمی‌شود.
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    با عوض کردن، دسته قفل می‌شود.
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -1434,8 +1435,8 @@ export function ExpenseForm({
             )}
           />
           ) : isPartnerEqual ? (
-            <p className="rounded-xl bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-              تسهیم مساوی (۵۰–۵۰) بین شما و {partnerOtherLabel}.
+            <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">
+              تسهیم مساوی ۵۰–۵۰ با {partnerOtherLabel}
             </p>
           ) : isBuilding ? null : isHouseholdLedger ? (
             <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">

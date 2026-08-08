@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   assignFundTurn,
   setFundPayment,
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,15 @@ export function FundDashboardPanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const activePeriodRef = useRef<HTMLAnchorElement | null>(null);
+
+  useEffect(() => {
+    activePeriodRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [dashboard.periodIndex]);
 
   function onAssignWinner(winnerMemberId: string | null) {
     setError(null);
@@ -90,6 +100,16 @@ export function FundDashboardPanel({
 
   const paidCount = dashboard.members.filter((m) => m.paid).length;
   const memberCount = dashboard.members.length;
+  const shortfall =
+    dashboard.periodReport?.shortfall ??
+    Math.max(0, dashboard.expectedTotal - dashboard.collectedTotal);
+  const hasWinner = Boolean(dashboard.winnerMemberId);
+  const prevPeriod =
+    dashboard.periodIndex > 1 ? dashboard.periodIndex - 1 : null;
+  const nextPeriod =
+    dashboard.plan && dashboard.periodIndex < dashboard.plan.periodCount
+      ? dashboard.periodIndex + 1
+      : null;
 
   if (!dashboard.plan) {
     return (
@@ -122,7 +142,7 @@ export function FundDashboardPanel({
   }
 
   return (
-    <div className="animate-fade-up space-y-3">
+    <div className="animate-fade-up space-y-3 pb-6">
       {error ? (
         <p
           className="rounded-xl bg-destructive-soft px-3 py-2 text-body-sm text-destructive"
@@ -141,36 +161,54 @@ export function FundDashboardPanel({
         />
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border border-border/55 bg-card shadow-sm">
-        <div className="flex items-center justify-between gap-3 px-4 pb-2.5 pt-3.5">
-          <div>
-            <p className="text-caption text-muted-foreground">دوره جاری</p>
-            <p className="mt-0.5 text-[1.25rem] font-bold leading-none tabular-nums tracking-tight text-foreground">
-              {dashboard.periodIndex}
-              <span className="ms-1 text-caption font-semibold text-muted-foreground">
-                / {dashboard.plan.periodCount}
+      {/* One command card: period + winner + collection */}
+      <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        <div className="flex items-center justify-between gap-2 px-3.5 pb-2 pt-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-muted-foreground">
+              دوره جاری
+            </p>
+            <p className="mt-0.5 text-lg font-bold leading-none tabular-nums tracking-tight text-foreground">
+              {dashboard.periodIndex.toLocaleString("fa-IR")}
+              <span className="ms-1 text-[11px] font-semibold text-muted-foreground">
+                / {dashboard.plan.periodCount.toLocaleString("fa-IR")}
               </span>
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-muted/70 px-2 py-1 text-caption tabular-nums text-muted-foreground">
-              {paidCount}/{memberCount} پرداخت
+          <div className="flex items-center gap-1.5">
+            {prevPeriod != null ? (
+              <Link
+                href={`/spaces/${spaceId}?period=${prevPeriod}`}
+                className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={`دوره ${prevPeriod}`}
+              >
+                ›
+              </Link>
+            ) : (
+              <span className="size-8" aria-hidden />
+            )}
+            <span className="rounded-lg bg-muted/70 px-2 py-1 text-[11px] tabular-nums text-muted-foreground">
+              {paidCount.toLocaleString("fa-IR")}/
+              {memberCount.toLocaleString("fa-IR")} پرداخت
             </span>
-            <Link
-              href={settingsHref}
-              className="inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.96]"
-              aria-label="تنظیمات پلن"
-              title="تنظیمات پلن"
-            >
-              <GearMiniIcon className="size-4" />
-            </Link>
+            {nextPeriod != null ? (
+              <Link
+                href={`/spaces/${spaceId}?period=${nextPeriod}`}
+                className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={`دوره ${nextPeriod}`}
+              >
+                ‹
+              </Link>
+            ) : (
+              <span className="size-8" aria-hidden />
+            )}
           </div>
         </div>
 
         <div
           role="navigation"
           aria-label="دوره‌های صندوق"
-          className="overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="overflow-x-auto px-3.5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex w-max gap-1">
             {dashboard.periods.map((p) => {
@@ -179,6 +217,7 @@ export function FundDashboardPanel({
               return (
                 <Link
                   key={p.periodIndex}
+                  ref={active ? activePeriodRef : undefined}
                   href={`/spaces/${spaceId}?period=${p.periodIndex}`}
                   aria-current={active ? "page" : undefined}
                   aria-label={
@@ -206,58 +245,106 @@ export function FundDashboardPanel({
             })}
           </div>
         </div>
+        <p className="px-3.5 pb-2.5 text-[10px] text-muted-foreground">
+          آبی = این دوره · سبز = نوبت تعیین‌شده · خاکستری = باز
+        </p>
 
-        <div className="space-y-3 border-t border-border/40 px-4 py-3.5">
+        <div className="space-y-3 border-t border-border/40 px-3.5 py-3">
+          {/* Winner */}
           <div>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-caption font-medium text-muted-foreground">
-                نوبت این دوره
+              <p className="text-[11px] font-medium text-muted-foreground">
+                برنده این دوره
               </p>
-              {dashboard.turnStatus === "ASSIGNED" ? (
+              {hasWinner ? (
                 <span className="rounded-md bg-success-soft px-1.5 py-0.5 text-[0.65rem] font-bold text-success">
                   تعیین‌شده
                 </span>
               ) : (
-                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-bold text-muted-foreground">
-                  باز
+                <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[0.65rem] font-bold text-amber-800 dark:text-amber-200">
+                  نیاز به انتخاب
                 </span>
               )}
             </div>
             {canMutate ? (
-              <Select
-                value={dashboard.winnerMemberId ?? "__none__"}
-                onValueChange={(v) =>
-                  onAssignWinner(v === "__none__" ? null : v)
-                }
-                disabled={pending}
-              >
-                <SelectTrigger
-                  className="mt-1.5 h-10 rounded-xl"
-                  aria-label="انتخاب برنده دوره"
+              hasWinner ? (
+                <div className="mt-1.5 space-y-1.5">
+                  <p className="truncate text-body font-bold text-foreground">
+                    {dashboard.winnerName}
+                  </p>
+                  <Select
+                    value={dashboard.winnerMemberId ?? "__none__"}
+                    onValueChange={(v) =>
+                      onAssignWinner(v === "__none__" ? null : v)
+                    }
+                    disabled={pending}
+                  >
+                    <SelectTrigger
+                      className="h-9 rounded-xl text-caption"
+                      aria-label="تغییر برنده دوره"
+                    >
+                      <SelectValue placeholder="تغییر برنده…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— حذف برنده —</SelectItem>
+                      {dashboard.members.map((m) => {
+                        const wonAt =
+                          dashboard.winnerTakenByMember[m.memberId] ?? null;
+                        const blocked =
+                          wonAt != null && wonAt !== dashboard.periodIndex;
+                        return (
+                          <SelectItem
+                            key={m.memberId}
+                            value={m.memberId}
+                            disabled={blocked}
+                          >
+                            {blocked
+                              ? `${m.name} · نوبت ${wonAt}`
+                              : `${m.name} (${m.shareLabel}×)`}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <Select
+                  value="__none__"
+                  onValueChange={(v) =>
+                    onAssignWinner(v === "__none__" ? null : v)
+                  }
+                  disabled={pending}
                 >
-                  <SelectValue placeholder="انتخاب برنده…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— بدون برنده —</SelectItem>
-                  {dashboard.members.map((m) => {
-                    const wonAt =
-                      dashboard.winnerTakenByMember[m.memberId] ?? null;
-                    const blocked =
-                      wonAt != null && wonAt !== dashboard.periodIndex;
-                    return (
-                      <SelectItem
-                        key={m.memberId}
-                        value={m.memberId}
-                        disabled={blocked}
-                      >
-                        {blocked
-                          ? `${m.name} · نوبت ${wonAt}`
-                          : `${m.name} (${m.shareLabel}×)`}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className="mt-1.5 h-11 rounded-xl border-primary/35 bg-primary/5 font-semibold"
+                    aria-label="انتخاب برنده دوره"
+                  >
+                    <SelectValue placeholder="انتخاب برنده این دوره…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" disabled>
+                      انتخاب برنده این دوره…
+                    </SelectItem>
+                    {dashboard.members.map((m) => {
+                      const wonAt =
+                        dashboard.winnerTakenByMember[m.memberId] ?? null;
+                      const blocked =
+                        wonAt != null && wonAt !== dashboard.periodIndex;
+                      return (
+                        <SelectItem
+                          key={m.memberId}
+                          value={m.memberId}
+                          disabled={blocked}
+                        >
+                          {blocked
+                            ? `${m.name} · نوبت ${wonAt}`
+                            : `${m.name} (${m.shareLabel}×)`}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )
             ) : (
               <p className="mt-1 truncate text-body-sm font-semibold text-foreground">
                 {dashboard.winnerName ?? "هنوز تعیین نشده"}
@@ -265,9 +352,10 @@ export function FundDashboardPanel({
             )}
           </div>
 
+          {/* Collection */}
           <div>
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-caption text-muted-foreground">وصول</p>
+              <p className="text-[11px] text-muted-foreground">وصول</p>
               <p className="text-caption font-semibold tabular-nums text-foreground">
                 {formatCurrency(dashboard.collectedTotal, currency)}
                 <span className="font-normal text-muted-foreground">
@@ -292,105 +380,55 @@ export function FundDashboardPanel({
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="mt-1.5 text-caption tabular-nums text-muted-foreground">
-              سهم ۱×:{" "}
-              <span className="font-medium text-foreground/80">
-                {formatCurrency(dashboard.plan.shareAmount, currency)}
-              </span>
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+              <p className="text-[11px] tabular-nums text-muted-foreground">
+                سهم پایه:{" "}
+                <span className="font-medium text-foreground/80">
+                  {formatCurrency(dashboard.plan.shareAmount, currency)}
+                </span>
+              </p>
+              {shortfall > 0 ? (
+                <p className="text-[11px] font-semibold tabular-nums text-destructive">
+                  کسری {formatCurrency(shortfall, currency)}
+                </p>
+              ) : (
+                <p className="text-[11px] font-semibold text-success">
+                  وصول کامل
+                </p>
+              )}
+            </div>
+            {paidCount === 0 && memberCount > 0 ? (
+              <p className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                هنوز پرداختی ثبت نشده — از لیست پایین شروع کنید.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
 
-      {dashboard.periodReport ? (
-        <section className="rounded-2xl border border-border/50 bg-card px-3.5 py-3 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-caption font-semibold text-muted-foreground">
-              گزارش دوره {dashboard.periodReport.periodIndex}
-            </p>
-            {dashboard.periodReport.isComplete ? (
-              <span className="rounded-md bg-success-soft px-1.5 py-0.5 text-[0.65rem] font-bold text-success">
-                کامل
-              </span>
-            ) : (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-bold tabular-nums text-muted-foreground">
-                {dashboard.periodReport.progressPercent}٪
-              </span>
-            )}
-          </div>
-          <dl className="mt-2.5 grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-muted/45 px-2.5 py-2">
-              <dt className="text-[0.65rem] text-muted-foreground">وصول</dt>
-              <dd className="mt-0.5 text-caption font-semibold tabular-nums text-foreground">
-                {formatCurrency(
-                  dashboard.periodReport.collectedTotal,
-                  currency,
-                )}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-muted/45 px-2.5 py-2">
-              <dt className="text-[0.65rem] text-muted-foreground">کسری</dt>
-              <dd
-                className={cn(
-                  "mt-0.5 text-caption font-semibold tabular-nums",
-                  dashboard.periodReport.shortfall > 0
-                    ? "text-destructive"
-                    : "text-foreground",
-                )}
-              >
-                {formatCurrency(dashboard.periodReport.shortfall, currency)}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-muted/45 px-2.5 py-2">
-              <dt className="text-[0.65rem] text-muted-foreground">پرداخت</dt>
-              <dd className="mt-0.5 text-caption font-semibold tabular-nums text-foreground">
-                {dashboard.periodReport.paidCount}/
-                {dashboard.periodReport.paidCount +
-                  dashboard.periodReport.unpaidCount}
-              </dd>
-            </div>
-          </dl>
-          {dashboard.periodReport.unpaidNames.length > 0 ? (
-            <p className="mt-2 text-caption leading-relaxed text-muted-foreground">
-              باقی‌مانده:{" "}
-              <span className="text-foreground/85">
-                {dashboard.periodReport.unpaidNames.join("، ")}
-              </span>
-            </p>
-          ) : (
-            <p className="mt-2 text-caption text-success">
-              همه اعضا سهم این دوره را پرداخت کرده‌اند.
-            </p>
-          )}
-          {dashboard.cycleIntegrity &&
-          dashboard.cycleIntegrity.duplicateWinnerPeriods.length > 0 ? (
-            <p
-              className="mt-2 text-caption text-destructive"
-              role="alert"
-              aria-live="assertive"
-            >
-              هشدار: نوبت تکراری در داده‌ها —{" "}
-              {dashboard.cycleIntegrity.duplicateWinnerPeriods
-                .map((d) => `دوره‌های ${d.periods.join(" و ")}`)
-                .join("؛ ")}
-            </p>
-          ) : dashboard.cycleIntegrity ? (
-            <p className="mt-2 text-caption text-muted-foreground">
-              چرخه: {dashboard.cycleIntegrity.assignedCount} نوبت تعیین‌شده ·{" "}
-              {dashboard.cycleIntegrity.openCount} باز ·{" "}
-              {dashboard.cycleIntegrity.uniqueWinners} برندهٔ یکتا
-            </p>
-          ) : null}
-        </section>
+      {/* Integrity warning only when broken */}
+      {dashboard.cycleIntegrity &&
+      dashboard.cycleIntegrity.duplicateWinnerPeriods.length > 0 ? (
+        <p
+          className="rounded-xl bg-destructive-soft px-3 py-2 text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
+          هشدار: نوبت تکراری در داده‌ها —{" "}
+          {dashboard.cycleIntegrity.duplicateWinnerPeriods
+            .map((d) => `دوره‌های ${d.periods.join(" و ")}`)
+            .join("؛ ")}
+        </p>
       ) : null}
 
+      {/* Member payments — primary work surface */}
       <section>
         <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
-          <h2 className="text-pretty text-caption font-semibold text-muted-foreground">
+          <h2 className="text-caption font-bold text-foreground">
             پرداخت اعضا
           </h2>
-          <p className="text-caption tabular-nums text-muted-foreground">
-            دوره {dashboard.periodIndex}
+          <p className="text-[11px] tabular-nums text-muted-foreground">
+            دوره {dashboard.periodIndex.toLocaleString("fa-IR")}
           </p>
         </div>
 
@@ -404,26 +442,26 @@ export function FundDashboardPanel({
               <li
                 key={m.memberId}
                 className={cn(
-                  "flex items-center justify-between gap-3 px-3.5 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_3.25rem]",
+                  "flex items-center justify-between gap-3 px-3 py-2.5",
                   i > 0 && "border-t border-border/40",
                 )}
               >
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      m.paid ? "bg-success" : "bg-border",
-                    )}
+                  <UserAvatar
+                    phone={m.phone}
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    size={32}
+                    className="size-8 shrink-0"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-body-sm font-semibold text-foreground">
+                    <p className="truncate text-caption font-semibold text-foreground">
                       {m.name}
-                      <span className="ms-1.5 text-caption font-normal text-muted-foreground">
+                      <span className="ms-1.5 text-[11px] font-normal text-muted-foreground">
                         {m.shareLabel}×
                       </span>
                     </p>
-                    <p className="text-caption tabular-nums text-muted-foreground">
+                    <p className="text-[11px] tabular-nums text-muted-foreground">
                       {formatCurrency(m.expectedAmount, currency)}
                     </p>
                   </div>
@@ -432,11 +470,11 @@ export function FundDashboardPanel({
                   <Button
                     type="button"
                     size="sm"
-                    variant={m.paid ? "default" : "outline"}
+                    variant={m.paid ? "outline" : "default"}
                     className={cn(
-                      "h-8 shrink-0 rounded-lg px-2.5 text-caption active:scale-[0.97]",
+                      "h-9 shrink-0 rounded-xl px-3 text-[11px] font-semibold active:scale-[0.97]",
                       m.paid &&
-                        "bg-success text-success-foreground hover:bg-success/90",
+                        "border-success/35 bg-success-soft text-success hover:bg-success-soft/80",
                     )}
                     disabled={pending}
                     onClick={() => onTogglePaid(m.memberId, !m.paid)}
@@ -446,7 +484,7 @@ export function FundDashboardPanel({
                 ) : (
                   <span
                     className={cn(
-                      "text-caption font-semibold",
+                      "text-[11px] font-semibold",
                       m.paid ? "text-success" : "text-muted-foreground",
                     )}
                   >
@@ -476,24 +514,6 @@ function PlanIcon({ className }: { className?: string }) {
     >
       <circle cx="12" cy="12" r="8" />
       <path d="M12 8v8M9.5 10.5c.5-1 1.5-1.5 2.5-1.5s2 .6 2 1.75-1 1.5-2.5 1.75-2.5.75-2.5 1.75 1 1.75 2.5 1.75 2-.5 2.5-1.5" />
-    </svg>
-  );
-}
-
-function GearMiniIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" />
     </svg>
   );
 }

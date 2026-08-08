@@ -170,7 +170,7 @@ export function InviteMembersButton({
   const description = isBuilding
     ? "لینک دعوت برای هم‌مدیر · ساکن‌ها از لینک واحد می‌آیند"
     : isFund
-      ? "لینک دعوت، ضریب سهم و عضو دستی"
+      ? "دعوت، ضریب سهم، عضو دستی"
       : spaceType === "TRIP"
         ? "لینک دعوت، نقش و ضریب تسهیم"
         : spaceType === "PARTNER"
@@ -191,6 +191,7 @@ export function InviteMembersButton({
       showShareControls={!isBuilding}
       editorOnlyRoles={isBuilding}
       fundLayout={isFund || isTripLike}
+      fundSheet={isFund}
       editorRoleLabel={isFund ? "فعال" : "ویرایشگر"}
     />
   );
@@ -225,11 +226,22 @@ export function InviteMembersButton({
           className={cn(
             "shrink-0 text-start",
             compactSheet ? "pb-1.5 pt-1" : "pb-2",
+            isFund && "space-y-0.5",
           )}
         >
-          <DrawerTitle className="text-pretty">{title}</DrawerTitle>
+          <DrawerTitle
+            className={cn("text-pretty", isFund && "text-body font-bold")}
+          >
+            {title}
+          </DrawerTitle>
           <DrawerDescription
-            className={compactSheet ? "text-caption" : undefined}
+            className={
+              isFund
+                ? "text-[11px] text-muted-foreground"
+                : compactSheet
+                  ? "text-caption"
+                  : undefined
+            }
           >
             {description}
           </DrawerDescription>

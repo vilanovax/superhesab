@@ -67,6 +67,8 @@ type MembersListProps = {
    * Used by FUND, TRIP, PARTNER, FAMILY.
    */
   fundLayout?: boolean;
+  /** FUND-only denser rows (claim as text, tighter role/share). */
+  fundSheet?: boolean;
   /** EDITOR label in dense role pickers (FUND: فعال · trip: ویرایشگر). */
   editorRoleLabel?: string;
 };
@@ -135,6 +137,7 @@ export function MembersList({
   showShareControls = true,
   editorOnlyRoles = false,
   fundLayout = false,
+  fundSheet = false,
   editorRoleLabel = "ویرایشگر",
 }: MembersListProps) {
   const router = useRouter();
@@ -409,8 +412,11 @@ export function MembersList({
 
   if (fundLayout) {
     const inviteCtaDone = spaceLinkState === "done";
+    const inviteEditorLabel =
+      editorRoleLabel === "فعال" ? "عضو فعال" : editorRoleLabel;
+
     return (
-      <div className="space-y-3.5">
+      <div className={cn("space-y-3", fundSheet && "space-y-2.5")}>
         {isOwner ? (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -422,15 +428,16 @@ export function MembersList({
                   }
                 >
                   <SelectTrigger
-                    className="h-10 w-[6.5rem] shrink-0 rounded-xl text-caption"
+                    className={cn(
+                      "h-10 shrink-0 rounded-xl text-caption",
+                      fundSheet ? "w-[5.75rem]" : "w-[6.5rem]",
+                    )}
                     aria-label="نقش لینک دعوت"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="EDITOR">
-                      {editorRoleLabel === "فعال" ? "عضو فعال" : editorRoleLabel}
-                    </SelectItem>
+                    <SelectItem value="EDITOR">{inviteEditorLabel}</SelectItem>
                     <SelectItem value="VIEWER">ناظر</SelectItem>
                   </SelectContent>
                 </Select>
@@ -459,9 +466,15 @@ export function MembersList({
               {inviteCtaDone ? "لینک دعوت کپی شد" : ""}
             </span>
             {maxMembers != null ? (
-              <p className="text-center text-[11px] tabular-nums text-muted-foreground">
+              <p
+                className={cn(
+                  "text-[11px] tabular-nums text-muted-foreground",
+                  fundSheet ? "px-0.5 text-start" : "text-center",
+                )}
+              >
                 {members.length.toLocaleString("fa-IR")} /{" "}
                 {maxMembers.toLocaleString("fa-IR")} عضو
+                {fundSheet && atCapacity ? " · ظرفیت تکمیل" : ""}
               </p>
             ) : null}
           </div>
@@ -476,7 +489,9 @@ export function MembersList({
               </span>
             </h3>
             {showShareControls ? (
-              <p className="text-[11px] text-muted-foreground">{shareCaption}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {fundSheet ? "ضریب" : shareCaption}
+              </p>
             ) : null}
           </div>
 
@@ -490,10 +505,155 @@ export function MembersList({
             </p>
           ) : null}
 
-          <ul className="max-h-[min(50dvh,22rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border/50 bg-card">
+          <ul
+            className={cn(
+              "overflow-y-auto overscroll-contain rounded-2xl border border-border/50 bg-card",
+              fundSheet
+                ? "max-h-[min(48dvh,20rem)]"
+                : "max-h-[min(50dvh,22rem)]",
+            )}
+          >
             {members.map((m, i) => {
               const share = m.defaultShare ?? DEFAULT_SHARE;
               const claimDone = claimCopiedId === m.userId;
+              const displayName = fundSheet
+                ? (m.name?.trim() ||
+                    (m.isVirtual ? "عضو" : m.phone) ||
+                    "عضو")
+                : memberLabel(m);
+
+              if (fundSheet) {
+                return (
+                  <li
+                    key={m.userId}
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-2",
+                      i > 0 && "border-t border-border/35",
+                    )}
+                  >
+                    <UserAvatar
+                      phone={m.phone}
+                      name={m.name}
+                      avatarUrl={m.avatarUrl}
+                      size={28}
+                      className="size-7 shrink-0 bg-secondary"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <p className="truncate text-caption font-semibold text-foreground">
+                          {displayName}
+                        </p>
+                        {m.role === "OWNER" ? (
+                          <span className="shrink-0 rounded-md bg-primary/12 px-1.5 py-0.5 text-[0.65rem] font-bold text-primary">
+                            مالک
+                          </span>
+                        ) : null}
+                        {m.isVirtual ? (
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            دستی
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                        {!m.isVirtual ? (
+                          <p className="truncate text-[11px] tabular-nums text-muted-foreground">
+                            {m.phone}
+                          </p>
+                        ) : isOwner ? (
+                          <button
+                            type="button"
+                            onClick={() => copyClaimLink(m.userId)}
+                            className={cn(
+                              "text-[11px] font-medium underline-offset-2 hover:underline",
+                              claimDone
+                                ? "text-success"
+                                : "text-primary",
+                            )}
+                          >
+                            {claimDone ? "لینک کپی شد" : "کپی لینک ادعا"}
+                          </button>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">
+                            بدون اپ
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {isOwner && showShareControls ? (
+                      <div className="flex shrink-0 items-center rounded-lg bg-muted/45 p-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 rounded-md text-muted-foreground active:scale-[0.96]"
+                          disabled={pending || share <= MIN_SHARE}
+                          onClick={() =>
+                            onChangeShare(
+                              m.userId,
+                              clampShare(share - SHARE_STEP),
+                            )
+                          }
+                          aria-label="کاهش ضریب"
+                        >
+                          −
+                        </Button>
+                        <span className="min-w-6 text-center text-[11px] font-bold tabular-nums text-foreground">
+                          {formatShareLabel(share)}×
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 rounded-md text-muted-foreground active:scale-[0.96]"
+                          disabled={pending || share >= MAX_SHARE}
+                          onClick={() =>
+                            onChangeShare(
+                              m.userId,
+                              clampShare(share + SHARE_STEP),
+                            )
+                          }
+                          aria-label="افزایش ضریب"
+                        >
+                          +
+                        </Button>
+                      </div>
+                    ) : showShareControls && share !== DEFAULT_SHARE ? (
+                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        {formatShareLabel(share)}×
+                      </span>
+                    ) : null}
+
+                    {isOwner && m.role !== "OWNER" ? (
+                      <Select
+                        value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
+                        onValueChange={(v) =>
+                          onChangeRole(m.userId, v as "EDITOR" | "VIEWER")
+                        }
+                        disabled={pending}
+                      >
+                        <SelectTrigger
+                          className="h-8 w-[4.25rem] shrink-0 rounded-lg px-2 text-[11px]"
+                          aria-label={`نقش ${displayName}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EDITOR">
+                            {editorRoleLabel}
+                          </SelectItem>
+                          <SelectItem value="VIEWER">ناظر</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : m.role !== "OWNER" ? (
+                      <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-bold text-muted-foreground">
+                        {m.role === "VIEWER" ? "ناظر" : editorRoleLabel}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              }
+
               return (
                 <li
                   key={m.userId}
@@ -624,10 +784,15 @@ export function MembersList({
         </section>
 
         {isOwner ? (
-          <section className="border-t border-border/40 pt-3">
+          <section
+            className={cn(
+              "border-t border-border/40",
+              fundSheet ? "pt-2.5" : "pt-3",
+            )}
+          >
             <form
               onSubmit={onAddVirtual}
-              className="flex items-center gap-2"
+              className="flex items-center gap-1.5"
             >
               <Label htmlFor="invite-virtual-name-fund" className="sr-only">
                 نام عضو دستی
@@ -639,7 +804,7 @@ export function MembersList({
                 spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder="عضو دستی…"
+                placeholder={fundSheet ? "نام عضو دستی…" : "عضو دستی…"}
                 className="h-10 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
                 maxLength={40}
                 required
@@ -654,7 +819,10 @@ export function MembersList({
                 disabled={atCapacity || pending}
               >
                 <SelectTrigger
-                  className="h-10 w-[5.5rem] shrink-0 rounded-xl text-caption"
+                  className={cn(
+                    "h-10 shrink-0 rounded-xl text-caption",
+                    fundSheet ? "w-[4.25rem] px-2 text-[11px]" : "w-[5.5rem]",
+                  )}
                   aria-label="نقش عضو جدید"
                 >
                   <SelectValue />
@@ -667,7 +835,7 @@ export function MembersList({
               <Button
                 type="submit"
                 size="sm"
-                variant="secondary"
+                variant={fundSheet ? "default" : "secondary"}
                 className="h-10 shrink-0 rounded-xl px-3 active:scale-[0.97]"
                 disabled={atCapacity || pending}
                 aria-busy={pending}
@@ -684,7 +852,7 @@ export function MembersList({
                 {manualError}
               </p>
             ) : null}
-            {atCapacity ? (
+            {atCapacity && !fundSheet ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 ظرفیت اعضا تکمیل است.
               </p>

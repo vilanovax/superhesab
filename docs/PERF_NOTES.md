@@ -1,8 +1,8 @@
 # SuperHesab — Performance Notes
 
 **Audience:** agents and humans changing space tabs, expense lists, or auth LCP.  
-**Status as of:** product code around `APP_VERSION` **2.96** (`lib/app-version.ts`).  
-**See also:** [architecture.md](./architecture.md) · `.cursorrules` · `AGENTS.md`
+**Status as of:** product code around `APP_VERSION` **3.45** (`lib/app-version.ts`).  
+**See also:** [architecture.md](./architecture.md) · [PERF_VERCEL_REACT_AUDIT.md](./PERF_VERCEL_REACT_AUDIT.md) · `.cursorrules` · `AGENTS.md`
 
 This doc records **what was done and why**, verified against the current tree. Prefer extending these patterns over inventing parallel loaders.
 
@@ -189,7 +189,22 @@ These landed in earlier commits and remain in the tree — do not “rediscover�
 
 ---
 
-## 9. Optional follow-ups (NOT done)
+## 9. Vercel React Best Practices pass (3.45)
+
+Full write-up: [PERF_VERCEL_REACT_AUDIT.md](./PERF_VERCEL_REACT_AUDIT.md).
+
+Highlights landed in this pass:
+
+- Auth on `listDueSoonDebtsForUser` / `listDueSoonInternalLoansForUser` / `ensureRecurringExpenses`
+- `Promise.all` on space/resident/board/settings/member gates; skip deferred double-fetch for expenses + building view
+- Share summary built on click via `getShareSummaryText` (no 200-row hero payload)
+- Home streams summary/list behind Suspense; membership-independent queries in one wave
+- Building `notify*` scheduled with `after()`
+- Dialog vs Drawer code-split for invite / add-expense / expense-edit; theme bootstrap script; `optimizePackageImports: ['recharts']`
+
+---
+
+## 10. Optional follow-ups (NOT done)
 
 - Real Network-throttling measurement (Chrome DevTools Slow 3G / Fast 3G) of BUILDING charges → expenses with and without idle prefetch — no formal numbers recorded here.
 - Composite DB indexes tuned to ledger keyset (`spaceId` + `date` + `id`). Expense already has `@@index([spaceId, date, transactionType])` and single-column `date` / `spaceId`; a dedicated keyset index was **not** added as part of this work.
@@ -197,7 +212,7 @@ These landed in earlier commits and remain in the tree — do not “rediscover�
 
 ---
 
-## 10. Quick regression checklist
+## 11. Quick regression checklist
 
 When changing this area:
 

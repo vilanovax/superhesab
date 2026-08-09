@@ -20,9 +20,11 @@ type SpacePageProps = {
  * ctx without awaiting — hero/body stream via inner Suspense boundaries.
  */
 export default async function SpacePage({ params, searchParams }: SpacePageProps) {
-  const { id } = await params;
-  const sp = await searchParams;
-  const session = await requireUser();
+  const [{ id }, sp, session] = await Promise.all([
+    params,
+    searchParams,
+    requireUser(),
+  ]);
   const membership = await requireSpaceMember(id, session.userId);
 
   if (!membership) {

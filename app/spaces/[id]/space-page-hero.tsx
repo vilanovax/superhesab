@@ -23,7 +23,6 @@ import {
   loadMonthExpenseTotal,
   loadMonthRows,
   loadOpenBoardCount,
-  loadShareExpenseLines,
   loadSpaceWithMembers,
   type SpaceMembership,
   type SpacePageCtx,
@@ -177,7 +176,7 @@ function SpacePageHeroChrome({
           </span>
           {features.settlements ? (
             <Suspense fallback={<ChromeIconFallback />}>
-              <HeroShareButton ctxPromise={ctxPromise} />
+              <HeroShareButton spaceId={spaceId} ctxPromise={ctxPromise} />
             </Suspense>
           ) : null}
           <Button
@@ -199,12 +198,10 @@ function SpacePageHeroChrome({
 
 async function HeroBoardButton({
   spaceId,
-  ctxPromise,
 }: {
   spaceId: string;
   ctxPromise: Promise<SpacePageCtx>;
 }) {
-  await ctxPromise;
   const badgeCount = await loadOpenBoardCount(spaceId);
   return (
     <BuildingBoardNavButton spaceId={spaceId} badgeCount={badgeCount} />
@@ -212,40 +209,15 @@ async function HeroBoardButton({
 }
 
 async function HeroShareButton({
+  spaceId,
   ctxPromise,
 }: {
+  spaceId: string;
   ctxPromise: Promise<SpacePageCtx>;
 }) {
   const ctx = await ctxPromise;
-  const { id, session, features, hiddenCategoriesKey } = ctx;
-  if (!features.settlements) return null;
-
-  const [space, balanceData, shareExpenses] = await Promise.all([
-    loadSpaceWithMembers(id),
-    loadCachedBalances(id),
-    loadShareExpenseLines(id, hiddenCategoriesKey),
-  ]);
-  if (!space) return null;
-
-  const members = space.members.map((m) => ({
-    userId: m.user.id,
-    name: m.user.name,
-    phone: m.user.phone,
-    isVirtual: m.user.isVirtual,
-    defaultShare: m.defaultShare,
-  }));
-
-  return (
-    <ShareSummaryIconButton
-      spaceName={space.name}
-      expenses={shareExpenses}
-      members={members}
-      suggestions={balanceData.suggestions}
-      currentUserId={session.userId}
-      currency={space.currency}
-      roundUpToThousand={space.roundUpToThousand}
-    />
-  );
+  if (!ctx.features.settlements) return null;
+  return <ShareSummaryIconButton spaceId={spaceId} />;
 }
 
 /**

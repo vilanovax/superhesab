@@ -4,7 +4,15 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type * as React from "react";
 import type { ExpenseMember } from "@/components/ExpenseForm";
+import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { Button } from "@/components/ui/button";
+import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
+import { useUiStore } from "@/lib/stores/ui-store";
+import { getTemplate } from "@/lib/templates/registry";
+import { cn } from "@/lib/utils";
+import type { SpaceCurrency } from "@/lib/format";
+import type { ExpenseCategory } from "@/lib/categorizer";
+import type { SpaceType } from "@/types";
 
 const ExpenseForm = dynamic(
   () =>
@@ -15,29 +23,22 @@ const ExpenseForm = dynamic(
     ),
   },
 );
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
-import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
-import { useUiStore } from "@/lib/stores/ui-store";
-import { getTemplate } from "@/lib/templates/registry";
-import { cn } from "@/lib/utils";
-import type { SpaceCurrency } from "@/lib/format";
-import type { ExpenseCategory } from "@/lib/categorizer";
-import type { SpaceType } from "@/types";
+
+const AddExpenseDesktop = dynamic(
+  () =>
+    import("@/components/expenses/add-expense-desktop").then(
+      (m) => m.AddExpenseDesktop,
+    ),
+  { ssr: false },
+);
+
+const AddExpenseMobile = dynamic(
+  () =>
+    import("@/components/expenses/add-expense-mobile").then(
+      (m) => m.AddExpenseMobile,
+    ),
+  { ssr: false },
+);
 
 type AddExpenseButtonProps = {
   spaceId: string;
@@ -50,18 +51,6 @@ type AddExpenseButtonProps = {
   /** Active space tab — charges FAB opens collection, not expense form. */
   activeTab?: string;
 };
-
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return isDesktop;
-}
 
 function Fab({
   children,
@@ -87,93 +76,6 @@ function Fab({
         </>
       )}
     </Button>
-  );
-}
-
-function ExpenseSheetBody({
-  description,
-  children,
-  variant,
-  title = "ثبت هزینه جدید",
-  compact = false,
-}: {
-  description: string;
-  children: React.ReactNode;
-  variant: "drawer" | "dialog";
-  title?: string;
-  /** Building / trip — form owns sticky footer; shell does not scroll. */
-  compact?: boolean;
-}) {
-  const showDesc = description.trim().length > 0;
-  return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-col",
-        variant === "drawer"
-          ? compact
-            ? "max-h-[min(88dvh,100%)]"
-            : "max-h-[85dvh]"
-          : "max-h-[inherit] flex-1",
-      )}
-    >
-      <div
-        className={cn(
-          "surface-hero relative shrink-0 overflow-hidden px-4 pt-1",
-          compact ? "pb-2.5" : "px-5 pb-3.5 pt-2",
-        )}
-      >
-        {variant === "drawer" ? (
-          <DrawerHeader className="relative space-y-0 p-0 text-start">
-            <DrawerTitle
-              className={cn(
-                "font-bold text-on-hero",
-                compact ? "text-body-sm" : "text-lg",
-              )}
-            >
-              {title}
-            </DrawerTitle>
-            {showDesc ? (
-              <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
-                {description}
-              </DrawerDescription>
-            ) : (
-              <DrawerDescription className="sr-only">{title}</DrawerDescription>
-            )}
-          </DrawerHeader>
-        ) : (
-          <DialogHeader className="relative space-y-0 text-start">
-            <DialogTitle
-              className={cn(
-                "font-bold text-on-hero",
-                compact ? "text-body" : "text-lg",
-              )}
-            >
-              {title}
-            </DialogTitle>
-            {showDesc ? (
-              <DialogDescription className="mt-0.5 text-caption text-on-hero/70">
-                {description}
-              </DialogDescription>
-            ) : (
-              <DialogDescription className="sr-only">{title}</DialogDescription>
-            )}
-          </DialogHeader>
-        )}
-      </div>
-
-      <div
-        className={cn(
-          "surface-sheet-canvas flex min-h-0 flex-1 flex-col px-4",
-          compact
-            ? "overflow-hidden py-2.5"
-            : "min-h-0 overflow-y-auto overscroll-contain py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
-          variant === "drawer" && !compact && "max-h-[calc(85dvh-4.5rem)]",
-          variant === "dialog" && "min-h-0 flex-1",
-        )}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -313,11 +215,6 @@ export function AddExpenseButton({
     />
   );
 
-  // Avoid SSR/hydration mismatch: wait until media query is known
-  if (isDesktop === null) {
-    return <Fab className="pointer-events-none opacity-0" tabIndex={-1} />;
-  }
-
   /** Units/report own their CTAs — don't float expense/collect here. */
   if (isBuilding && (liveTab === "units" || liveTab === "report")) {
     return null;
@@ -346,29 +243,44 @@ export function AddExpenseButton({
     );
   }
 
+  const fab = (
+    <Fab className={cn(open && "pointer-events-none opacity-0")}>
+      <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
+        +
+      </span>
+      {fabLabel}
+    </Fab>
+  );
+
+  // Avoid SSR/hydration mismatch: wait until media query is known
+  if (isDesktop === null) {
+    return (
+      <Fab
+        type="button"
+        onClick={() => setOpen(true)}
+        className="opacity-90"
+      >
+        <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
+          +
+        </span>
+        {fabLabel}
+      </Fab>
+    );
+  }
+
   if (isDesktop) {
     return (
       <>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Fab className={cn(open && "pointer-events-none opacity-0")}>
-              <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
-                +
-              </span>
-              {fabLabel}
-            </Fab>
-          </DialogTrigger>
-          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-dialog sm:max-w-md">
-            <ExpenseSheetBody
-              description={description}
-              variant="dialog"
-              title={sheetTitle}
-              compact={denseSheet}
-            >
-              {form}
-            </ExpenseSheetBody>
-          </DialogContent>
-        </Dialog>
+        <AddExpenseDesktop
+          open={open}
+          onOpenChange={setOpen}
+          trigger={fab}
+          title={sheetTitle}
+          description={description}
+          compact={denseSheet}
+        >
+          {form}
+        </AddExpenseDesktop>
         {discardConfirm}
       </>
     );
@@ -376,26 +288,16 @@ export function AddExpenseButton({
 
   return (
     <>
-      <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
-        <DrawerTrigger asChild>
-          <Fab className={cn(open && "pointer-events-none opacity-0")}>
-            <span className="flex size-6 items-center justify-center rounded-md bg-on-hero/15 text-base leading-none text-on-hero">
-              +
-            </span>
-            {fabLabel}
-          </Fab>
-        </DrawerTrigger>
-        <DrawerContent className="mt-0! h-auto max-h-[85dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <ExpenseSheetBody
-            description={description}
-            variant="drawer"
-            title={sheetTitle}
-            compact={denseSheet}
-          >
-            {form}
-          </ExpenseSheetBody>
-        </DrawerContent>
-      </Drawer>
+      <AddExpenseMobile
+        open={open}
+        onOpenChange={setOpen}
+        trigger={fab}
+        title={sheetTitle}
+        description={description}
+        compact={denseSheet}
+      >
+        {form}
+      </AddExpenseMobile>
       {discardConfirm}
     </>
   );

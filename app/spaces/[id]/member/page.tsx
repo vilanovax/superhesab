@@ -17,9 +17,12 @@ export default async function FundMemberPage({
   params,
   searchParams,
 }: MemberPageProps) {
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const [{ id }, sp, session] = await Promise.all([
+    params,
+    searchParams,
+    requireUser(),
+  ]);
   const { period: periodParam } = sp;
-  const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
   if (!membership) notFound();
 

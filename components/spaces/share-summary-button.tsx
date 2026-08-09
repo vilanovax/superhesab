@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { getShareSummaryText } from "@/app/actions/settlement";
 import { Button } from "@/components/ui/button";
-import {
-  buildBalanceSummaryText,
-  type SummaryExpense,
-  type SummaryMember,
-} from "@/lib/balance-summary";
-import type { SimplifiedSettlement } from "@/lib/debtSimplification";
-import type { SpaceCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 function ShareIcon({ className }: { className?: string }) {
@@ -32,24 +26,12 @@ function ShareIcon({ className }: { className?: string }) {
 }
 
 type ShareSummaryIconButtonProps = {
-  spaceName: string;
-  expenses: SummaryExpense[];
-  members: SummaryMember[];
-  suggestions: SimplifiedSettlement[];
-  currentUserId?: string;
-  currency?: SpaceCurrency;
-  roundUpToThousand?: boolean;
+  spaceId: string;
   className?: string;
 };
 
 export function ShareSummaryIconButton({
-  spaceName,
-  expenses,
-  members,
-  suggestions,
-  currentUserId,
-  currency = "TOMAN",
-  roundUpToThousand = false,
+  spaceId,
   className,
 }: ShareSummaryIconButtonProps) {
   const [pending, startTransition] = useTransition();
@@ -63,17 +45,14 @@ export function ShareSummaryIconButton({
 
   function onShare() {
     setToast(null);
-    const text = buildBalanceSummaryText({
-      spaceName,
-      expenses,
-      members,
-      suggestions,
-      currentUserId,
-      currency,
-      roundUpToThousand,
-    });
-
     startTransition(async () => {
+      const result = await getShareSummaryText(spaceId);
+      if (!result.ok) {
+        setToast(result.error);
+        return;
+      }
+
+      const { text, spaceName } = result;
       try {
         if (
           typeof navigator !== "undefined" &&

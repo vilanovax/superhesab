@@ -99,6 +99,17 @@ export default function RootLayout({
       className={`${vazir.variable} ${vazir.className} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/*
+          Apply persisted theme/accent before paint to avoid a flash of the
+          default ocean/light tokens (rendering-hydration-no-flicker).
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var r=localStorage.getItem("superhesab-app-settings");if(!r)return;var j=JSON.parse(r);var s=j&&j.state?j.state:j;if(!s)return;var t=s.theme||"light";var a=s.accent||"ocean";var resolved=t==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;document.documentElement.dataset.theme=resolved;document.documentElement.dataset.accent=a;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         <div className="app-shell flex min-h-full flex-1 flex-col">
           <ThemeProvider>{children}</ThemeProvider>

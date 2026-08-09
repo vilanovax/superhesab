@@ -9,10 +9,7 @@ import type { DebtDTO } from "@/app/actions/debt";
 import type { InternalLoanDTO } from "@/app/actions/internalLoan";
 import type { SavingsPotDTO } from "@/app/actions/savingsPot";
 import type { InviteMemberRow } from "@/components/spaces/invite-members-button";
-import type {
-  FamilyMonthExpenseRow,
-  FamilyReportMember,
-} from "@/components/spaces/family-report-panel";
+import type { FamilyMonthExpenseRow } from "@/components/spaces/family-report-panel";
 import type { FundMemberOption } from "@/components/spaces/savings-pot-panel";
 import type { BalanceMember } from "@/components/SpaceBalances";
 import type { ExpenseListItem } from "@/components/expenses/expense-list";
@@ -44,7 +41,6 @@ export type SpaceTabsProps = {
   personalReportData?: CategoryExpenseRow[];
   reportExpenseLines?: ReportExpenseLine[];
   familyMonthExpenses?: FamilyMonthExpenseRow[];
-  familyReportMembers?: FamilyReportMember[];
   monthlyBudget?: number | null;
   debts?: DebtDTO[];
   savingsPots?: SavingsPotDTO[];

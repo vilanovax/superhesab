@@ -55,7 +55,6 @@ export function FamilySpaceTabs({
   personalReportData: reportProp = [],
   reportExpenseLines: reportLinesProp = [],
   familyMonthExpenses = [],
-  familyReportMembers = [],
   monthlyBudget = null,
   debts: debtsProp = [],
   savingsPots: potsProp = [],
@@ -72,6 +71,13 @@ export function FamilySpaceTabs({
   const showFamilyFunds = Boolean(
     features.savingsPot || features.internalLoans,
   );
+  const familyReportMembers = members.map((m) => ({
+    userId: m.userId,
+    name:
+      m.userId === currentUserId
+        ? "من"
+        : m.name?.trim().split(/\s+/)[0] || m.phone || "عضو",
+  }));
 
   const defaultTab: SpaceTabId =
     initialTab === "report" ||

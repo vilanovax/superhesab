@@ -111,6 +111,8 @@ export async function SpacePageBody({
       hiddenCategories,
       viewerUserId: session.userId,
       includeChargeProofs: !skipChargeProofsOnRsc,
+      skipExpenses: needExpenses,
+      skipBuildingView: needBuildingView,
     }),
   ]);
 
@@ -143,7 +145,8 @@ export async function SpacePageBody({
     categoryBudgets,
   } = deferredTab;
 
-  const inviteMembers = space.members.map((m) => ({
+  /** One member array — same reference for invite + expense list (RSC dedupe). */
+  const members = space.members.map((m) => ({
     userId: m.user.id,
     name: m.user.name,
     phone: m.user.phone,
@@ -153,26 +156,23 @@ export async function SpacePageBody({
     defaultShare: m.defaultShare,
   }));
 
-  const members = space.members.map((m) => ({
-    userId: m.user.id,
-    name: m.user.name,
-    phone: m.user.phone,
-    isVirtual: m.user.isVirtual,
-    defaultShare: m.defaultShare,
-  }));
-
-  const fundMembers = space.members.map((m) => ({
-    memberId: m.id,
-    userId: m.user.id,
-    label:
-      m.user.id === session.userId
-        ? "من"
-        : m.user.name?.trim().split(/\s+/)[0] ||
-          m.user.phone ||
-          "عضو",
-  }));
+  const fundMembers =
+    activeTab === "funds"
+      ? space.members.map((m) => ({
+          memberId: m.id,
+          userId: m.user.id,
+          label:
+            m.user.id === session.userId
+              ? "من"
+              : m.user.name?.trim().split(/\s+/)[0] ||
+                m.user.phone ||
+                "عضو",
+        }))
+      : [];
   const currentFundMemberId =
-    space.members.find((m) => m.user.id === session.userId)?.id ?? null;
+    activeTab === "funds"
+      ? (space.members.find((m) => m.user.id === session.userId)?.id ?? null)
+      : null;
 
   if (isFundShell) {
     if (!fundDashboard) {
@@ -205,48 +205,61 @@ export async function SpacePageBody({
         spaceName={space.name}
         currentUserId={session.userId}
         currentUserRole={myRole}
-        expenses={expenses}
-        expensesHasMore={expensesHasMore}
+        expenses={activeTab === "expenses" ? expenses : []}
+        expensesHasMore={
+          activeTab === "expenses" ? expensesHasMore : false
+        }
         members={members}
-        inviteMembers={inviteMembers}
+        inviteMembers={members}
         balances={balanceData.balances}
         suggestions={balanceData.suggestions}
-        checklist={checklist}
+        checklist={activeTab === "checklist" ? checklist : []}
         currency={space.currency}
         roundUpToThousand={space.roundUpToThousand}
         spaceType={space.type}
         showChecklist={showChecklist}
         canMutate={canWrite}
-        personalReportData={personalReportData}
-        reportExpenseLines={reportExpenseLines}
-        familyMonthExpenses={monthRows
-          .filter((r) => r.transactionType === "EXPENSE")
-          .map((r) => ({
-            category: r.category,
-            categoryLabel: r.categoryLabel ?? null,
-            totalAmount: r.totalAmount,
-            paidById: r.paidById,
-          }))}
-        familyReportMembers={members.map((m) => ({
-          userId: m.userId,
-          name:
-            m.userId === session.userId
-              ? "من"
-              : m.name?.trim().split(/\s+/)[0] ||
-                m.phone ||
-                "عضو",
-        }))}
+        personalReportData={
+          activeTab === "report" ? personalReportData : undefined
+        }
+        reportExpenseLines={
+          activeTab === "report" ? reportExpenseLines : undefined
+        }
+        familyMonthExpenses={
+          activeTab === "report"
+            ? monthRows
+                .filter((r) => r.transactionType === "EXPENSE")
+                .map((r) => ({
+                  category: r.category,
+                  categoryLabel: r.categoryLabel ?? null,
+                  totalAmount: r.totalAmount,
+                  paidById: r.paidById,
+                }))
+            : undefined
+        }
         monthlyBudget={space.monthlyBudget}
-        debts={debts}
-        savingsPots={savingsPots}
-        internalLoans={internalLoans}
+        debts={activeTab === "debts" ? debts : undefined}
+        savingsPots={activeTab === "funds" ? savingsPots : undefined}
+        internalLoans={activeTab === "funds" ? internalLoans : undefined}
         fundMembers={fundMembers}
         currentFundMemberId={currentFundMemberId}
-        categoryBudgets={categoryBudgets}
-        buildingDashboard={buildingDashboard}
-        buildingCalendar={buildingCalendar}
-        buildingUnits={buildingUnits}
-        chargeProofs={chargeProofs}
+        categoryBudgets={
+          activeTab === "report" ? categoryBudgets : undefined
+        }
+        buildingDashboard={
+          activeTab === "charges" || activeTab === "units"
+            ? buildingDashboard
+            : undefined
+        }
+        buildingCalendar={
+          activeTab === "charges" ? buildingCalendar : undefined
+        }
+        buildingUnits={
+          activeTab === "charges" || activeTab === "units"
+            ? buildingUnits
+            : undefined
+        }
+        chargeProofs={activeTab === "charges" ? chargeProofs : undefined}
         isOwner={isOwner}
         initialTab={activeTab}
         loadedTabs={[activeTab]}

@@ -48,9 +48,12 @@ export default async function SpaceSettingsPage({
   params,
   searchParams,
 }: SettingsPageProps) {
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const [{ id }, sp, session] = await Promise.all([
+    params,
+    searchParams,
+    requireUser(),
+  ]);
   const { error } = sp;
-  const session = await requireUser();
   const membership = await requireSpaceMember(id, session.userId);
 
   if (!membership) {

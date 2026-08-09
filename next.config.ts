@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   /** Keep pdfkit/exceljs out of the bundler so AFM font data resolves on disk. */
   serverExternalPackages: ["pdfkit", "exceljs", "fontkit"],
+  /** Tree-shake recharts barrel imports in client charts. */
+  experimental: {
+    optimizePackageImports: ["recharts"],
+  },
   turbopack: {
     root: projectRoot,
   },

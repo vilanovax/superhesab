@@ -277,9 +277,10 @@ export type DueSoonInternalLoanSummary = {
 };
 
 /** Home dashboard — ACTIVE internal loans due soon across user's FAMILY spaces. */
-export async function listDueSoonInternalLoansForUser(
-  userId: string,
-): Promise<DueSoonInternalLoanSummary[]> {
+export async function listDueSoonInternalLoansForUser(): Promise<DueSoonInternalLoanSummary[]> {
+  const session = await requireUser();
+  const userId = session.userId;
+
   const memberships = await prisma.spaceMember.findMany({
     where: { userId },
     select: {

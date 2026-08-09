@@ -25,6 +25,22 @@ const ExpenseForm = dynamic(
     ),
   },
 );
+
+const ExpenseEditDesktop = dynamic(
+  () =>
+    import("@/components/expenses/expense-edit-desktop").then(
+      (m) => m.ExpenseEditDesktop,
+    ),
+  { ssr: false },
+);
+
+const ExpenseEditMobile = dynamic(
+  () =>
+    import("@/components/expenses/expense-edit-mobile").then(
+      (m) => m.ExpenseEditMobile,
+    ),
+  { ssr: false },
+);
 import {
   InviteMembersButton,
   type InviteMemberRow,
@@ -34,20 +50,7 @@ import { Input } from "@/components/ui/input";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { formatCategoryWithTag } from "@/lib/building-bill-tags";
 import { CATEGORY_LABELS } from "@/lib/categorizer";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
@@ -141,18 +144,6 @@ function normalizeExpenseDates(item: ExpenseListItem): ExpenseListItem {
         ? item.updatedAt
         : new Date(item.updatedAt),
   };
-}
-
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return isDesktop;
 }
 
 function toInitial(expense: ExpenseForEdit): ExpenseInitialValues {
@@ -432,48 +423,21 @@ function EditSheet({
     </div>
   );
 
+  if (isDesktop === null) {
+    return null;
+  }
+
   if (isDesktop) {
     return (
       <>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden overscroll-contain border-border/60 bg-background p-0 sm:max-w-md">
-            <div
-              className={cn(
-                "surface-hero shrink-0 px-4",
-                denseEdit ? "pb-2.5 pt-4" : "px-5 pb-4 pt-5",
-              )}
-            >
-              <DialogHeader className="space-y-0 text-start">
-                <DialogTitle
-                  className={cn(
-                    "font-bold text-on-hero",
-                    denseEdit ? "text-body" : "text-xl",
-                  )}
-                >
-                  ویرایش هزینه
-                </DialogTitle>
-                <DialogDescription
-                  className={cn(
-                    "text-on-hero/70",
-                    denseEdit ? "mt-0.5 text-[11px]" : "mt-1 text-sm text-on-hero/75",
-                  )}
-                >
-                  {editDescription}
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-            <div
-              className={cn(
-                "surface-sheet-canvas min-h-0 flex-1 px-4",
-                denseEdit
-                  ? "flex flex-col overflow-hidden py-2.5"
-                  : "overflow-y-auto overscroll-contain py-4 pb-8",
-              )}
-            >
-              {form}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <ExpenseEditDesktop
+          open={open}
+          onOpenChange={handleOpenChange}
+          description={editDescription}
+          denseEdit={denseEdit}
+        >
+          {form}
+        </ExpenseEditDesktop>
         {discardConfirm}
       </>
     );
@@ -481,54 +445,14 @@ function EditSheet({
 
   return (
     <>
-      <Drawer
+      <ExpenseEditMobile
         open={open}
         onOpenChange={handleOpenChange}
-        repositionInputs={false}
+        description={editDescription}
+        denseEdit={denseEdit}
       >
-        <DrawerContent
-          className={cn(
-            "mt-0! gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0",
-            denseEdit ? "h-auto max-h-[min(88dvh,100%)]" : "h-auto max-h-[85dvh]",
-          )}
-        >
-          <div
-            className={cn(
-              "surface-hero shrink-0 px-4 pt-1",
-              denseEdit ? "pb-2.5" : "px-5 pb-4 pt-2",
-            )}
-          >
-            <DrawerHeader className="space-y-0 p-0 text-start">
-              <DrawerTitle
-                className={cn(
-                  "font-bold text-on-hero",
-                  denseEdit ? "text-body-sm" : "text-xl",
-                )}
-              >
-                ویرایش هزینه
-              </DrawerTitle>
-              <DrawerDescription
-                className={cn(
-                  "text-on-hero/70",
-                  denseEdit ? "mt-0.5 text-[11px]" : "mt-1 text-sm text-on-hero/75",
-                )}
-              >
-                {editDescription}
-              </DrawerDescription>
-            </DrawerHeader>
-          </div>
-          <div
-            className={cn(
-              "surface-sheet-canvas px-4",
-              denseEdit
-                ? "flex min-h-0 flex-1 flex-col overflow-hidden py-2.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
-                : "min-h-0 max-h-[calc(85dvh-5.5rem)] overflow-y-auto overscroll-contain py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]",
-            )}
-          >
-            {form}
-          </div>
-        </DrawerContent>
-      </Drawer>
+        {form}
+      </ExpenseEditMobile>
       {discardConfirm}
     </>
   );

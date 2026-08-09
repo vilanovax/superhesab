@@ -78,32 +78,10 @@ export async function getHomeSummary(
   const month = tehranMonthRange();
 
   /**
-   * Per-space category privacy (خانه). Policies are per space, so the spend
-   * groupBy is an OR of per-space filters rather than one flat `spaceId in`.
+   * Privacy is independent of balance aggregates — start it in the same wave.
+   * Spend groupBy needs the privacy rows, so it runs after this Promise.all.
    */
-  const privacyPolicies =
-    spendIds.length > 0
-      ? await prisma.spaceCategoryPolicy.findMany({
-          where: { spaceId: { in: spendIds }, visibility: "PRIVATE" },
-          select: {
-            spaceId: true,
-            category: true,
-            visibility: true,
-            ownerUserId: true,
-          },
-        })
-      : [];
-
-  const spendWhereOr = spendSpaces.map((s) => ({
-    spaceId: s.id,
-    ...expenseCategoryPrivacyWhere(
-      privacyPolicies.filter((p) => p.spaceId === s.id),
-      userId,
-      { spaceOwnerId: s.ownerId, viewerIsSpaceOwner: s.role === "OWNER" },
-    ),
-  }));
-
-  const [paidByMe, owedByMe, settledOut, settledIn, monthSpend] =
+  const [paidByMe, owedByMe, settledOut, settledIn, privacyPolicies] =
     await Promise.all([
       balanceIds.length > 0
         ? prisma.expense.groupBy({
@@ -158,18 +136,40 @@ export async function getHomeSummary(
             _sum: { amount: true },
           })
         : [],
-      spendWhereOr.length > 0
-        ? prisma.expense.groupBy({
-            by: ["spaceId"],
-            where: {
-              OR: spendWhereOr,
-              transactionType: "EXPENSE",
-              date: { gte: month.start, lte: month.end },
+      spendIds.length > 0
+        ? prisma.spaceCategoryPolicy.findMany({
+            where: { spaceId: { in: spendIds }, visibility: "PRIVATE" },
+            select: {
+              spaceId: true,
+              category: true,
+              visibility: true,
+              ownerUserId: true,
             },
-            _sum: { totalAmount: true },
           })
         : [],
     ]);
+
+  const spendWhereOr = spendSpaces.map((s) => ({
+    spaceId: s.id,
+    ...expenseCategoryPrivacyWhere(
+      privacyPolicies.filter((p) => p.spaceId === s.id),
+      userId,
+      { spaceOwnerId: s.ownerId, viewerIsSpaceOwner: s.role === "OWNER" },
+    ),
+  }));
+
+  const monthSpend =
+    spendWhereOr.length > 0
+      ? await prisma.expense.groupBy({
+          by: ["spaceId"],
+          where: {
+            OR: spendWhereOr,
+            transactionType: "EXPENSE",
+            date: { gte: month.start, lte: month.end },
+          },
+          _sum: { totalAmount: true },
+        })
+      : [];
 
   const balanceBySpace: Record<string, number> = Object.fromEntries(
     balanceIds.map((id) => [id, 0]),

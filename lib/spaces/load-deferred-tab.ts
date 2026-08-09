@@ -40,6 +40,16 @@ export type LoadDeferredTabArgs = {
    * Default true for client tab switches.
    */
   includeChargeProofs?: boolean;
+  /**
+   * When true, the outer space-page body already loaded the expenses ledger —
+   * skip the duplicate queryExpenseLedgerPage.
+   */
+  skipExpenses?: boolean;
+  /**
+   * When true, the outer loader already ran getBuildingManagerView —
+   * only fetch charge proofs (if requested), not the full view again.
+   */
+  skipBuildingView?: boolean;
 };
 
 /** Heavy per-tab reads — used by the space page and by loadSpaceTabData. */
@@ -55,6 +65,8 @@ export async function loadDeferredTabData(
     reportRange,
     hiddenCategories,
     includeChargeProofs = true,
+    skipExpenses = false,
+    skipBuildingView = false,
   } = args;
 
   const out: DeferredTabPayload = { ...EMPTY_DEFERRED_TAB };
@@ -139,7 +151,7 @@ export async function loadDeferredTabData(
   }
 
   /** Any template with an expenses tab — not only incomeExpense shells. */
-  if (tab === "expenses") {
+  if (tab === "expenses" && !skipExpenses) {
     tasks.push(
       (async () => {
         const bounds = features.buildingCharges
@@ -162,23 +174,39 @@ export async function loadDeferredTabData(
     (tab === "charges" || tab === "units") &&
     features.buildingCharges
   ) {
-    tasks.push(
-      (async () => {
-        const view = await getBuildingManagerView(spaceId, planYear);
-        if (!view) return;
-        out.buildingDashboard = view.dashboard;
-        out.buildingUnits = view.units;
-        if (tab === "charges") {
-          out.buildingCalendar = view.calendar;
-          if (includeChargeProofs && canManage) {
+    const needProofs =
+      tab === "charges" && includeChargeProofs && canManage;
+
+    if (skipBuildingView) {
+      if (needProofs) {
+        tasks.push(
+          (async () => {
             out.chargeProofs = await listChargeProofsForManager(
               spaceId,
               planYear,
             );
+          })(),
+        );
+      }
+    } else {
+      tasks.push(
+        (async () => {
+          const [view, proofs] = await Promise.all([
+            getBuildingManagerView(spaceId, planYear),
+            needProofs
+              ? listChargeProofsForManager(spaceId, planYear)
+              : Promise.resolve(null),
+          ]);
+          if (!view) return;
+          out.buildingDashboard = view.dashboard;
+          out.buildingUnits = view.units;
+          if (tab === "charges") {
+            out.buildingCalendar = view.calendar;
+            if (proofs) out.chargeProofs = proofs;
           }
-        }
-      })(),
-    );
+        })(),
+      );
+    }
   }
 
   await Promise.all(tasks);

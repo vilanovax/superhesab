@@ -2,6 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -623,14 +624,16 @@ export async function upsertChargePayment(
         select: { currency: true },
       });
       const currency = (spaceCurrency?.currency ?? "TOMAN") as SpaceCurrency;
-      await notifyBuildingUsers({
-        spaceId: parsed.data.spaceId,
-        userIds: [unit.linkedUserId],
-        kind: "CHARGE_PAYMENT",
-        title: `وصول شارژ ${monthLabelFa(parsed.data.month)}`,
-        body: `${CHARGE_STATUS_LABELS[parsed.data.status]} · ${formatCurrency(amount, currency)}`,
-        hrefTab: "payments",
-        refId: row.id,
+      after(() => {
+        void notifyBuildingUsers({
+          spaceId: parsed.data.spaceId,
+          userIds: [unit.linkedUserId!],
+          kind: "CHARGE_PAYMENT",
+          title: `وصول شارژ ${monthLabelFa(parsed.data.month)}`,
+          body: `${CHARGE_STATUS_LABELS[parsed.data.status]} · ${formatCurrency(amount, currency)}`,
+          hrefTab: "payments",
+          refId: row.id,
+        });
       });
     }
 
@@ -1243,14 +1246,16 @@ export async function createBuildingAnnouncement(
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    await notifyBuildingUsers({
-      spaceId,
-      userIds,
-      kind: "ANNOUNCEMENT",
-      title,
-      body: body.length > 160 ? `${body.slice(0, 157)}…` : body,
-      hrefTab: "announcements",
-      refId: row.id,
+    after(() => {
+      void notifyBuildingUsers({
+        spaceId,
+        userIds,
+        kind: "ANNOUNCEMENT",
+        title,
+        body: body.length > 160 ? `${body.slice(0, 157)}…` : body,
+        hrefTab: "announcements",
+        refId: row.id,
+      });
     });
 
     revalidatePath(`/spaces/${spaceId}`);
@@ -1676,12 +1681,14 @@ export async function confirmChargeProofUpload(
   });
   if (!proof) return { ok: false, error: "رسید پیدا نشد." };
 
-  await notifyBuildingManagers(spaceId, {
-    kind: "PAYMENT_PROOF",
-    title: `رسید واحد ${proof.payment.unit.name}`,
-    body: `رسید شارژ ${monthLabelFa(proof.payment.month)} در انتظار بررسی است.`,
-    hrefTab: "charges",
-    refId: proof.id,
+  after(() => {
+    void notifyBuildingManagers(spaceId, {
+      kind: "PAYMENT_PROOF",
+      title: `رسید واحد ${proof.payment.unit.name}`,
+      body: `رسید شارژ ${monthLabelFa(proof.payment.month)} در انتظار بررسی است.`,
+      hrefTab: "charges",
+      refId: proof.id,
+    });
   });
 
   revalidatePath(`/spaces/${spaceId}`);
@@ -1852,21 +1859,23 @@ export async function reviewChargeProof(
       }
     });
 
-    await notifyBuildingUsers({
-      spaceId,
-      userIds: [proof.uploadedById],
-      kind: "PAYMENT_PROOF",
-      title:
-        status === "APPROVED"
-          ? `رسید واحد ${proof.payment.unit.name} تایید شد`
-          : `رسید واحد ${proof.payment.unit.name} رد شد`,
-      body:
-        reviewNote?.trim() ||
-        (status === "APPROVED"
-          ? `شارژ ${monthLabelFa(proof.payment.month)} تایید شد.`
-          : `شارژ ${monthLabelFa(proof.payment.month)} رد شد.`),
-      hrefTab: "payments",
-      refId: proofId,
+    after(() => {
+      void notifyBuildingUsers({
+        spaceId,
+        userIds: [proof.uploadedById],
+        kind: "PAYMENT_PROOF",
+        title:
+          status === "APPROVED"
+            ? `رسید واحد ${proof.payment.unit.name} تایید شد`
+            : `رسید واحد ${proof.payment.unit.name} رد شد`,
+        body:
+          reviewNote?.trim() ||
+          (status === "APPROVED"
+            ? `شارژ ${monthLabelFa(proof.payment.month)} تایید شد.`
+            : `شارژ ${monthLabelFa(proof.payment.month)} رد شد.`),
+        hrefTab: "payments",
+        refId: proofId,
+      });
     });
 
     revalidatePath(`/spaces/${spaceId}`);

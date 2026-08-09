@@ -1,29 +1,30 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { useState, type ReactNode } from "react";
 import {
   MembersList,
   type MembersListRow,
 } from "@/components/MembersList";
+import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
 import type { SpaceRole, SpaceType } from "@/types";
-import { cn } from "@/lib/utils";
+
+const InviteMembersDesktop = dynamic(
+  () =>
+    import("@/components/spaces/invite-members-desktop").then(
+      (m) => m.InviteMembersDesktop,
+    ),
+  { ssr: false },
+);
+
+const InviteMembersMobile = dynamic(
+  () =>
+    import("@/components/spaces/invite-members-mobile").then(
+      (m) => m.InviteMembersMobile,
+    ),
+  { ssr: false },
+);
 
 export type InviteMemberRow = MembersListRow;
 
@@ -41,18 +42,6 @@ type InviteMembersButtonProps = {
   /** Optional custom trigger (e.g. settings page CTA). */
   trigger?: ReactNode;
 };
-
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return isDesktop;
-}
 
 function UserPlusIcon({ className }: { className?: string }) {
   return (
@@ -196,65 +185,46 @@ export function InviteMembersButton({
     />
   );
 
+  if (isDesktop === null) {
+    return (
+      <span
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setOpen(true);
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        {trigger}
+      </span>
+    );
+  }
+
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="max-h-[85vh] overflow-y-auto overscroll-contain border-border/70 bg-card/95 sm:max-w-md">
-          <DialogHeader className="text-start space-y-1">
-            <DialogTitle className="text-pretty text-lg">{title}</DialogTitle>
-            <DialogDescription className="text-caption">
-              {description}
-            </DialogDescription>
-          </DialogHeader>
-          {panel}
-        </DialogContent>
-      </Dialog>
+      <InviteMembersDesktop
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title={title}
+        description={description}
+      >
+        {panel}
+      </InviteMembersDesktop>
     );
   }
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent
-        className={cn(
-          "overflow-hidden overscroll-contain border-border/60 bg-sheet",
-          compactSheet && "max-h-[78dvh]",
-        )}
-      >
-        <DrawerHeader
-          className={cn(
-            "shrink-0 text-start",
-            compactSheet ? "pb-1.5 pt-1" : "pb-2",
-            isFund && "space-y-0.5",
-          )}
-        >
-          <DrawerTitle
-            className={cn("text-pretty", isFund && "text-body font-bold")}
-          >
-            {title}
-          </DrawerTitle>
-          <DrawerDescription
-            className={
-              isFund
-                ? "text-[11px] text-muted-foreground"
-                : compactSheet
-                  ? "text-caption"
-                  : undefined
-            }
-          >
-            {description}
-          </DrawerDescription>
-        </DrawerHeader>
-        <div
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4",
-            compactSheet ? "pb-6" : "pb-8",
-          )}
-        >
-          {panel}
-        </div>
-      </DrawerContent>
-    </Drawer>
+    <InviteMembersMobile
+      open={open}
+      onOpenChange={setOpen}
+      trigger={trigger}
+      title={title}
+      description={description}
+      compactSheet={compactSheet}
+      isFund={isFund}
+    >
+      {panel}
+    </InviteMembersMobile>
   );
 }

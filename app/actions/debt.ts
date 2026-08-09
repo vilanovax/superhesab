@@ -260,9 +260,10 @@ export type DueSoonDebtSummary = {
 };
 
 /** Home dashboard aggregation — ACTIVE debts due within N days across user's spaces. */
-export async function listDueSoonDebtsForUser(
-  userId: string,
-): Promise<DueSoonDebtSummary[]> {
+export async function listDueSoonDebtsForUser(): Promise<DueSoonDebtSummary[]> {
+  const session = await requireUser();
+  const userId = session.userId;
+
   const memberships = await prisma.spaceMember.findMany({
     where: { userId },
     select: {

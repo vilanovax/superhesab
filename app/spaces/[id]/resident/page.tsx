@@ -20,8 +20,7 @@ type ResidentPageProps = {
 export default async function ResidentPortalPage({
   params,
 }: ResidentPageProps) {
-  const { id } = await params;
-  const session = await requireUser();
+  const [{ id }, session] = await Promise.all([params, requireUser()]);
   const membership = await requireSpaceMember(id, session.userId);
   if (!membership) {
     notFound();

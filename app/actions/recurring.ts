@@ -219,13 +219,15 @@ export async function deleteRecurringRule(input: {
  * Materialize due recurring rules for the current Tehran month.
  * Idempotent via RecurringOccurrence unique (ruleId, monthKey).
  * Only creates for the current month (no multi-month backfill).
+ * Requires an authenticated space member (not callable for arbitrary spaceIds).
  */
 export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true, ownerId: true },
-  });
-  if (!space || !getTemplate(space.type).features.recurring) return;
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) return;
+
+  const space = membership.space;
+  if (!getTemplate(space.type).features.recurring) return;
 
   const now = new Date();
   const monthKey = tehranMonthKey(now);

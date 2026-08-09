@@ -254,7 +254,7 @@ export function InternalLoanPanel({
           {active.map((loan) => (
             <li
               key={loan.id}
-              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3"
+              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_6.5rem]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -318,7 +318,7 @@ export function InternalLoanPanel({
         ? settled.map((loan) => (
             <div
               key={loan.id}
-              className="rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-caption text-muted-foreground"
+              className="rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-caption text-muted-foreground [content-visibility:auto] [contain-intrinsic-size:auto_2.5rem]"
             >
               {loan.fromName} → {loan.toName} ·{" "}
               {formatCurrency(loan.initialAmount, currency)} · تسویه

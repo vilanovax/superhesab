@@ -27,7 +27,7 @@ export function BuildingBillTags({
   onChange,
   className,
 }: BuildingBillTagsProps) {
-  const [customs, setCustoms] = useState<string[]>([]);
+  const [customs, setCustoms] = useState(() => loadCustomBillTags(spaceId));
   const [draftOpen, setDraftOpen] = useState(false);
   const [draft, setDraft] = useState("");
 

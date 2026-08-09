@@ -104,14 +104,6 @@ async function assertCanMutateExpense(spaceId: string, userId: string) {
   return { ok: true as const, membership };
 }
 
-async function loadSpaceType(spaceId: string) {
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true },
-  });
-  return space?.type ?? null;
-}
-
 function personalOwedRows(
   userId: string,
   totalAmount: number,
@@ -262,9 +254,7 @@ async function resolveOwedRows(
 export async function addExpense(
   data: ExpenseFormValues,
 ): Promise<ExpenseActionResult> {
-  const session = await requireUser();
   const parsed = expenseSchema.safeParse(data);
-
   if (!parsed.success) {
     return {
       ok: false,
@@ -272,15 +262,12 @@ export async function addExpense(
     };
   }
 
+  const session = await requireUser();
   const input = parsed.data;
   const access = await assertCanMutateExpense(input.spaceId, session.userId);
   if (!access.ok) return access;
 
-  const spaceType = await loadSpaceType(input.spaceId);
-  if (!spaceType) {
-    return { ok: false, error: "فضا پیدا نشد." };
-  }
-
+  const spaceType = access.membership.space.type;
   const features = getTemplate(spaceType).features;
   const transactionType = features.incomeExpense
     ? (input.transactionType ?? "EXPENSE")
@@ -391,9 +378,7 @@ export async function updateExpense(
   expenseId: string,
   data: ExpenseFormValues,
 ): Promise<ExpenseActionResult> {
-  const session = await requireUser();
   const parsed = expenseSchema.safeParse(data);
-
   if (!parsed.success) {
     return {
       ok: false,
@@ -401,15 +386,12 @@ export async function updateExpense(
     };
   }
 
+  const session = await requireUser();
   const input = parsed.data;
   const access = await assertCanMutateExpense(input.spaceId, session.userId);
   if (!access.ok) return access;
 
-  const spaceType = await loadSpaceType(input.spaceId);
-  if (!spaceType) {
-    return { ok: false, error: "فضا پیدا نشد." };
-  }
-
+  const spaceType = access.membership.space.type;
   const features = getTemplate(spaceType).features;
   const transactionType = features.incomeExpense
     ? (input.transactionType ?? "EXPENSE")

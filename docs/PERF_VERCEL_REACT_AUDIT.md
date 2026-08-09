@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09  
 **Guide:** [vercel-react-best-practices](https://github.com/vercel-labs/agent-skills) (Vercel Engineering)  
-**App version:** `3.44` → `3.45` (`lib/app-version.ts`)  
+**App version:** `3.44` → `3.46` (`lib/app-version.ts`)  
 **Audit canvas:** workspace `canvases/vercel-react-best-practices-audit.canvas.tsx`
 
 This document records what was fixed after the project audit, in the agreed fix order (phases 1–5).
@@ -86,9 +86,14 @@ This document records what was fixed after the project audit, in the agreed fix 
 
 ---
 
-## Intentionally deferred
+## Follow-up pass (3.46) — closed remaining medium items
 
-- Further home auth dedupe (`requireUser` + second `user.findUnique` for profile fields)
-- Zod-before-auth reorder on every mutation (`async-cheap-condition-before-await`)
-- `content-visibility` on debt / savings / loan card lists
-- localStorage schema versioning for custom categories / bill tags
+| ID | Change |
+|----|--------|
+| `server-cache-react` | `getSessionUser` + `requireCurrentUser` — home no longer double-fetches profile |
+| `async-parallel` | `addExpense` / `updateExpense` use `access.membership.space.type` (dropped `loadSpaceType`) |
+| `async-cheap-condition-before-await` | Zod `safeParse` before `requireUser` on expense + 11 building mutations |
+| `rendering-content-visibility` | debt / savings / internal-loan list cards |
+| `client-localstorage-schema` | `custom-categories:v1:` and `building-bill-tags:v1:` with legacy migrate |
+| `rerender-derived-state-no-effect` | `PersonalReportChart` uses `resolvedActiveKey` during render |
+| `rerender-lazy-state-init` | `BuildingBillTags` lazy `useState(() => loadCustomBillTags(...))` |

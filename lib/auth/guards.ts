@@ -22,6 +22,29 @@ export const getSpaceMeta = cache(async (id: string) => {
   });
 });
 
+const sessionUserSelect = {
+  id: true,
+  phone: true,
+  name: true,
+  avatarUrl: true,
+  platformRole: true,
+  disabledAt: true,
+  isVirtual: true,
+} as const;
+
+/**
+ * One user row per request — shared by requireUser / requireCurrentUser /
+ * requirePlatformAdmin so home does not pay a second findUnique.
+ */
+export const getSessionUser = cache(async function getSessionUser(
+  userId: string,
+) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: sessionUserSelect,
+  });
+});
+
 /**
  * Request-scoped session + stale-JWT / disabled check.
  * Wrapped in React cache() so parallel Server Actions / loaders in one render
@@ -34,10 +57,7 @@ export const requireUser = cache(async function requireUser() {
   }
 
   // Stale JWT after db seed/reset → clear cookie or /login ↔ /app loops
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, disabledAt: true, isVirtual: true },
-  });
+  const user = await getSessionUser(session.userId);
   if (!user || user.isVirtual) {
     redirect("/auth/session/clear?next=/login");
   }
@@ -49,22 +69,26 @@ export const requireUser = cache(async function requireUser() {
 });
 
 /**
+ * Session + profile fields for RSC pages (home header, menus).
+ * Reuses the same cached getSessionUser as requireUser.
+ */
+export const requireCurrentUser = cache(async function requireCurrentUser() {
+  const session = await requireUser();
+  const user = await getSessionUser(session.userId);
+  if (!user || user.isVirtual || user.disabledAt) {
+    redirect("/auth/session/clear?next=/login");
+  }
+  return { session, user };
+});
+
+/**
  * Platform admin for `/admin`. Not related to Space OWNER.
  */
 export const requirePlatformAdmin = cache(async function requirePlatformAdmin() {
   const session = await requireUser();
   await ensurePlatformAdminsFromEnv();
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      phone: true,
-      name: true,
-      platformRole: true,
-      disabledAt: true,
-    },
-  });
+  const user = await getSessionUser(session.userId);
 
   if (!user || user.disabledAt || user.platformRole !== "ADMIN") {
     redirect("/app");

@@ -235,7 +235,7 @@ export function SavingsPotPanel({
           {active.map((pot) => (
             <li
               key={pot.id}
-              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3"
+              className="rounded-2xl border border-border/55 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_6.5rem]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

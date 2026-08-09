@@ -659,7 +659,7 @@ function DebtCard({
   return (
     <li
       className={cn(
-        "rounded-2xl border bg-card p-3.5 shadow-sm",
+        "rounded-2xl border bg-card p-3.5 shadow-sm [content-visibility:auto] [contain-intrinsic-size:auto_7rem]",
         tone === "lent" && "border-success/25",
         tone === "borrowed" && "border-destructive/25",
         tone === "settled" && "border-border/50 opacity-80",

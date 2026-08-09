@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { listDueSoonDebtsForUser, type DueSoonDebtSummary } from "@/app/actions/debt";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
@@ -13,7 +12,7 @@ import {
   SpaceTypeIcon,
   spaceTypeTint,
 } from "@/components/spaces/space-type-icon";
-import { requireUser } from "@/lib/auth/guards";
+import { requireCurrentUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
 import { listDisabledSpaceTypes } from "@/lib/feature-flags";
@@ -336,25 +335,20 @@ export default async function AppHomePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const [session, sp] = await Promise.all([requireUser(), searchParams]);
+  const [current, sp] = await Promise.all([
+    requireCurrentUser(),
+    searchParams,
+  ]);
+  const { session, user } = current;
   const { error } = sp;
 
   /**
    * Wave 1 — everything that only needs userId (or is independent).
+   * Profile comes from requireCurrentUser (same cached getSessionUser as auth).
    * Summary / lastExpense depend on memberships and start after this settles.
    */
-  const [user, memberships, archivedCount, dueSoonDebts, disabledSpaceTypes] =
+  const [memberships, archivedCount, dueSoonDebts, disabledSpaceTypes] =
     await Promise.all([
-      prisma.user.findUnique({
-        where: { id: session.userId },
-        select: {
-          id: true,
-          phone: true,
-          name: true,
-          avatarUrl: true,
-          platformRole: true,
-        },
-      }),
       prisma.spaceMember.findMany({
         where: {
           userId: session.userId,
@@ -383,10 +377,6 @@ export default async function AppHomePage({
       listDueSoonDebtsForUser(),
       listDisabledSpaceTypes(),
     ]);
-
-  if (!user) {
-    redirect("/login");
-  }
 
   const spaceCount = memberships.length;
   const isEmpty = spaceCount === 0;

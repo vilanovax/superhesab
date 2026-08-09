@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CATEGORY_EMOJI,
   type ExpenseCategory,
@@ -124,15 +124,21 @@ export function PersonalReportChart({
   const total = chartData.reduce((sum, row) => sum + row.amount, 0);
   const canDrill = drillLines.length > 0;
 
+  /** Derive during render — avoid effect that clears stale keys after paint. */
+  const resolvedActiveKey =
+    activeKey != null && chartData.some((r) => r.key === activeKey)
+      ? activeKey
+      : null;
+
   const activeRow = useMemo(
-    () => chartData.find((r) => r.key === activeKey) ?? null,
-    [chartData, activeKey],
+    () => chartData.find((r) => r.key === resolvedActiveKey) ?? null,
+    [chartData, resolvedActiveKey],
   );
 
   const activeLines = useMemo(() => {
-    if (!activeKey) return [];
-    return drillLines.filter((line) => line.chartKey === activeKey);
-  }, [drillLines, activeKey]);
+    if (!resolvedActiveKey) return [];
+    return drillLines.filter((line) => line.chartKey === resolvedActiveKey);
+  }, [drillLines, resolvedActiveKey]);
 
   const legendRows = useMemo(() => {
     if (
@@ -150,13 +156,6 @@ export function PersonalReportChart({
       hiddenAmount: hidden.reduce((s, r) => s + r.amount, 0),
     };
   }, [chartData, dense, legendOpen]);
-
-  useEffect(() => {
-    if (activeKey && !chartData.some((r) => r.key === activeKey)) {
-      setActiveKey(null);
-      syncCategoryQuery(null);
-    }
-  }, [activeKey, chartData]);
 
   if (total <= 0 || chartData.length === 0) {
     return (

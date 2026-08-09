@@ -1,7 +1,7 @@
 # SuperHesab — Performance Notes
 
 **Audience:** agents and humans changing space tabs, expense lists, or auth LCP.  
-**Status as of:** product code around `APP_VERSION` **3.45** (`lib/app-version.ts`).  
+**Status as of:** product code around `APP_VERSION` **3.46** (`lib/app-version.ts`).  
 **See also:** [architecture.md](./architecture.md) · [PERF_VERCEL_REACT_AUDIT.md](./PERF_VERCEL_REACT_AUDIT.md) · `.cursorrules` · `AGENTS.md`
 
 This doc records **what was done and why**, verified against the current tree. Prefer extending these patterns over inventing parallel loaders.
@@ -189,7 +189,7 @@ These landed in earlier commits and remain in the tree — do not “rediscover�
 
 ---
 
-## 9. Vercel React Best Practices pass (3.45)
+## 9. Vercel React Best Practices pass (3.45–3.46)
 
 Full write-up: [PERF_VERCEL_REACT_AUDIT.md](./PERF_VERCEL_REACT_AUDIT.md).
 
@@ -201,6 +201,7 @@ Highlights landed in this pass:
 - Home streams summary/list behind Suspense; membership-independent queries in one wave
 - Building `notify*` scheduled with `after()`
 - Dialog vs Drawer code-split for invite / add-expense / expense-edit; theme bootstrap script; `optimizePackageImports: ['recharts']`
+- **3.46:** `requireCurrentUser` cache, Zod-before-auth on expense/building mutations, content-visibility on fund lists, localStorage `:v1:` keys, chart derived active key, bill-tags lazy init
 
 ---
 

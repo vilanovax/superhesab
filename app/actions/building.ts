@@ -436,7 +436,6 @@ export async function getBuildingManagerView(
 export async function createUnit(
   input: CreateUnitInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = createUnitSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -444,6 +443,7 @@ export async function createUnit(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
   const access = await assertBuilding(parsed.data.spaceId, session.userId, {
     needOwner: true,
   });
@@ -471,7 +471,6 @@ export async function createUnit(
 export async function updateUnit(
   input: UpdateUnitInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = updateUnitSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -479,6 +478,7 @@ export async function updateUnit(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
   const access = await assertBuilding(parsed.data.spaceId, session.userId, {
     needOwner: true,
   });
@@ -505,7 +505,6 @@ export async function updateUnit(
 export async function upsertChargePlan(
   input: UpsertChargePlanInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = upsertChargePlanSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -513,6 +512,7 @@ export async function upsertChargePlan(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
   const access = await assertBuilding(parsed.data.spaceId, session.userId, {
     needOwner: true,
   });
@@ -547,7 +547,6 @@ export async function upsertChargePlan(
 export async function upsertChargePayment(
   input: UpsertChargePaymentInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = upsertChargePaymentSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -555,6 +554,7 @@ export async function upsertChargePayment(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
   const access = await assertBuilding(parsed.data.spaceId, session.userId, {
     needMutate: true,
   });
@@ -1024,7 +1024,6 @@ const suggestionSelect = {
 export async function createBuildingSuggestion(
   input: CreateBuildingSuggestionInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = createBuildingSuggestionSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1032,6 +1031,7 @@ export async function createBuildingSuggestion(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, title, body } = parsed.data;
   const membership = await requireSpaceMember(spaceId, session.userId);
@@ -1118,7 +1118,6 @@ export async function listMyBuildingSuggestions(
 export async function updateBuildingSuggestionStatus(
   input: UpdateBuildingSuggestionStatusInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = updateBuildingSuggestionStatusSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1126,6 +1125,7 @@ export async function updateBuildingSuggestionStatus(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, suggestionId, status, managerNote } = parsed.data;
   const membership = await requireSpaceMember(spaceId, session.userId);
@@ -1209,7 +1209,6 @@ const announcementSelect = {
 export async function createBuildingAnnouncement(
   input: CreateBuildingAnnouncementInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = createBuildingAnnouncementSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1217,6 +1216,7 @@ export async function createBuildingAnnouncement(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, title, body, pinned } = parsed.data;
   const access = await assertBuilding(spaceId, session.userId, {
@@ -1301,7 +1301,6 @@ export async function listBuildingAnnouncements(
 export async function updateBuildingAnnouncement(
   input: UpdateBuildingAnnouncementInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = updateBuildingAnnouncementSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1309,6 +1308,7 @@ export async function updateBuildingAnnouncement(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, announcementId, title, body, pinned, archive } =
     parsed.data;
@@ -1558,7 +1558,6 @@ export async function createChargeProofUploadIntent(
   );
   if (!proofGate.ok) return proofGate;
 
-  const session = await requireUser();
   const parsed = createChargeProofUploadIntentSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1566,6 +1565,7 @@ export async function createChargeProofUploadIntent(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, unitId, year, month, mimeType, byteSize, amount, note } =
     parsed.data;
@@ -1658,7 +1658,6 @@ export async function createChargeProofUploadIntent(
 export async function confirmChargeProofUpload(
   input: ConfirmChargeProofUploadInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = confirmChargeProofUploadSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1666,6 +1665,7 @@ export async function confirmChargeProofUpload(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, proofId } = parsed.data;
   const proof = await prisma.chargePaymentProof.findFirst({
@@ -1810,7 +1810,6 @@ export async function listMyChargeProofs(
 export async function reviewChargeProof(
   input: ReviewChargeProofInput,
 ): Promise<BuildingActionResult> {
-  const session = await requireUser();
   const parsed = reviewChargeProofSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -1818,6 +1817,7 @@ export async function reviewChargeProof(
       error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
     };
   }
+  const session = await requireUser();
 
   const { spaceId, proofId, status, reviewNote, amount, paymentStatus } =
     parsed.data;

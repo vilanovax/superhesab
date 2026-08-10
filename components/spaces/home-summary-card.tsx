@@ -80,21 +80,18 @@ export function HomeSummaryCard({ summary }: { summary: HomeSummary }) {
       className="surface-hero animate-fade-up relative mb-5 overflow-hidden rounded-3xl px-5 py-5 shadow-md"
       aria-label="خلاصه مالی"
     >
-      {/* Soft light wells — depth without competing with the amount */}
+      {/* Soft light wells — clipped in a paint-contained layer so blur/negative
+          insets cannot widen document scrollWidth on narrow phones. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-e-10 -top-14 size-40 rounded-full bg-on-hero/12 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-s-12 -bottom-10 size-36 rounded-full bg-ink/25 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-linear-to-l from-transparent via-on-hero/25 to-transparent"
-      />
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
+      >
+        <div className="absolute -inset-e-10 -top-14 size-40 rounded-full bg-on-hero/12 blur-3xl" />
+        <div className="absolute -inset-s-12 -bottom-10 size-36 rounded-full bg-ink/25 blur-3xl" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-l from-transparent via-on-hero/25 to-transparent" />
+      </div>
 
-      <div className="relative">
+      <div className="relative min-w-0">
         {primaryNet ? (
           <NetHeadline row={primaryNet} />
         ) : (

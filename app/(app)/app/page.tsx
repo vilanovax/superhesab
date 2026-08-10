@@ -408,7 +408,7 @@ export default async function AppHomePage({
   return (
     <main
       className={cn(
-        "mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pt-3 sm:px-5",
+        "mx-auto flex min-h-full w-full max-w-lg min-w-0 flex-1 flex-col overflow-x-hidden px-4 pt-3 sm:px-5",
         "pb-[max(1.5rem,env(safe-area-inset-bottom))]",
       )}
     >

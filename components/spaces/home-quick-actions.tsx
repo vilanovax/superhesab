@@ -65,7 +65,9 @@ function Action({
     <PrefetchSpaceLink
       href={href}
       className={cn(
-        "group flex min-h-14 flex-1 cursor-pointer items-center gap-3 rounded-[1.15rem] px-3.5 py-3",
+        // min-w-0: flex items default to min-width:auto and refuse to shrink
+        // below the hint label — that blew /app horizontal scroll at 375px.
+        "group flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden rounded-[1.15rem] px-3.5 py-3",
         "transition-[box-shadow,background-color,border-color,transform] duration-200 ease-out",
         "active:scale-[0.98]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -139,7 +141,7 @@ export function HomeQuickActions({
 
   return (
     <nav
-      className="animate-fade-up mb-5 flex gap-2.5"
+      className="animate-fade-up mb-5 flex w-full min-w-0 gap-2.5"
       aria-label="میانبرهای سریع"
       style={{ animationDelay: "40ms" }}
     >

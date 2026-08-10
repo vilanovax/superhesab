@@ -104,7 +104,7 @@ function HeroCardFallback() {
 function ChromeIconFallback() {
   return (
     <div
-      className="size-10 shrink-0 animate-pulse rounded-2xl bg-muted"
+      className="size-11 shrink-0 animate-pulse rounded-2xl bg-muted"
       aria-hidden
     />
   );
@@ -134,7 +134,7 @@ function SpacePageHeroChrome({
     <div className="mb-4 flex items-center gap-2">
       <Link
         href="/app"
-        className="inline-flex h-10 cursor-pointer items-center gap-1 rounded-full border border-border/55 bg-card px-3 text-caption font-semibold text-foreground shadow-sm transition-colors duration-150 hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex h-11 min-h-11 cursor-pointer items-center gap-1 rounded-full border border-border/55 bg-card px-3.5 text-caption font-semibold text-foreground shadow-sm transition-colors duration-150 hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <BackChevron className="size-4 text-muted-foreground" />
         بازگشت
@@ -162,7 +162,7 @@ function SpacePageHeroChrome({
             asChild
             variant="outline"
             size="icon"
-            className="size-10 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
+            className="size-11 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
             aria-label="تنظیمات فضا"
           >
             <Link href={`/spaces/${spaceId}/settings`}>
@@ -184,7 +184,7 @@ function SpacePageHeroChrome({
             asChild
             variant="outline"
             size="icon"
-            className="size-10 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
+            className="size-11 shrink-0 cursor-pointer rounded-2xl border-border/55 bg-card shadow-sm"
             aria-label="تنظیمات فضا"
           >
             <Link href={`/spaces/${spaceId}/settings`}>
@@ -567,7 +567,7 @@ async function SpacePageHeroCard({
                     trigger={
                       <button
                         type="button"
-                        className="flex items-center gap-2 rounded-full py-0.5 pe-1 ps-0.5 transition-opacity active:opacity-80"
+                        className="flex min-h-11 items-center gap-2 rounded-full py-1 pe-1 ps-0.5 transition-opacity active:opacity-80"
                         aria-label={
                           atPartnerCap ? "مدیریت اعضا" : "دعوت یا مدیریت اعضا"
                         }

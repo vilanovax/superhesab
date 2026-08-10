@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { changePassword, updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
 import { PASSWORD_MIN_LEN } from "@/lib/password-policy";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 import { AccountBackupPanel } from "@/components/settings/backup-panels";
 import { PwaInstallCard } from "@/components/pwa/pwa-runtime";
 import { Button } from "@/components/ui/button";
@@ -615,9 +616,11 @@ export function AppSettingsPanel({
       </div>
 
       <footer className="pt-1 text-center">
-        <p className="text-caption text-muted-foreground/85">
-          <span translate="no">سوپرحساب</span>
-          <span className="mx-1 text-border">·</span>
+        <p className="inline-flex items-center justify-center gap-1.5 text-caption text-muted-foreground/85">
+          <BrandLockup size="sm" className="text-muted-foreground/90" />
+          <span className="text-border" aria-hidden>
+            ·
+          </span>
           <span dir="ltr" className="tabular-nums" translate="no">
             ver {APP_VERSION}
           </span>

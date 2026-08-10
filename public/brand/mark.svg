@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="3H~1-3'(">
+  <!-- Left tall block -->
+  <rect x="2" y="2" width="27" height="60" rx="10" fill="#112540"/>
+  <!-- Top-right accent -->
+  <rect x="35" y="2" width="27" height="27" rx="10" fill="#02a56c"/>
+  <!-- Bottom-right block -->
+  <rect x="35" y="35" width="27" height="27" rx="10" fill="#112540"/>
+</svg>

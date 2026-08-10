@@ -121,7 +121,8 @@ export function TabsList({
       onKeyDown={onKeyDown}
       className={cn(
         // Match settings/auth segmented control: bordered card chrome, primary active.
-        "grid h-12 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm",
+        // p-0.5 + h-11 triggers ⇒ 44px tap targets inside a 48px rail.
+        "grid h-12 min-h-12 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-0.5 shadow-sm",
         className ?? "grid-cols-2",
       )}
     >
@@ -158,7 +159,7 @@ export function TabsTrigger({
       onPointerEnter={onPointerEnter}
       onFocus={onFocus}
       className={cn(
-        "inline-flex h-10 min-w-0 items-center justify-center rounded-xl px-1.5 text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
+        "inline-flex h-11 min-h-11 min-w-0 items-center justify-center rounded-xl px-1.5 text-body-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
         // Color utilities must come after className — text-body-sm merges with text-* and would wipe them.

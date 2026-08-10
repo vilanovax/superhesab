@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { listDueSoonDebtsForUser, type DueSoonDebtSummary } from "@/app/actions/debt";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
 import { HomeQuickActions } from "@/components/spaces/home-quick-actions";
@@ -416,10 +417,8 @@ export default async function AppHomePage({
 
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0 animate-fade-up">
-          <p className="text-caption font-medium text-muted-foreground">
-            سوپرحساب
-          </p>
-          <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-foreground">
+          <BrandLockup size="sm" className="text-muted-foreground" />
+          <h1 className="mt-1.5 truncate text-xl font-bold tracking-tight text-foreground">
             سلام، {greetingName}
           </h1>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -466,7 +465,7 @@ export default async function AppHomePage({
             <div className="flex items-center gap-1.5">
               <Link
                 href="/app/archive"
-                className="inline-flex h-10 cursor-pointer items-center rounded-full border border-border/55 bg-card/80 px-3 text-caption font-semibold text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex h-11 min-h-11 cursor-pointer items-center rounded-full border border-border/55 bg-card/80 px-3.5 text-caption font-semibold text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 آرشیو
                 {archivedCount > 0 ? (

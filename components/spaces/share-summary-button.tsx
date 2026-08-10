@@ -89,7 +89,7 @@ export function ShareSummaryIconButton({
         variant="outline"
         size="icon"
         className={cn(
-          "size-9 shrink-0 rounded-xl border-border/70 bg-card shadow-sm",
+          "size-11 shrink-0 rounded-xl border-border/70 bg-card shadow-sm",
           className,
         )}
         aria-label="اشتراک‌گذاری بیلان"

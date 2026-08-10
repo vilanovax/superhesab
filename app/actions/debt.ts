@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
+  DEBT_DUE_SOON_DAYS,
   debtPaidTotal,
   isDebtFullyPaid,
   isDueSoon,
@@ -259,55 +260,75 @@ export type DueSoonDebtSummary = {
   daysLeft: number;
 };
 
-/** Home dashboard aggregation — ACTIVE debts due within N days across user's spaces. */
+/**
+ * Home dashboard aggregation — ACTIVE debts due soon across the user's spaces.
+ * Queries Debt directly (not nested under every membership) and limits to
+ * debt-enabled, non-archived spaces. Semantics match `isDueSoon` (overdue + N days).
+ */
 export async function listDueSoonDebtsForUser(): Promise<DueSoonDebtSummary[]> {
   const session = await requireUser();
   const userId = session.userId;
+  const now = new Date();
+  const horizon = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + DEBT_DUE_SOON_DAYS,
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
 
-  const memberships = await prisma.spaceMember.findMany({
-    where: { userId },
-    select: {
+  const rows = await prisma.debt.findMany({
+    where: {
+      status: "ACTIVE",
+      dueDate: { not: null, lte: horizon },
       space: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          debts: {
-            where: { status: "ACTIVE", dueDate: { not: null } },
-            include: { payments: { select: { amount: true } } },
-          },
-        },
+        archivedAt: null,
+        /** Debts module is FAMILY + legacy PERSONAL only. */
+        type: { in: ["FAMILY", "PERSONAL"] },
+        members: { some: { userId } },
       },
+    },
+    select: {
+      id: true,
+      spaceId: true,
+      type: true,
+      counterparty: true,
+      initialAmount: true,
+      dueDate: true,
+      payments: { select: { amount: true } },
+      space: { select: { name: true } },
     },
   });
 
-  const now = new Date();
   const out: DueSoonDebtSummary[] = [];
 
-  for (const m of memberships) {
-    if (!getTemplate(m.space.type).features.debts) continue;
-    for (const debt of m.space.debts) {
-      if (!debt.dueDate || !isDueSoon(debt.dueDate, 3, now)) continue;
-      const paid = debtPaidTotal(debt.payments);
-      const remaining = Math.max(0, debt.initialAmount - paid);
-      if (remaining <= 0) continue;
-      const due = debt.dueDate;
-      const daysLeft = Math.round(
-        (Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate()) -
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) /
-          (24 * 60 * 60 * 1000),
-      );
-      out.push({
-        debtId: debt.id,
-        spaceId: m.space.id,
-        spaceName: m.space.name,
-        type: debt.type as DebtTypeValue,
-        counterparty: debt.counterparty,
-        remaining,
-        dueDate: due.toISOString().slice(0, 10),
-        daysLeft,
-      });
+  for (const debt of rows) {
+    if (!debt.dueDate || !isDueSoon(debt.dueDate, DEBT_DUE_SOON_DAYS, now)) {
+      continue;
     }
+    const paid = debtPaidTotal(debt.payments);
+    const remaining = Math.max(0, debt.initialAmount - paid);
+    if (remaining <= 0) continue;
+    const due = debt.dueDate;
+    const daysLeft = Math.round(
+      (Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate()) -
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) /
+        (24 * 60 * 60 * 1000),
+    );
+    out.push({
+      debtId: debt.id,
+      spaceId: debt.spaceId,
+      spaceName: debt.space.name,
+      type: debt.type as DebtTypeValue,
+      counterparty: debt.counterparty,
+      remaining,
+      dueDate: due.toISOString().slice(0, 10),
+      daysLeft,
+    });
   }
 
   return out.sort((a, b) => a.daysLeft - b.daysLeft);

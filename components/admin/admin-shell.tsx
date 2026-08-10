@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 import { APP_VERSION } from "@/lib/app-version";
 import { cn } from "@/lib/utils";
 
@@ -90,9 +91,12 @@ export function AdminShell({
       <div className="flex-1 animate-fade-up">{children}</div>
 
       <footer className="mt-7 border-t border-border/35 pt-3 text-center">
-        <p className="text-micro text-muted-foreground">
-          <span translate="no">سوپرحساب</span> ادمین
-          <span className="mx-1.5 text-border">·</span>
+        <p className="inline-flex items-center justify-center gap-1.5 text-micro text-muted-foreground">
+          <BrandLockup size="sm" className="text-muted-foreground" />
+          <span>ادمین</span>
+          <span className="text-border" aria-hidden>
+            ·
+          </span>
           <span dir="ltr" className="tabular-nums" translate="no">
             ver {APP_VERSION}
           </span>

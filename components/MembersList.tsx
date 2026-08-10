@@ -150,15 +150,16 @@ export function MembersList({
   const [manualError, setManualError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** Trip/Partner: EDITOR only until Viewer ships in v2. Family keeps picker. */
+  const allowViewerRole = inviteRolePicker && !editorOnlyRoles;
 
   const spaceInviteUrl = useMemo(() => {
-    const path =
-      inviteRolePicker && !editorOnlyRoles
-        ? `/invite/${spaceId}?role=${inviteRole}`
-        : `/invite/${spaceId}`;
+    const path = allowViewerRole
+      ? `/invite/${spaceId}?role=${inviteRole}`
+      : `/invite/${spaceId}`;
     if (typeof window === "undefined") return path;
     return `${window.location.origin}${path}`;
-  }, [spaceId, inviteRole, inviteRolePicker, editorOnlyRoles]);
+  }, [spaceId, inviteRole, allowViewerRole]);
 
   function claimUrl(virtualUserId: string) {
     if (typeof window === "undefined") {
@@ -199,7 +200,7 @@ export function MembersList({
       const result = await addVirtualMember(
         spaceId,
         manualName,
-        editorOnlyRoles ? "EDITOR" : manualRole,
+        allowViewerRole ? manualRole : "EDITOR",
       );
       if (!result.ok) {
         setManualError(result.error);
@@ -624,7 +625,7 @@ export function MembersList({
                       </span>
                     ) : null}
 
-                    {isOwner && m.role !== "OWNER" ? (
+                    {isOwner && m.role !== "OWNER" && allowViewerRole ? (
                       <Select
                         value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
                         onValueChange={(v) =>
@@ -746,7 +747,7 @@ export function MembersList({
                     </Button>
                   ) : null}
 
-                  {isOwner && m.role !== "OWNER" ? (
+                  {isOwner && m.role !== "OWNER" && allowViewerRole ? (
                     <Select
                       value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
                       onValueChange={(v) =>
@@ -811,27 +812,29 @@ export function MembersList({
                 minLength={2}
                 disabled={atCapacity || pending}
               />
-              <Select
-                value={manualRole}
-                onValueChange={(v) =>
-                  setManualRole(v as "EDITOR" | "VIEWER")
-                }
-                disabled={atCapacity || pending}
-              >
-                <SelectTrigger
-                  className={cn(
-                    "h-10 shrink-0 rounded-xl text-caption",
-                    fundSheet ? "w-[4.25rem] px-2 text-[11px]" : "w-[5.5rem]",
-                  )}
-                  aria-label="نقش عضو جدید"
+              {allowViewerRole ? (
+                <Select
+                  value={manualRole}
+                  onValueChange={(v) =>
+                    setManualRole(v as "EDITOR" | "VIEWER")
+                  }
+                  disabled={atCapacity || pending}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EDITOR">{editorRoleLabel}</SelectItem>
-                  <SelectItem value="VIEWER">ناظر</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className={cn(
+                      "h-10 shrink-0 rounded-xl text-caption",
+                      fundSheet ? "w-[4.25rem] px-2 text-[11px]" : "w-[5.5rem]",
+                    )}
+                    aria-label="نقش عضو جدید"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EDITOR">{editorRoleLabel}</SelectItem>
+                    <SelectItem value="VIEWER">ناظر</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
               <Button
                 type="submit"
                 size="sm"
@@ -956,24 +959,26 @@ export function MembersList({
                 minLength={2}
                 disabled={atCapacity || pending}
               />
-              <Select
-                value={manualRole}
-                onValueChange={(v) =>
-                  setManualRole(v as "EDITOR" | "VIEWER")
-                }
-                disabled={atCapacity || pending}
-              >
-                <SelectTrigger
-                  className="h-10 w-[6.75rem] shrink-0 rounded-xl"
-                  aria-label="نقش عضو جدید"
+              {allowViewerRole ? (
+                <Select
+                  value={manualRole}
+                  onValueChange={(v) =>
+                    setManualRole(v as "EDITOR" | "VIEWER")
+                  }
+                  disabled={atCapacity || pending}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EDITOR">ویرایشگر</SelectItem>
-                  <SelectItem value="VIEWER">ناظر</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className="h-10 w-[6.75rem] shrink-0 rounded-xl"
+                    aria-label="نقش عضو جدید"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EDITOR">ویرایشگر</SelectItem>
+                    <SelectItem value="VIEWER">ناظر</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
             </div>
             <Button
               type="submit"
@@ -1077,7 +1082,7 @@ export function MembersList({
                     </Button>
                   ) : null}
 
-                  {isOwner && m.role !== "OWNER" && !editorOnlyRoles ? (
+                  {isOwner && m.role !== "OWNER" && allowViewerRole ? (
                     <Select
                       value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
                       onValueChange={(v) =>

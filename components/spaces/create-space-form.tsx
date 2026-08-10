@@ -166,18 +166,23 @@ function CreateSpaceSubmit({
   currencyLabel: string;
 }) {
   const { pending } = useFormStatus();
+  const actionLabel = `ساخت «${label}»`;
   return (
     <Button
       type="submit"
       disabled={pending}
+      aria-label={pending ? "در حال ساخت…" : actionLabel}
       className="h-12 w-full flex-col gap-0.5 rounded-2xl py-1.5 text-sm font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
     >
       {pending ? (
         "در حال ساخت…"
       ) : (
         <>
-          <span className="leading-none">{`ساخت «${label}»`}</span>
-          <span className="text-[10px] font-medium leading-none text-primary-foreground/70">
+          <span className="leading-none">{actionLabel}</span>
+          <span
+            className="text-[10px] font-medium leading-none text-primary-foreground/70"
+            aria-hidden
+          >
             {currencyLabel}
           </span>
         </>

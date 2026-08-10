@@ -67,6 +67,7 @@ import {
   payerName,
   type SpaceCurrency,
 } from "@/lib/format";
+import { formatFaDigits } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { getTemplate } from "@/lib/templates/registry";
@@ -74,7 +75,7 @@ import { cn } from "@/lib/utils";
 import type { SpaceRole, SpaceType } from "@/types";
 
 function formatCountFa(n: number): string {
-  return new Intl.NumberFormat("fa-IR", { useGrouping: false }).format(n);
+  return formatFaDigits(n);
 }
 
 export type ExpenseListItem = {

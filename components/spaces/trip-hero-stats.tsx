@@ -9,6 +9,8 @@ type TripHeroStatsProps = {
   myBalance: number;
   openSettlementAmount: number;
   currency: SpaceCurrency;
+  /** When zero, balance “settled” reads as empty — not “all paid up”. */
+  expenseCount?: number;
   /** Server-resolved tab on first paint. */
   initialTab?: string;
   /** Member avatars + invite — hidden on expenses to free the first viewport. */
@@ -23,6 +25,7 @@ export function TripHeroStats({
   myBalance,
   openSettlementAmount,
   currency,
+  expenseCount = 0,
   initialTab = "expenses",
   membersSlot,
 }: TripHeroStatsProps) {
@@ -41,6 +44,8 @@ export function TripHeroStats({
   const compact = tab === "expenses" || tab === "checklist";
   const showMembers =
     (tab === "balances" || tab === "expenses") && Boolean(membersSlot);
+  const zeroBalanceLabel =
+    expenseCount === 0 ? "بدون هزینه" : "تسویه‌شده";
 
   return (
     <>
@@ -59,7 +64,7 @@ export function TripHeroStats({
             )}
           >
             {myBalance === 0
-              ? "تسویه‌شده"
+              ? zeroBalanceLabel
               : `${myBalance > 0 ? "+" : "−"}${formatCurrency(Math.abs(myBalance), currency)}`}
           </p>
         </div>
@@ -67,7 +72,7 @@ export function TripHeroStats({
         <div className="grid grid-cols-2 gap-2">
           <HeroMini label="مانده شما">
             {myBalance === 0 ? (
-              <span className="text-on-hero/90">تسویه‌شده</span>
+              <span className="text-on-hero/90">{zeroBalanceLabel}</span>
             ) : (
               <span
                 className={

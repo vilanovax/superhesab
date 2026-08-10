@@ -1,3 +1,10 @@
+import {
+  jalaliDay,
+  jalaliMonth,
+  jalaliYear,
+  monthLabelFa,
+} from "@/lib/building";
+
 export type SpaceCurrency = "TOMAN" | "RIAL" | "USD" | "AED" | "EUR";
 
 export const SPACE_CURRENCIES = [
@@ -24,10 +31,28 @@ export function currencyLabel(currency: SpaceCurrency): string {
   return CURRENCY_LABELS[currency] ?? CURRENCY_LABELS.TOMAN;
 }
 
+const FA_DIGIT = "۰۱۲۳۴۵۶۷۸۹";
+
+/**
+ * Deterministic Persian digits (no Intl) — same SSR/CSR output everywhere.
+ * Avoids hydration drift from Node vs browser `fa-IR` ICU data.
+ */
+export function formatFaDigits(n: number): string {
+  if (!Number.isFinite(n)) return "۰";
+  const neg = n < 0;
+  const abs = Math.abs(Math.trunc(n));
+  const fa = String(abs).replace(/\d/g, (d) => FA_DIGIT[Number(d)]!);
+  return neg ? `−${fa}` : fa;
+}
+
 /** Format integer amount with Persian digits + thousand separators. */
 export function formatMoney(amount: number): string {
   if (!Number.isFinite(amount)) return "۰";
-  return new Intl.NumberFormat("fa-IR").format(Math.trunc(amount));
+  const neg = amount < 0;
+  const abs = Math.abs(Math.trunc(amount));
+  const grouped = String(abs).replace(/\B(?=(\d{3})+(?!\d))/g, "٬");
+  const fa = grouped.replace(/\d/g, (d) => FA_DIGIT[Number(d)]!);
+  return neg ? `−${fa}` : fa;
 }
 
 export function formatMoneyWithCurrency(
@@ -77,25 +102,20 @@ export function parseMoneyInput(input: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Shamsi date labels — deterministic (no Intl fa-IR drift between Node/browser).
+ */
 export function formatDateFa(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "Asia/Tehran",
-  }).format(d);
+  const y = jalaliYear(d);
+  const m = jalaliMonth(d);
+  const day = jalaliDay(d);
+  return `${formatFaDigits(day)} ${monthLabelFa(m)} ${formatFaDigits(y)}`;
 }
 
-/** Short Shamsi date (e.g. ۲ مرداد ۱۴۰۵). */
+/** Short Shamsi date (e.g. ۲ مرداد ۱۴۰۵). Same string as long — month names are short. */
 export function formatDateFaShort(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "Asia/Tehran",
-  }).format(d);
+  return formatDateFa(date);
 }
 
 /** Calendar day key in Tehran (yyyy-mm-dd) for grouping. */

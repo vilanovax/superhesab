@@ -145,6 +145,13 @@ export function useDeferredSpaceTabs(args: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remount on space/period
   }, [spaceId, defaultTab, reportPlanYear, reportMonth]);
 
+  /**
+   * After `router.refresh()`, RSC props for the SSR'd tab update in the parent
+   * (trip/family/building tabs prefer those props over `deferred`). Do not mirror
+   * `initial` into state in an effect — new array identities every render caused
+   * Maximum update depth and left the page stuck on the streaming skeleton.
+   */
+
   const ensureTabData = useCallback(
     (next: SpaceTabId, opts?: { silent?: boolean }) => {
       if (!DEFERRED_TABS.has(next) || loadedRef.current.has(next)) return;

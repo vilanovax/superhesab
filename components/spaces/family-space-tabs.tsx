@@ -149,10 +149,12 @@ export function FamilySpaceTabs({
   const extraTabs = (showDebts ? 1 : 0) + (showFamilyFunds ? 1 : 0);
   const tabCount = 2 + extraTabs;
 
-  const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
-  const liveExpensesHasMore = loaded.has("expenses")
-    ? deferred.expensesHasMore
-    : expensesHasMore;
+  const ssrOwnsExpenses =
+    defaultTab === "expenses" || Boolean(loadedTabs?.includes("expenses"));
+  const liveExpenses = ssrOwnsExpenses ? expenses : deferred.expenses;
+  const liveExpensesHasMore = ssrOwnsExpenses
+    ? expensesHasMore
+    : deferred.expensesHasMore;
   /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
   const expensesWaiting =
     tab === "expenses" && !loaded.has("expenses") && tabBusy;

@@ -103,8 +103,9 @@ function SettleConfirmDialog({
         <div className="mx-5 mb-4 rounded-2xl border border-border/55 bg-sheet-muted px-4 py-3.5">
           <p className="text-body-sm text-foreground">
             <span className="font-semibold">{fromName}</span>
-            <span className="mx-1.5 text-muted-foreground/70">←</span>
+            {" به "}
             <span className="font-semibold">{toName}</span>
+            {" پرداخت کرد"}
           </p>
           <p className="mt-1.5 text-lg font-bold tabular-nums text-ink">
             {formatCurrency(amount, currency)}

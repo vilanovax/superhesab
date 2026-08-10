@@ -16,7 +16,7 @@ import { requireCurrentUser } from "@/lib/auth/guards";
 import { debtTypeLabel } from "@/lib/debts";
 import { prisma } from "@/lib/db/prisma";
 import { listDisabledSpaceTypes } from "@/lib/feature-flags";
-import type { SpaceCurrency } from "@/lib/format";
+import { formatFaDigits, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import {
   getHomeSummary,
@@ -217,7 +217,7 @@ async function HomeSpaceListBlock({
           const meta = [
             getTemplate(space.type).label,
             role !== "OWNER" ? roleLabel(role) : null,
-            `${space._count.members} عضو`,
+            `${formatFaDigits(space._count.members)} عضو`,
           ]
             .filter(Boolean)
             .join(" · ");
@@ -427,7 +427,7 @@ export default async function AppHomePage({
               ? "اولین دفتر را بساز تا شروع کنیم"
               : spaceCount === 1
                 ? "یک دفتر فعال"
-                : `${spaceCount} دفتر فعال`}
+                : `${formatFaDigits(spaceCount)} دفتر فعال`}
           </p>
         </div>
         <HomeUserMenu
@@ -471,7 +471,7 @@ export default async function AppHomePage({
                 آرشیو
                 {archivedCount > 0 ? (
                   <span className="ms-1 tabular-nums text-muted-foreground/80">
-                    ({archivedCount})
+                    ({formatFaDigits(archivedCount)})
                   </span>
                 ) : null}
               </Link>

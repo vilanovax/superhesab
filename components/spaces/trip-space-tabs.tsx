@@ -106,10 +106,14 @@ export function TripSpaceTabs({
   const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
 
-  const liveExpenses = loaded.has("expenses") ? deferred.expenses : expenses;
-  const liveExpensesHasMore = loaded.has("expenses")
-    ? deferred.expensesHasMore
-    : expensesHasMore;
+  // Prefer RSC expenses when this paint SSR'd the expenses tab — survives
+  // router.refresh() after create without mirroring props into client state.
+  const ssrOwnsExpenses =
+    defaultTab === "expenses" || Boolean(loadedTabs?.includes("expenses"));
+  const liveExpenses = ssrOwnsExpenses ? expenses : deferred.expenses;
+  const liveExpensesHasMore = ssrOwnsExpenses
+    ? expensesHasMore
+    : deferred.expensesHasMore;
   /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
   const expensesWaiting =
     tab === "expenses" && !loaded.has("expenses") && tabBusy;

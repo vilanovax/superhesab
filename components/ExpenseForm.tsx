@@ -1476,8 +1476,11 @@ export function ExpenseForm({
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 {selectedCount.toLocaleString("fa-IR")} نفر
-                {splitMode === "EQUAL" && totalShareWeight > 0
-                  ? ` · ${totalShareWeight.toLocaleString("fa-IR")} سهم`
+                {splitMode === "EQUAL" &&
+                totalShareWeight > 0 &&
+                // Half-units: only show «سهم» when weights differ (not 2×people).
+                totalShareWeight !== selectedCount * 2
+                  ? ` · جمع ضریب ${formatShareLabel(totalShareWeight)}`
                   : ""}
                 {splitMode === "PERCENT"
                   ? ` · ${new Intl.NumberFormat("fa-IR").format(percentAllocated)}٪`

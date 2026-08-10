@@ -12,6 +12,7 @@ import { TripHeroStats } from "@/components/spaces/trip-hero-stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { formatFaDigits } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { maybeCeilToThousand } from "@/lib/money";
 import {
@@ -514,7 +515,8 @@ async function SpacePageHeroCard({
                   )
                 ) : (
                   <>
-                    {space.members.length} عضو · {expenseCount} هزینه
+                    {formatFaDigits(space.members.length)} عضو ·{" "}
+                    {formatFaDigits(expenseCount)} هزینه
                     {totalExpenses > 0 ? (
                       <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
                     ) : null}
@@ -581,8 +583,9 @@ async function SpacePageHeroCard({
                   />
                 ) : (
                   <div
+                    role="group"
                     className="flex items-center gap-2"
-                    aria-label={`${space.members.length} عضو`}
+                    aria-label={`${formatFaDigits(space.members.length)} عضو`}
                   >
                     {memberAvatars}
                   </div>
@@ -619,6 +622,7 @@ async function SpacePageHeroCard({
                 myBalance={myBalance}
                 openSettlementAmount={openSettlementAmount}
                 currency={space.currency}
+                expenseCount={expenseCount}
                 initialTab={activeTab}
                 membersSlot={membersSlot}
               />

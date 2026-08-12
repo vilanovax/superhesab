@@ -211,6 +211,7 @@ model Space {
   fundPayments        FundPayment[]
   fundPaymentProofs   FundPaymentProof[]
   categoryPolicies    SpaceCategoryPolicy[]
+  buildingCategoryScopes BuildingCategoryScope[]
 
   @@index([ownerId])
   @@index([type])
@@ -278,6 +279,7 @@ model Expense {
   createdBy User?          @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?          @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   splits    ExpenseSplit[]
+  unitParticipations ExpenseUnitParticipation[]
   recurringOccurrence RecurringOccurrence?
 
   @@index([spaceId])
@@ -510,12 +512,78 @@ model Unit {
   linkedUser User?           @relation("UnitLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
   payments   ChargePayment[]
   suggestions BuildingSuggestion[]
+  categoryScopeUnits BuildingCategoryScopeUnit[]
+  expenseParticipations ExpenseUnitParticipation[]
 
   @@unique([spaceId, linkedUserId])
   @@index([spaceId])
   @@index([spaceId, isActive])
   @@index([linkedUserId])
   @@index([inviteToken])
+}
+
+/// BUILDING: how a shared-cost category applies to units (transparency; not charge debt).
+enum BuildingCategoryScopeMode {
+  /// All active units (default when no row exists).
+  ALL
+  /// Fixed set from settings (INCLUDE or EXCLUDE list).
+  FIXED
+  /// Default all at entry; manager may exclude units per expense.
+  HYBRID
+}
+
+/// BUILDING: how FIXED mode interprets BuildingCategoryScopeUnit rows.
+enum BuildingCategoryUnitRule {
+  /// Listed units are the only participants.
+  INCLUDE
+  /// Listed units are excluded; everyone else participates.
+  EXCLUDE
+}
+
+/// BUILDING: per-space category → unit participation policy.
+model BuildingCategoryScope {
+  id        String                     @id @default(cuid())
+  spaceId   String
+  category  ExpenseCategory
+  mode      BuildingCategoryScopeMode  @default(ALL)
+  /// Only meaningful when mode = FIXED.
+  unitRule  BuildingCategoryUnitRule   @default(EXCLUDE)
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+
+  space Space                       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  units BuildingCategoryScopeUnit[]
+
+  @@unique([spaceId, category])
+  @@index([spaceId])
+  @@index([category])
+}
+
+model BuildingCategoryScopeUnit {
+  id      String @id @default(cuid())
+  scopeId String
+  unitId  String
+
+  scope BuildingCategoryScope @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  unit  Unit                  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([scopeId, unitId])
+  @@index([unitId])
+  @@index([scopeId])
+}
+
+/// BUILDING: snapshot of which units an expense applies to (at save time).
+model ExpenseUnitParticipation {
+  id        String @id @default(cuid())
+  expenseId String
+  unitId    String
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, unitId])
+  @@index([unitId])
+  @@index([expenseId])
 }
 
 /// BUILDING: annual base charge plan for a space.

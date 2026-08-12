@@ -5,10 +5,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useFormState, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { getBuildingScopeContext } from "@/app/actions/buildingCategoryScope";
 import { addExpense, updateExpense } from "@/app/actions/expense";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import {
+  resolveUnitsFromScope,
+  scopeSummaryFa,
+  type BuildingScopeMode,
+} from "@/lib/building-category-scope";
 import {
   Form,
   FormControl,
@@ -124,6 +130,8 @@ export type ExpenseInitialValues = {
   /** Sub-tag under a builtin (e.g. قبوض → آب) or freeform custom name. */
   categoryLabel?: string | null;
   transactionType?: TransactionTypeForm;
+  /** BUILDING: snapshotted included units (null = ALL / no snapshot). */
+  includedUnitIds?: string[] | null;
 };
 
 type ExpenseFormProps = {
@@ -333,6 +341,26 @@ export function ExpenseForm({
   const [debouncedTitle, setDebouncedTitle] = useState("");
   /** Trip split list — collapsed by default to keep the bottom sheet compact. */
   const [splitsOpen, setSplitsOpen] = useState(false);
+  /** BUILDING: category → unit scope context (loaded once). */
+  const [buildingUnits, setBuildingUnits] = useState<
+    { id: string; name: string; isActive: boolean }[]
+  >([]);
+  const [buildingScopes, setBuildingScopes] = useState<
+    {
+      category: ExpenseCategory;
+      mode: BuildingScopeMode;
+      unitRule: "INCLUDE" | "EXCLUDE";
+      unitIds: string[];
+    }[]
+  >([]);
+  const [unitPickerOpen, setUnitPickerOpen] = useState(false);
+  /** HYBRID: which units are included (default = all active). */
+  const [includedUnitIds, setIncludedUnitIds] = useState<string[]>(
+    () => initialExpense?.includedUnitIds ?? [],
+  );
+  const [unitIdsTouched, setUnitIdsTouched] = useState(
+    () => Boolean(initialExpense?.includedUnitIds?.length),
+  );
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -391,6 +419,35 @@ export function ExpenseForm({
     }
   }, [form.formState.errors.splits]);
 
+  useEffect(() => {
+    if (!isBuilding) return;
+    let cancelled = false;
+    void getBuildingScopeContext(spaceId).then((ctx) => {
+      if (cancelled || !ctx) return;
+      setBuildingUnits(ctx.units);
+      setBuildingScopes(
+        ctx.scopes.map((s) => ({
+          category: s.category,
+          mode: s.mode,
+          unitRule: s.unitRule,
+          unitIds: s.unitIds,
+        })),
+      );
+      if (!unitIdsTouched) {
+        setIncludedUnitIds(ctx.units.map((u) => u.id));
+      } else if (
+        initialExpense?.includedUnitIds &&
+        initialExpense.includedUnitIds.length > 0
+      ) {
+        setIncludedUnitIds(initialExpense.includedUnitIds);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per open
+  }, [isBuilding, spaceId]);
+
   const predictedCategory = useMemo(
     () =>
       guessCategoryFromTitle(
@@ -404,6 +461,43 @@ export function ExpenseForm({
   const activeCategory =
     manualCategory ??
     (isEdit ? (watchedCategory ?? predictedCategory) : predictedCategory);
+
+  const activeScope = useMemo(() => {
+    if (!isBuilding) return null;
+    return (
+      buildingScopes.find((s) => s.category === activeCategory) ?? {
+        category: activeCategory,
+        mode: "ALL" as BuildingScopeMode,
+        unitRule: "EXCLUDE" as const,
+        unitIds: [] as string[],
+      }
+    );
+  }, [isBuilding, buildingScopes, activeCategory]);
+
+  const scopeMode = activeScope?.mode ?? "ALL";
+  const fixedIncludedIds = useMemo(() => {
+    if (!activeScope || activeScope.mode !== "FIXED") return [];
+    return resolveUnitsFromScope({
+      mode: "FIXED",
+      unitRule: activeScope.unitRule,
+      listedUnitIds: activeScope.unitIds,
+      activeUnitIds: buildingUnits.map((u) => u.id),
+    });
+  }, [activeScope, buildingUnits]);
+
+  const displayIncludedCount =
+    scopeMode === "FIXED"
+      ? fixedIncludedIds.length
+      : scopeMode === "HYBRID"
+        ? includedUnitIds.length
+        : buildingUnits.length;
+
+  useEffect(() => {
+    if (!isBuilding || scopeMode !== "HYBRID") return;
+    if (unitIdsTouched) return;
+    setIncludedUnitIds(buildingUnits.map((u) => u.id));
+  }, [isBuilding, scopeMode, buildingUnits, unitIdsTouched, activeCategory]);
+
   /** Building/trip use always-visible chips; others wait for a short title. */
   const showSmartChip =
     !useDenseChrome && !isEdit && debouncedTitle.length >= 2;
@@ -680,6 +774,8 @@ export function ExpenseForm({
                 percent: 100,
               },
             ],
+            includedUnitIds:
+              scopeMode === "HYBRID" ? includedUnitIds : null,
           }
         : isHouseholdLedger
           ? {
@@ -754,6 +850,9 @@ export function ExpenseForm({
         setCustomCategoryLabel(null);
         setBillTag(null);
         setDebouncedTitle("");
+        setUnitIdsTouched(false);
+        setIncludedUnitIds(buildingUnits.map((u) => u.id));
+        setUnitPickerOpen(false);
       }
       // Close only after a successful server write.
       onSuccess?.();
@@ -1133,6 +1232,88 @@ export function ExpenseForm({
                 form.setValue("categoryLabel", tag, { shouldDirty: true });
               }}
             />
+          ) : null}
+
+          {isBuilding && buildingUnits.length > 0 && scopeMode !== "ALL" ? (
+            <div className="rounded-xl border border-border/50 bg-sheet-muted/40">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-start"
+                onClick={() => setUnitPickerOpen((o) => !o)}
+              >
+                <span className="text-caption font-semibold text-foreground">
+                  واحدهای مشمول
+                </span>
+                <span className="text-micro text-muted-foreground">
+                  {scopeSummaryFa({
+                    mode: scopeMode,
+                    includedCount: displayIncludedCount,
+                    totalActive: buildingUnits.length,
+                  })}
+                  {scopeMode === "FIXED" ? " · ثابت" : ""}
+                  <span className="ms-1 opacity-60">
+                    {unitPickerOpen ? "▴" : "▾"}
+                  </span>
+                </span>
+              </button>
+              {unitPickerOpen ? (
+                <div className="space-y-2 border-t border-border/40 px-3 py-2.5">
+                  {scopeMode === "FIXED" ? (
+                    <p className="text-micro text-muted-foreground">
+                      از تنظیمات ساختمان ثابت شده؛ در این هزینه قابل تغییر نیست.
+                    </p>
+                  ) : (
+                    <p className="text-micro text-muted-foreground">
+                      پیش‌فرض همه واحدهاست. فقط واحدهایی را که مشمول نیستند
+                      بردارید.
+                    </p>
+                  )}
+                  <ul className="grid grid-cols-2 gap-1.5">
+                    {buildingUnits.map((unit) => {
+                      const checked =
+                        scopeMode === "FIXED"
+                          ? fixedIncludedIds.includes(unit.id)
+                          : includedUnitIds.includes(unit.id);
+                      const locked = scopeMode === "FIXED";
+                      return (
+                        <li key={unit.id}>
+                          <label
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-caption",
+                              checked
+                                ? "border-primary/35 bg-primary/8"
+                                : "border-border/45 bg-card",
+                              locked && "opacity-80",
+                            )}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              disabled={locked || pending}
+                              onCheckedChange={(v) => {
+                                if (locked) return;
+                                setUnitIdsTouched(true);
+                                const on = v === true;
+                                setIncludedUnitIds((prev) => {
+                                  if (on) {
+                                    return prev.includes(unit.id)
+                                      ? prev
+                                      : [...prev, unit.id];
+                                  }
+                                  return prev.filter((id) => id !== unit.id);
+                                });
+                              }}
+                            />
+                            <span className="truncate font-medium">
+                              واحد {unit.name}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {isEdit && !isLedgerDense ? (

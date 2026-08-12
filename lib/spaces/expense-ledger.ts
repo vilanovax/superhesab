@@ -55,6 +55,9 @@ export const expenseEditSelect = {
       percent: true,
     },
   },
+  unitParticipations: {
+    select: { unitId: true },
+  },
 } as const;
 
 export type ExpenseLedgerCursor = {

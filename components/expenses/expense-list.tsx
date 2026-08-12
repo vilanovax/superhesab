@@ -161,6 +161,7 @@ function toInitial(expense: ExpenseForEdit): ExpenseInitialValues {
     splitAmounts: expense.splitAmounts,
     splitShares: expense.splitShares,
     splitPercents: expense.splitPercents,
+    includedUnitIds: expense.includedUnitIds,
   };
 }
 

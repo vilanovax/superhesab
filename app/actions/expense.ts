@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
+  resolveExpenseIncludedUnitIds,
+  type BuildingScopeMode,
+  type BuildingUnitRule,
+} from "@/lib/building-category-scope";
+import {
   allowedCategoriesForSpace,
   guessCategoryFromTitle,
 } from "@/lib/categorizer";
@@ -29,6 +34,7 @@ import {
   type ExpenseFormValues,
 } from "@/lib/validations/expense";
 import type { SpaceType } from "@/types";
+import type { Prisma } from "@/lib/generated/prisma/client";
 
 export type ExpenseActionResult =
   | { ok: true; expenseId: string }
@@ -48,6 +54,8 @@ export type ExpenseForEdit = {
   splitAmounts: Record<string, number>;
   splitShares: Record<string, number>;
   splitPercents: Record<string, number>;
+  /** BUILDING: snapshotted included units (null = ALL / no snapshot). */
+  includedUnitIds: string[] | null;
 };
 
 export type GetExpenseForEditResult =
@@ -87,6 +95,79 @@ async function assertCategoryNotHidden(
   if (hidden.includes(category)) {
     return { ok: false, error: "این دسته خصوصیِ عضو دیگری است." };
   }
+  return { ok: true };
+}
+
+type TxClient = Prisma.TransactionClient;
+
+/**
+ * Persist BUILDING unit participation snapshot for FIXED/HYBRID categories.
+ * ALL → delete any prior rows (no snapshot).
+ */
+async function syncExpenseUnitParticipation(
+  tx: TxClient,
+  input: {
+    spaceId: string;
+    expenseId: string;
+    category: ExpenseCategory;
+    clientIncludedUnitIds?: string[] | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [activeUnits, scopeRow] = await Promise.all([
+    tx.unit.findMany({
+      where: { spaceId: input.spaceId, isActive: true },
+      select: { id: true },
+    }),
+    tx.buildingCategoryScope.findUnique({
+      where: {
+        spaceId_category: {
+          spaceId: input.spaceId,
+          category: input.category,
+        },
+      },
+      select: {
+        mode: true,
+        unitRule: true,
+        units: { select: { unitId: true } },
+      },
+    }),
+  ]);
+
+  const activeUnitIds = activeUnits.map((u) => u.id);
+  const mode = (scopeRow?.mode ?? "ALL") as BuildingScopeMode;
+  const unitRule = (scopeRow?.unitRule ?? "EXCLUDE") as BuildingUnitRule;
+  const listedUnitIds = scopeRow?.units.map((u) => u.unitId) ?? [];
+
+  const { snapshotUnitIds } = resolveExpenseIncludedUnitIds({
+    mode,
+    unitRule,
+    listedUnitIds,
+    activeUnitIds,
+    clientIncludedUnitIds: input.clientIncludedUnitIds,
+  });
+
+  await tx.expenseUnitParticipation.deleteMany({
+    where: { expenseId: input.expenseId },
+  });
+
+  if (snapshotUnitIds == null) {
+    return { ok: true };
+  }
+
+  if (snapshotUnitIds.length === 0) {
+    return {
+      ok: false,
+      error: "حداقل یک واحد باید در این هزینه مشمول باشد.",
+    };
+  }
+
+  await tx.expenseUnitParticipation.createMany({
+    data: snapshotUnitIds.map((unitId) => ({
+      expenseId: input.expenseId,
+      unitId,
+    })),
+  });
+
   return { ok: true };
 }
 
@@ -362,6 +443,18 @@ export async function addExpense(
         })),
       });
 
+      if (features.buildingCharges) {
+        const participation = await syncExpenseUnitParticipation(tx, {
+          spaceId: input.spaceId,
+          expenseId: created.id,
+          category,
+          clientIncludedUnitIds: input.includedUnitIds,
+        });
+        if (!participation.ok) {
+          throw new Error(participation.error);
+        }
+      }
+
       return created;
     });
 
@@ -369,8 +462,13 @@ export async function addExpense(
     revalidatePath("/app");
 
     return { ok: true, expenseId: expense.id };
-  } catch {
-    return { ok: false, error: "ثبت هزینه ناموفق بود. دوباره تلاش کنید." };
+  } catch (err) {
+    const msg =
+      err instanceof Error &&
+      err.message.includes("واحد")
+        ? err.message
+        : "ثبت هزینه ناموفق بود. دوباره تلاش کنید.";
+    return { ok: false, error: msg };
   }
 }
 
@@ -530,14 +628,30 @@ export async function updateExpense(
           percent: row.percent,
         })),
       });
+
+      if (features.buildingCharges) {
+        const participation = await syncExpenseUnitParticipation(tx, {
+          spaceId: input.spaceId,
+          expenseId,
+          category: category as ExpenseCategory,
+          clientIncludedUnitIds: input.includedUnitIds,
+        });
+        if (!participation.ok) {
+          throw new Error(participation.error);
+        }
+      }
     });
 
     revalidatePath(`/spaces/${input.spaceId}`);
     revalidatePath("/app");
 
     return { ok: true, expenseId };
-  } catch {
-    return { ok: false, error: "ویرایش هزینه ناموفق بود." };
+  } catch (err) {
+    const msg =
+      err instanceof Error && err.message.includes("واحد")
+        ? err.message
+        : "ویرایش هزینه ناموفق بود.";
+    return { ok: false, error: msg };
   }
 }
 
@@ -633,6 +747,11 @@ export async function getExpenseForEdit(
     }
   }
 
+  const includedUnitIds =
+    expense.unitParticipations.length > 0
+      ? expense.unitParticipations.map((p) => p.unitId)
+      : null;
+
   return {
     ok: true,
     expense: {
@@ -652,6 +771,7 @@ export async function getExpenseForEdit(
         expense.splits.map((s) => [s.userId, s.share]),
       ),
       splitPercents,
+      includedUnitIds,
     },
   };
 }

@@ -62,6 +62,12 @@ export const expenseSchema = z
       .max(40, "نام دسته حداکثر ۴۰ کاراکتر باشد.")
       .optional()
       .nullable(),
+    /**
+     * BUILDING HYBRID: unit ids included in this expense (snapshot).
+     * Omitted / null → server defaults to all active units.
+     * Ignored for ALL / FIXED (server resolves from settings).
+     */
+    includedUnitIds: z.array(z.string().min(1)).max(200).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     const selected = data.splits.filter((s) => s.selected);

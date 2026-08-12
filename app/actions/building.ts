@@ -27,6 +27,8 @@ import {
   type ChargeStatusValue,
   type PaymentSlice,
 } from "@/lib/building";
+import { unitSeesExpense } from "@/lib/building-category-scope";
+import type { ExpenseCategory } from "@/lib/categorizer";
 import { jalaliYearBounds } from "@/lib/jalali";
 import { parseExpenseDateInput, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
@@ -897,32 +899,47 @@ export async function getResidentPortalData(
   const throughMonth = tehranCivilMonth();
   const bounds = jalaliYearBounds(year);
 
-  const [plan, payments, expenses] = await Promise.all([
-    prisma.chargePlan.findUnique({
-      where: { spaceId_year: { spaceId, year } },
-    }),
-    prisma.chargePayment.findMany({
-      where: { unitId: unit.id, year },
-      orderBy: [{ month: "desc" }],
-    }),
-    prisma.expense.findMany({
-      where: {
-        spaceId,
-        transactionType: "EXPENSE",
-        date: { gte: bounds.start, lte: bounds.end },
-      },
-      select: {
-        id: true,
-        title: true,
-        totalAmount: true,
-        date: true,
-        category: true,
-        categoryLabel: true,
-      },
-      orderBy: { date: "desc" },
-      take: 80,
-    }),
-  ]);
+  const [plan, payments, expenses, activeUnits, categoryScopes] =
+    await Promise.all([
+      prisma.chargePlan.findUnique({
+        where: { spaceId_year: { spaceId, year } },
+      }),
+      prisma.chargePayment.findMany({
+        where: { unitId: unit.id, year },
+        orderBy: [{ month: "desc" }],
+      }),
+      prisma.expense.findMany({
+        where: {
+          spaceId,
+          transactionType: "EXPENSE",
+          date: { gte: bounds.start, lte: bounds.end },
+        },
+        select: {
+          id: true,
+          title: true,
+          totalAmount: true,
+          date: true,
+          category: true,
+          categoryLabel: true,
+          unitParticipations: { select: { unitId: true } },
+        },
+        orderBy: { date: "desc" },
+        take: 120,
+      }),
+      prisma.unit.findMany({
+        where: { spaceId, isActive: true },
+        select: { id: true },
+      }),
+      prisma.buildingCategoryScope.findMany({
+        where: { spaceId },
+        select: {
+          category: true,
+          mode: true,
+          unitRule: true,
+          units: { select: { unitId: true } },
+        },
+      }),
+    ]);
 
   const baseCharge = plan?.baseCharge ?? 0;
   const monthlyCharge = unitMonthlyCharge(baseCharge, unit.multiplier);
@@ -943,6 +960,33 @@ export async function getResidentPortalData(
     payments: slices,
   });
 
+  const activeUnitIds = activeUnits.map((u) => u.id);
+  const scopeByCategory = new Map(
+    categoryScopes.map((s) => [
+      s.category as ExpenseCategory,
+      {
+        category: s.category as ExpenseCategory,
+        mode: s.mode,
+        unitRule: s.unitRule,
+        unitIds: s.units.map((u) => u.unitId),
+      },
+    ]),
+  );
+
+  const visibleExpenses = expenses
+    .filter((e) =>
+      unitSeesExpense({
+        unitId: unit.id,
+        snapshotIncludedUnitIds:
+          e.unitParticipations.length > 0
+            ? e.unitParticipations.map((p) => p.unitId)
+            : null,
+        scope: scopeByCategory.get(e.category as ExpenseCategory),
+        activeUnitIds,
+      }),
+    )
+    .slice(0, 80);
+
   return {
     spaceId: space.id,
     spaceName: space.name,
@@ -957,7 +1001,7 @@ export async function getResidentPortalData(
       collected,
     },
     payments: payments.map(toPaymentDTO),
-    expenses: expenses.map((e) => ({
+    expenses: visibleExpenses.map((e) => ({
       id: e.id,
       title: e.title,
       totalAmount: e.totalAmount,

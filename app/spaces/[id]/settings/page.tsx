@@ -5,8 +5,10 @@ import { listCategoryPolicies } from "@/app/actions/categoryPrivacy";
 import {
   getChargePlanForYear,
 } from "@/app/actions/building";
+import { listBuildingCategoryScopes } from "@/app/actions/buildingCategoryScope";
 import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
+import { BuildingCategoryScopeSettings } from "@/components/spaces/building-category-scope-settings";
 import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
 import { CategoryPrivacySettings } from "@/components/spaces/category-privacy-settings";
@@ -91,6 +93,8 @@ export default async function SpaceSettingsPage({
     fundPlan,
     buildingManagers,
     tripMembers,
+    buildingUnits,
+    buildingCategoryScopes,
   ] = await Promise.all([
     categoryPrivacyPossible
       ? isFeatureEnabled("category_privacy")
@@ -140,6 +144,16 @@ export default async function SpaceSettingsPage({
           },
           orderBy: { createdAt: "asc" },
         })
+      : Promise.resolve([]),
+    showBuilding
+      ? prisma.unit.findMany({
+          where: { spaceId: id, isActive: true },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    showBuilding && isOwner
+      ? listBuildingCategoryScopes(id)
       : Promise.resolve([]),
   ]);
 
@@ -513,6 +527,17 @@ export default async function SpaceSettingsPage({
                 مدیریت مدیران
               </Button>
             }
+          />
+        </section>
+      ) : null}
+
+      {showBuilding && isOwner ? (
+        <section className="animate-fade-up rounded-2xl border border-border/55 bg-card p-4 shadow-sm sm:p-5">
+          <BuildingCategoryScopeSettings
+            spaceId={space.id}
+            initialScopes={buildingCategoryScopes}
+            units={buildingUnits}
+            disabled={!isOwner}
           />
         </section>
       ) : null}

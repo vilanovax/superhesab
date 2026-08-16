@@ -1,20 +1,19 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import {
-  listBuildingAnnouncements,
-  listBuildingSuggestions,
-} from "@/app/actions/building";
-import { BuildingCommunityHub } from "@/components/spaces/building-community-hub";
+import { listBuildingContacts } from "@/app/actions/building-contacts";
+import { BuildingContactsPanel } from "@/components/spaces/building-contacts-panel";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate, getTemplateDataset } from "@/lib/templates/registry";
 
-type BoardPageProps = {
+type ContactsPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function BuildingBoardPage({ params }: BoardPageProps) {
+export default async function BuildingContactsPage({
+  params,
+}: ContactsPageProps) {
   const [{ id }, session] = await Promise.all([params, requireUser()]);
   const membership = await requireSpaceMember(id, session.userId);
   if (!membership) notFound();
@@ -30,10 +29,8 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
   }
 
   const canWrite = canMutateMoney(membership.role);
-  const [suggestions, announcements] = await Promise.all([
-    listBuildingSuggestions(id),
-    listBuildingAnnouncements(id, { includeArchived: true }),
-  ]);
+  const contacts = await listBuildingContacts(id);
+  const visibleToResidents = contacts.filter((c) => c.visibleToResidents).length;
 
   return (
     <main
@@ -59,16 +56,23 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
               {space.name}
             </p>
             <h1 className="truncate text-base font-bold leading-tight text-on-hero">
-              برد ساختمان
+              شماره‌های ضروری
             </h1>
           </div>
+          {contacts.length > 0 ? (
+            <span className="shrink-0 rounded-full bg-on-hero/15 px-2.5 py-1 text-[11px] font-bold tabular-nums text-on-hero ring-1 ring-on-hero/20">
+              {contacts.length.toLocaleString("fa-IR")}
+              {visibleToResidents > 0
+                ? ` · ${visibleToResidents.toLocaleString("fa-IR")} ساکن`
+                : ""}
+            </span>
+          ) : null}
         </div>
       </header>
 
-      <BuildingCommunityHub
+      <BuildingContactsPanel
         spaceId={space.id}
-        suggestions={suggestions}
-        announcements={announcements}
+        contacts={contacts}
         canMutate={canWrite}
       />
     </main>

@@ -225,6 +225,16 @@ export async function restoreSpaceFromBackup(input: {
         });
       }
 
+      if (input.payload.spaceNote?.body) {
+        await tx.spaceNote.create({
+          data: {
+            spaceId: space.id,
+            body: input.payload.spaceNote.body,
+            updatedAt: parseDate(input.payload.spaceNote.updatedAt),
+          },
+        });
+      }
+
       for (const d of input.payload.debts) {
         await tx.debt.create({
           data: {
@@ -291,6 +301,7 @@ export async function restoreSpaceFromBackup(input: {
             spaceId: space.id,
             name: u.name,
             area: u.area,
+            phone: u.phone?.trim() || null,
             multiplier: u.multiplier,
             isActive: u.isActive,
             // Invite tokens regenerated; residents re-claim after restore.
@@ -363,6 +374,26 @@ export async function restoreSpaceFromBackup(input: {
             pinned: a.pinned,
             archivedAt: a.archivedAt ? parseDate(a.archivedAt) : null,
             createdAt: parseDate(a.createdAt),
+          },
+        });
+      }
+
+      for (const c of input.payload.buildingContacts ?? []) {
+        await tx.buildingContact.create({
+          data: {
+            spaceId: space.id,
+            title: c.title,
+            phone: c.phone,
+            category: c.category as
+              | "EMERGENCY"
+              | "FACILITIES"
+              | "CONTRACTOR"
+              | "ADMIN"
+              | "OTHER",
+            note: c.note,
+            sortOrder: c.sortOrder,
+            pinned: c.pinned,
+            visibleToResidents: c.visibleToResidents,
           },
         });
       }

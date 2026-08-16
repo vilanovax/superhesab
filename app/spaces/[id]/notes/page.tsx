@@ -1,39 +1,42 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import {
-  listBuildingAnnouncements,
-  listBuildingSuggestions,
-} from "@/app/actions/building";
-import { BuildingCommunityHub } from "@/components/spaces/building-community-hub";
+import { getChecklist } from "@/app/actions/checklist";
+import { getSpaceNote } from "@/app/actions/notes";
+import { SpaceNotesPanel } from "@/components/spaces/space-notes-panel";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
-import { canMutateMoney } from "@/lib/rbac";
+import { canEditChecklist } from "@/lib/rbac";
 import { getTemplate, getTemplateDataset } from "@/lib/templates/registry";
 
-type BoardPageProps = {
+type NotesPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function BuildingBoardPage({ params }: BoardPageProps) {
+export default async function SpaceNotesPage({ params }: NotesPageProps) {
   const [{ id }, session] = await Promise.all([params, requireUser()]);
   const membership = await requireSpaceMember(id, session.userId);
   if (!membership) notFound();
 
-  if (membership.role === "VIEWER") {
-    redirect(`/spaces/${id}/resident`);
-  }
-
   const space = membership.space;
   const template = getTemplate(space.type);
-  if (!template.features.buildingCharges) {
+  const { features } = template;
+
+  if (features.buildingCharges && membership.role === "VIEWER") {
+    redirect(`/spaces/${id}/resident`);
+  }
+  if (features.fundRotating && membership.role === "VIEWER") {
+    redirect(`/spaces/${id}/member`);
+  }
+  if (!features.checklist) {
     redirect(`/spaces/${id}`);
   }
 
-  const canWrite = canMutateMoney(membership.role);
-  const [suggestions, announcements] = await Promise.all([
-    listBuildingSuggestions(id),
-    listBuildingAnnouncements(id, { includeArchived: true }),
+  const canMutate = canEditChecklist(membership.role);
+  const [checklist, note] = await Promise.all([
+    getChecklist(id),
+    getSpaceNote(id),
   ]);
+  const openTasks = checklist.filter((i) => !i.isCompleted).length;
 
   return (
     <main
@@ -59,17 +62,22 @@ export default async function BuildingBoardPage({ params }: BoardPageProps) {
               {space.name}
             </p>
             <h1 className="truncate text-base font-bold leading-tight text-on-hero">
-              برد ساختمان
+              یادداشت و کارها
             </h1>
           </div>
+          {openTasks > 0 ? (
+            <span className="shrink-0 rounded-full bg-on-hero/15 px-2.5 py-1 text-[11px] font-bold tabular-nums text-on-hero ring-1 ring-on-hero/20">
+              {openTasks.toLocaleString("fa-IR")} کار باز
+            </span>
+          ) : null}
         </div>
       </header>
 
-      <BuildingCommunityHub
+      <SpaceNotesPanel
         spaceId={space.id}
-        suggestions={suggestions}
-        announcements={announcements}
-        canMutate={canWrite}
+        note={note}
+        checklist={checklist}
+        canMutate={canMutate}
       />
     </main>
   );

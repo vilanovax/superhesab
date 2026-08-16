@@ -8,8 +8,7 @@ export type SpaceTabId =
   | "report"
   | "debts"
   | "funds"
-  | "balances"
-  | "checklist";
+  | "balances";
 
 /** Default tab for a template when `?tab=` is absent / invalid. */
 export function resolveDefaultTab(
@@ -17,7 +16,10 @@ export function resolveDefaultTab(
   tabParam?: string,
 ): SpaceTabId {
   const allowed = new Set<string>();
-  if (features.incomeExpense && !features.settlements) {
+  if (features.fundRotating) {
+    /** Fund shell uses expenses as the dashboard surface id. */
+    allowed.add("expenses");
+  } else if (features.incomeExpense && !features.settlements) {
     allowed.add("expenses");
     allowed.add("report");
     if (features.buildingCharges) {
@@ -29,7 +31,6 @@ export function resolveDefaultTab(
   } else {
     allowed.add("expenses");
     if (features.settlements) allowed.add("balances");
-    if (features.checklist) allowed.add("checklist");
   }
 
   if (tabParam && allowed.has(tabParam)) {
@@ -46,7 +47,6 @@ export type DeferredTabPayload = {
   debts: import("@/app/actions/debt").DebtDTO[];
   savingsPots: import("@/app/actions/savingsPot").SavingsPotDTO[];
   internalLoans: import("@/app/actions/internalLoan").InternalLoanDTO[];
-  checklist: import("@/app/actions/checklist").ChecklistItemDTO[];
   chargeProofs: import("@/app/actions/building").ChargePaymentProofDTO[];
   categoryBudgets: Partial<Record<ExpenseCategory, number>>;
   /** BUILDING tab-aware: first ledger page when expenses tab is fetched. */
@@ -64,7 +64,6 @@ export const EMPTY_DEFERRED_TAB: DeferredTabPayload = {
   debts: [],
   savingsPots: [],
   internalLoans: [],
-  checklist: [],
   chargeProofs: [],
   categoryBudgets: {},
   expenses: [],

@@ -63,11 +63,11 @@ export function BuildingCommunityHub({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div
         role="tablist"
         aria-label="برد جامعه"
-        className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-border/45 bg-card p-1 shadow-sm"
+        className="grid grid-cols-2 gap-0.5 rounded-2xl border border-border/45 bg-card p-1 shadow-sm"
       >
         <button
           type="button"
@@ -77,7 +77,7 @@ export function BuildingCommunityHub({
           aria-selected={view === "announcements"}
           onClick={() => selectView("announcements")}
           className={cn(
-            "relative flex h-11 items-center justify-center rounded-xl text-body-sm font-semibold transition-colors",
+            "relative flex h-10 items-center justify-center rounded-xl text-caption font-semibold transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             view === "announcements"
               ? "bg-primary text-primary-foreground shadow-sm"
@@ -106,7 +106,7 @@ export function BuildingCommunityHub({
           aria-selected={view === "suggestions"}
           onClick={() => selectView("suggestions")}
           className={cn(
-            "relative flex h-11 items-center justify-center rounded-xl text-body-sm font-semibold transition-colors",
+            "relative flex h-10 items-center justify-center rounded-xl text-caption font-semibold transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             view === "suggestions"
               ? "bg-primary text-primary-foreground shadow-sm"

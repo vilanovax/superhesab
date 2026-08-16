@@ -18,6 +18,8 @@ type SpaceChecklistProps = {
   spaceId: string;
   items: ChecklistItemDTO[];
   canMutate?: boolean;
+  /** Tighter chrome when nested inside SpaceNotesPanel. */
+  embedded?: boolean;
 };
 
 type OptimisticAction =
@@ -78,6 +80,7 @@ export function SpaceChecklist({
   spaceId,
   items,
   canMutate = true,
+  embedded = false,
 }: SpaceChecklistProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -160,11 +163,16 @@ export function SpaceChecklist({
   }
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className={cn("space-y-3", !embedded && "pb-6")}>
       {total > 0 ? (
         <div
-          className="flex items-center gap-2.5 rounded-xl border border-border/45 bg-card px-3 py-2 shadow-sm"
-          aria-label="پیشرفت چک‌لیست"
+          className={cn(
+            "flex items-center gap-2.5 rounded-xl px-3 py-2",
+            embedded
+              ? "border border-border/35 bg-muted/25"
+              : "border border-border/45 bg-card shadow-sm",
+          )}
+          aria-label="پیشرفت لیست کار"
         >
           <div
             className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
@@ -201,7 +209,12 @@ export function SpaceChecklist({
       {canMutate ? (
         <form
           onSubmit={onAdd}
-          className="flex items-center gap-1.5 rounded-2xl border border-border/50 bg-card p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-primary/35"
+          className={cn(
+            "flex items-center gap-1.5 rounded-2xl border p-1.5 focus-within:ring-2 focus-within:ring-primary/35",
+            embedded
+              ? "border-border/40 bg-background"
+              : "border-border/50 bg-card shadow-sm",
+          )}
         >
           <label htmlFor="checklist-item-title" className="sr-only">
             آیتم جدید
@@ -241,27 +254,49 @@ export function SpaceChecklist({
       ) : null}
 
       {optimisticItems.length === 0 ? (
-        <EmptyState
-          icon="checklist"
-          title="چک‌لیست خالی است"
-          description={
-            canMutate
-              ? "اولین کار یا خرید را بنویسید تا با همسفرها هم‌رسانی شود."
-              : "هنوز آیتمی نیست. نقش ناظر فقط مشاهده است."
-          }
-        />
+        embedded ? (
+          <div className="rounded-xl border border-dashed border-border/55 bg-muted/15 px-3.5 py-6 text-center">
+            <p className="text-caption font-semibold text-foreground">
+              هنوز کاری نیست
+            </p>
+            <p className="mt-1 text-micro text-muted-foreground">
+              {canMutate
+                ? "بالا بنویسید و افزودن بزنید."
+                : "نقش ناظر فقط مشاهده است."}
+            </p>
+          </div>
+        ) : (
+          <EmptyState
+            icon="checklist"
+            title="لیست کار خالی است"
+            description={
+              canMutate
+                ? "اولین کار را بنویسید تا با اعضا هم‌رسانی شود."
+                : "هنوز آیتمی نیست. نقش ناظر فقط مشاهده است."
+            }
+          />
+        )
       ) : (
         <>
           {openItems.length > 0 ? (
-            <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
-              <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3.5 py-2">
-                <h3 className="text-caption font-bold text-foreground">
-                  باز
-                </h3>
-                <p className="text-[11px] tabular-nums text-muted-foreground">
-                  {openItems.length.toLocaleString("fa-IR")} مورد
-                </p>
-              </div>
+            <section
+              className={cn(
+                "overflow-hidden rounded-2xl border",
+                embedded
+                  ? "border-border/40 bg-background"
+                  : "border-border/50 bg-card shadow-sm",
+              )}
+            >
+              {!embedded ? (
+                <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3.5 py-2">
+                  <h3 className="text-caption font-bold text-foreground">
+                    باز
+                  </h3>
+                  <p className="text-[11px] tabular-nums text-muted-foreground">
+                    {openItems.length.toLocaleString("fa-IR")} مورد
+                  </p>
+                </div>
+              ) : null}
               <ul className="divide-y divide-border/35">
                 {openItems.map((item) => (
                   <ChecklistRow
@@ -282,7 +317,14 @@ export function SpaceChecklist({
           )}
 
           {doneItems.length > 0 ? (
-            <section className="overflow-hidden rounded-2xl border border-border/40 bg-card/80 shadow-sm">
+            <section
+              className={cn(
+                "overflow-hidden rounded-2xl border",
+                embedded
+                  ? "border-border/35 bg-muted/20"
+                  : "border-border/40 bg-card/80 shadow-sm",
+              )}
+            >
               <button
                 type="button"
                 aria-expanded={doneOpen}

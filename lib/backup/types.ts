@@ -72,6 +72,12 @@ export type BackupChecklistItem = {
   createdAt: string;
 };
 
+/** One freeform note pad per space (optional in older v2 exports). */
+export type BackupSpaceNote = {
+  body: string;
+  updatedAt: string;
+};
+
 export type BackupDebtPayment = {
   amount: number;
   date: string;
@@ -113,6 +119,8 @@ export type BackupUnit = {
   originalId: string;
   name: string;
   area: number | null;
+  /** Optional in older backups. */
+  phone?: string | null;
   multiplier: number;
   isActive: boolean;
   linkedOriginalUserId: string | null;
@@ -159,6 +167,17 @@ export type BackupBuildingAnnouncement = {
   pinned: boolean;
   archivedAt: string | null;
   createdAt: string;
+};
+
+/** BUILDING essential contacts (optional in older v2 exports). */
+export type BackupBuildingContact = {
+  title: string;
+  phone: string;
+  category: string;
+  note: string | null;
+  sortOrder: number;
+  pinned: boolean;
+  visibleToResidents: boolean;
 };
 
 export type BackupSavingsPot = {
@@ -220,6 +239,8 @@ export type BackupSpacePayload = {
   expenses: BackupExpense[];
   settlements: BackupSettlement[];
   checklist: BackupChecklistItem[];
+  /** Null when the space never used the notes pad. */
+  spaceNote: BackupSpaceNote | null;
   debts: BackupDebt[];
   categoryBudgets: BackupCategoryBudget[];
   recurringRules: BackupRecurringRule[];
@@ -228,6 +249,8 @@ export type BackupSpacePayload = {
   chargePayments: BackupChargePayment[];
   buildingSuggestions: BackupBuildingSuggestion[];
   buildingAnnouncements: BackupBuildingAnnouncement[];
+  /** Absent / empty in older backups. */
+  buildingContacts: BackupBuildingContact[];
   savingsPots: BackupSavingsPot[];
   internalLoans: BackupInternalLoan[];
   fundPlan: BackupFundPlan | null;

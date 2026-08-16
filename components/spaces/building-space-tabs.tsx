@@ -104,7 +104,7 @@ export function BuildingSpaceTabs({
     initialTab === "charges" ||
     initialTab === "units" ||
     initialTab === "expenses"
-      ? initialTab
+      ? (initialTab as SpaceTabId)
       : "charges";
 
   const {
@@ -128,7 +128,6 @@ export function BuildingSpaceTabs({
       debts: [],
       savingsPots: [],
       internalLoans: [],
-      checklist: [],
       chargeProofs: proofsProp,
       categoryBudgets: budgetsProp ?? {},
       expenses: defaultTab === "expenses" ? expenses : [],
@@ -144,7 +143,8 @@ export function BuildingSpaceTabs({
     if (defaultTab === "expenses") return;
     let cancelled = false;
     const run = () => {
-      if (!cancelled) prefetchTab("expenses");
+      if (cancelled) return;
+      prefetchTab("expenses");
     };
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;

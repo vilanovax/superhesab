@@ -101,7 +101,7 @@ const baseExtras = {
 
 /** Shared feature pack for خانه (FAMILY) and legacy PERSONAL. */
 const homeFeatures: TemplateFeatures = {
-  checklist: false,
+  checklist: true,
   settlements: false,
   invites: true,
   incomeExpense: true,
@@ -144,7 +144,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
     defaultInviteRole: "EDITOR",
     maxMembers: 2,
     features: {
-      checklist: false,
+      checklist: true,
       settlements: true,
       invites: true,
       incomeExpense: false,
@@ -181,7 +181,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
     defaultInviteRole: "EDITOR",
     maxMembers: null,
     features: {
-      checklist: false,
+      checklist: true,
       settlements: false,
       invites: true,
       incomeExpense: true,
@@ -205,7 +205,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
     defaultInviteRole: "EDITOR",
     maxMembers: 40,
     features: {
-      checklist: false,
+      checklist: true,
       settlements: false,
       invites: true,
       incomeExpense: false,

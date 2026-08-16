@@ -1,4 +1,3 @@
-import type { ChecklistItemDTO } from "@/app/actions/checklist";
 import type {
   AnnualChargeCalendarDTO,
   BuildingDashboardDTO,
@@ -32,11 +31,9 @@ export type SpaceTabsProps = {
   inviteMembers: InviteMemberRow[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
-  checklist: ChecklistItemDTO[];
   currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
   spaceType?: SpaceType;
-  showChecklist?: boolean;
   canMutate?: boolean;
   personalReportData?: CategoryExpenseRow[];
   reportExpenseLines?: ReportExpenseLine[];

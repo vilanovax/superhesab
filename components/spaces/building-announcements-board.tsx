@@ -85,6 +85,26 @@ function PlusIcon({ className }: { className?: string }) {
   );
 }
 
+function MegaphoneIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M3 11v2a1 1 0 0 0 1 1h1l6 3.5V6.5L5 10H4a1 1 0 0 0-1 1Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 8.5c1.2.6 2 1.9 2 3.5s-.8 2.9-2 3.5M17 6.5c2 1.1 3.3 3.2 3.3 5.5S19 16.4 17 17.5M7.5 15.5v2.2a1.8 1.8 0 0 0 3.2 1.1"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function IconAction({
   label,
   active,
@@ -119,6 +139,7 @@ function IconAction({
 }
 
 function AnnouncementEditor({
+  mode,
   draft,
   onChange,
   onCancel,
@@ -127,6 +148,7 @@ function AnnouncementEditor({
   submitLabel,
   error,
 }: {
+  mode: "create" | "edit";
   draft: Draft;
   onChange: (next: Draft) => void;
   onCancel: () => void;
@@ -138,9 +160,9 @@ function AnnouncementEditor({
   const uid = useId();
   const titleId = `${uid}-title`;
   const bodyId = `${uid}-body`;
-  const pinId = `${uid}-pin`;
-  const canSubmit =
-    draft.title.trim().length >= 3 && draft.body.trim().length >= 5;
+  const titleLen = draft.title.trim().length;
+  const bodyLen = draft.body.trim().length;
+  const canSubmit = titleLen >= 3 && bodyLen >= 5;
 
   useEffect(() => {
     if (!window.matchMedia("(pointer: fine)").matches) return;
@@ -151,82 +173,122 @@ function AnnouncementEditor({
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-2.5 rounded-2xl border border-primary/20 bg-card p-3.5 shadow-sm ring-1 ring-primary/10"
+      className="overflow-hidden rounded-2xl border border-border/55 bg-card shadow-sm"
     >
-      <div className="space-y-1">
-        <label htmlFor={titleId} className="text-label text-muted-foreground">
-          عنوان
-        </label>
-        <Input
-          id={titleId}
-          name="announcementTitle"
-          autoComplete="off"
-          value={draft.title}
-          onChange={(e) => onChange({ ...draft, title: e.target.value })}
-          placeholder="مثلاً قطعی آب فردا…"
-          maxLength={100}
-          className="h-11 rounded-xl"
-          required
-          minLength={3}
-        />
-      </div>
-      <div className="space-y-1">
-        <label htmlFor={bodyId} className="text-label text-muted-foreground">
-          متن
-        </label>
-        <textarea
-          id={bodyId}
-          name="announcementBody"
-          autoComplete="off"
-          value={draft.body}
-          onChange={(e) => onChange({ ...draft, body: e.target.value })}
-          placeholder="متن اعلان برای همه ساکنین…"
-          maxLength={2000}
-          rows={4}
-          required
-          minLength={5}
-          className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </div>
-      <label
-        htmlFor={pinId}
-        className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground"
-      >
-        <input
-          id={pinId}
-          name="pinned"
-          type="checkbox"
-          checked={draft.pinned}
-          onChange={(e) => onChange({ ...draft, pinned: e.target.checked })}
-          className="size-4 rounded border-border"
-        />
-        سنجاق در بالای برد
-      </label>
-      {error ? (
-        <p
-          className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
-          role="alert"
-          aria-live="assertive"
+      <div className="flex items-center gap-2 border-b border-border/40 bg-muted/25 px-3.5 py-2.5">
+        <span
+          aria-hidden
+          className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary"
         >
-          {error}
-        </p>
-      ) : null}
-      <div className="flex gap-2">
+          <MegaphoneIcon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-body-sm font-semibold text-foreground">
+            {mode === "create" ? "اعلان جدید" : "ویرایش اعلان"}
+          </p>
+          <p className="text-micro text-muted-foreground">
+            برای همه ساکنین ساختمان دیده می‌شود
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3 px-3.5 py-3.5">
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <label
+              htmlFor={titleId}
+              className="text-caption font-medium text-foreground"
+            >
+              عنوان
+            </label>
+            <span className="text-micro tabular-nums text-muted-foreground/80">
+              {titleLen.toLocaleString("fa-IR")}/۱۰۰
+            </span>
+          </div>
+          <Input
+            id={titleId}
+            name="announcementTitle"
+            autoComplete="off"
+            value={draft.title}
+            onChange={(e) => onChange({ ...draft, title: e.target.value })}
+            placeholder="مثلاً قطعی آب فردا…"
+            maxLength={100}
+            className="h-11 rounded-xl"
+            required
+            minLength={3}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <label
+              htmlFor={bodyId}
+              className="text-caption font-medium text-foreground"
+            >
+              متن
+            </label>
+            <span className="text-micro tabular-nums text-muted-foreground/80">
+              {bodyLen.toLocaleString("fa-IR")}/۲۰۰۰
+            </span>
+          </div>
+          <textarea
+            id={bodyId}
+            name="announcementBody"
+            autoComplete="off"
+            value={draft.body}
+            onChange={(e) => onChange({ ...draft, body: e.target.value })}
+            placeholder="جزئیات اعلان برای ساکنین…"
+            maxLength={2000}
+            rows={5}
+            required
+            minLength={5}
+            className="w-full resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-body-sm leading-relaxed outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+
+        <button
+          type="button"
+          aria-pressed={draft.pinned}
+          onClick={() => onChange({ ...draft, pinned: !draft.pinned })}
+          className={cn(
+            "inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-caption font-semibold transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            draft.pinned
+              ? "border-primary/35 bg-primary/10 text-primary"
+              : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+          )}
+        >
+          <PinIcon className="size-3.5" />
+          {draft.pinned ? "سنجاق‌شده در بالای برد" : "سنجاق در بالای برد"}
+        </button>
+
+        {error ? (
+          <p
+            className="rounded-xl bg-destructive-soft px-3 py-2 text-caption text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex gap-2 border-t border-border/40 bg-muted/20 p-3">
+        <Button
+          type="submit"
+          className="h-11 flex-[1.35] rounded-xl font-semibold"
+          disabled={pending || !canSubmit}
+        >
+          {pending ? "در حال ذخیره…" : submitLabel}
+        </Button>
         <Button
           type="button"
           variant="outline"
-          className="h-10 flex-1 rounded-xl"
+          className="h-11 flex-1 rounded-xl"
           onClick={onCancel}
           disabled={pending}
         >
           انصراف
-        </Button>
-        <Button
-          type="submit"
-          className="h-10 flex-1 rounded-xl"
-          disabled={pending || !canSubmit}
-        >
-          {pending ? "در حال ذخیره…" : submitLabel}
         </Button>
       </div>
     </form>
@@ -384,39 +446,44 @@ export function BuildingAnnouncementsBoard({
     });
   }
 
+  const showToolbar =
+    canMutate &&
+    !composing &&
+    (activeCount > 0 || showArchived || archivedCount > 0);
+
   return (
     <div className="space-y-3">
-      {canMutate ? (
+      {showToolbar ? (
         <div className="flex items-center justify-between gap-2">
-          <p className="text-caption text-muted-foreground">
+          <p className="min-w-0 truncate text-caption text-muted-foreground">
             {showArchived
               ? archivedCount > 0
                 ? `${archivedCount.toLocaleString("fa-IR")} اعلان بایگانی`
                 : "بایگانی خالی"
-              : activeCount > 0
-                ? `${activeCount.toLocaleString("fa-IR")} اعلان فعال`
-                : "هنوز اعلانی نیست"}
+              : `${activeCount.toLocaleString("fa-IR")} اعلان فعال`}
           </p>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setShowArchived((v) => !v);
-                cancelEdit();
-                setComposing(false);
-              }}
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-caption font-medium transition-colors",
-                showArchived
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border/60 bg-card text-muted-foreground hover:text-foreground",
-              )}
-              aria-pressed={showArchived}
-            >
-              <ArchiveIcon className="size-3.5" />
-              {showArchived ? "فعال‌ها" : "بایگانی"}
-            </button>
-            {!showArchived && !composing ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {(archivedCount > 0 || showArchived) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchived((v) => !v);
+                  cancelEdit();
+                  setComposing(false);
+                }}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-caption font-medium transition-colors",
+                  showArchived
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border/60 bg-card text-muted-foreground hover:text-foreground",
+                )}
+                aria-pressed={showArchived}
+              >
+                <ArchiveIcon className="size-3.5" />
+                {showArchived ? "فعال‌ها" : "بایگانی"}
+              </button>
+            )}
+            {!showArchived && activeCount > 0 ? (
               <Button
                 type="button"
                 className="h-9 rounded-xl px-3 text-caption font-semibold"
@@ -432,6 +499,7 @@ export function BuildingAnnouncementsBoard({
 
       {canMutate && composing ? (
         <AnnouncementEditor
+          mode="create"
           draft={createDraft}
           onChange={setCreateDraft}
           onCancel={() => {
@@ -447,17 +515,23 @@ export function BuildingAnnouncementsBoard({
       ) : null}
 
       {visible.length === 0 && !(canMutate && composing) ? (
-        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-9 text-center">
-          <p className="text-body-sm font-medium text-foreground">
+        <div className="rounded-2xl border border-dashed border-border/55 bg-muted/15 px-4 py-8 text-center">
+          <span
+            aria-hidden
+            className="mx-auto flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+          >
+            <MegaphoneIcon className="size-5" />
+          </span>
+          <p className="mt-3 text-body-sm font-semibold text-foreground">
             {canMutate
               ? showArchived
                 ? "بایگانی خالی است"
-                : "برد اعلان‌ها خالی است"
+                : "هنوز اعلانی نیست"
               : "اعلانی از مدیر ساختمان نیست"}
           </p>
-          <p className="mt-1 text-caption text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-64 text-caption leading-relaxed text-muted-foreground">
             {canMutate && !showArchived
-              ? "اولین خبر مهم ساختمان را برای ساکنین منتشر کنید."
+              ? "خبر مهم ساختمان را برای ساکنین منتشر کنید."
               : showArchived
                 ? "اعلان‌های بایگانی‌شده اینجا دیده می‌شوند."
                 : "وقتی مدیر اعلان بگذارد، اینجا نمایش داده می‌شود."}
@@ -465,7 +539,7 @@ export function BuildingAnnouncementsBoard({
           {canMutate && !showArchived ? (
             <Button
               type="button"
-              className="mt-4 h-10 rounded-xl px-4 text-caption font-semibold"
+              className="mt-4 h-11 rounded-xl px-5 text-caption font-semibold"
               onClick={openCompose}
             >
               <PlusIcon className="size-3.5" />
@@ -473,12 +547,13 @@ export function BuildingAnnouncementsBoard({
             </Button>
           ) : null}
         </div>
-      ) : (
+      ) : composing ? null : (
         <ul className="space-y-2.5">
           {visible.map((a) =>
             editingId === a.id ? (
               <li key={a.id}>
                 <AnnouncementEditor
+                  mode="edit"
                   draft={editDraft}
                   onChange={setEditDraft}
                   onCancel={cancelEdit}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { canEditChecklist } from "@/lib/rbac";
+import { getTemplate } from "@/lib/templates/registry";
 
 export type ChecklistItemDTO = {
   id: string;
@@ -37,10 +38,13 @@ async function assertCanEditChecklist(spaceId: string, userId: string) {
   if (!membership) {
     return { ok: false as const, error: "به این فضا دسترسی ندارید." };
   }
+  if (!getTemplate(membership.space.type).features.checklist) {
+    return { ok: false as const, error: "لیست کار در این قالب فعال نیست." };
+  }
   if (!canEditChecklist(membership.role)) {
     return {
       ok: false as const,
-      error: "نقش ناظر اجازه تغییر چک‌لیست ندارد.",
+      error: "نقش ناظر اجازه تغییر لیست کار ندارد.",
     };
   }
   return { ok: true as const };
@@ -68,6 +72,7 @@ export async function addChecklistItem(
   });
 
   revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/notes`);
   return { ok: true };
 }
 
@@ -93,6 +98,7 @@ export async function toggleChecklistItem(
   });
 
   revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/notes`);
   return { ok: true };
 }
 
@@ -113,5 +119,6 @@ export async function deleteChecklistItem(
 
   await prisma.checklistItem.delete({ where: { id: itemId } });
   revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/notes`);
   return { ok: true };
 }

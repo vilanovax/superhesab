@@ -47,7 +47,6 @@ export async function SpacePageBody({
   const isOwner = myRole === "OWNER";
   const isBuildingShell = features.buildingCharges;
   const isFundShell = Boolean(features.fundRotating);
-  const showChecklist = features.checklist;
 
   /** Eager-load only what the active tab needs; deferred loader owns the rest. */
   const needExpenses = activeTab === "expenses";
@@ -140,7 +139,6 @@ export async function SpacePageBody({
     debts,
     savingsPots,
     internalLoans,
-    checklist,
     chargeProofs,
     categoryBudgets,
   } = deferredTab;
@@ -213,11 +211,9 @@ export async function SpacePageBody({
         inviteMembers={members}
         balances={balanceData.balances}
         suggestions={balanceData.suggestions}
-        checklist={activeTab === "checklist" ? checklist : []}
         currency={space.currency}
         roundUpToThousand={space.roundUpToThousand}
         spaceType={space.type}
-        showChecklist={showChecklist}
         canMutate={canWrite}
         personalReportData={
           activeTab === "report" ? personalReportData : undefined

@@ -35,6 +35,14 @@ const spaceSchema: z.ZodType<BackupSpacePayload> = z.object({
   expenses: z.array(z.any()),
   settlements: z.array(z.any()),
   checklist: z.array(z.any()),
+  spaceNote: z
+    .object({
+      body: z.string(),
+      updatedAt: z.string().min(1),
+    })
+    .nullable()
+    .optional()
+    .default(null),
   debts: z.array(z.any()),
   categoryBudgets: z.array(z.any()),
   recurringRules: z.array(z.any()),
@@ -43,6 +51,26 @@ const spaceSchema: z.ZodType<BackupSpacePayload> = z.object({
   chargePayments: z.array(z.any()),
   buildingSuggestions: z.array(z.any()),
   buildingAnnouncements: z.array(z.any()),
+  buildingContacts: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(80),
+        phone: z.string().min(1).max(40),
+        category: z.enum([
+          "EMERGENCY",
+          "FACILITIES",
+          "CONTRACTOR",
+          "ADMIN",
+          "OTHER",
+        ]),
+        note: z.string().nullable(),
+        sortOrder: z.number().int(),
+        pinned: z.boolean(),
+        visibleToResidents: z.boolean(),
+      }),
+    )
+    .optional()
+    .default([]),
   savingsPots: z.array(z.any()),
   internalLoans: z.array(z.any()),
   fundPlan: z

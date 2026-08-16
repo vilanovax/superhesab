@@ -19,7 +19,6 @@ export const DEFERRED_TABS = new Set<SpaceTabId>([
   "report",
   "debts",
   "funds",
-  "checklist",
   "charges",
   "expenses",
   "units",
@@ -90,7 +89,6 @@ function mergeDeferred(
     savingsPots: next === "funds" ? data.savingsPots : prev.savingsPots,
     internalLoans:
       next === "funds" ? data.internalLoans : prev.internalLoans,
-    checklist: next === "checklist" ? data.checklist : prev.checklist,
     chargeProofs:
       next === "charges" ? data.chargeProofs : prev.chargeProofs,
     expenses: next === "expenses" ? data.expenses : prev.expenses,

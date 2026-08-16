@@ -84,7 +84,7 @@ export function FamilySpaceTabs({
     initialTab === "expenses" ||
     initialTab === "debts" ||
     initialTab === "funds"
-      ? initialTab
+      ? (initialTab as SpaceTabId)
       : "expenses";
 
   const {
@@ -105,7 +105,6 @@ export function FamilySpaceTabs({
       debts: debtsProp,
       savingsPots: potsProp,
       internalLoans: loansProp,
-      checklist: [],
       chargeProofs: [],
       categoryBudgets: budgetsProp ?? {},
       expenses: defaultTab === "expenses" ? expenses : [],
@@ -170,11 +169,13 @@ export function FamilySpaceTabs({
         aria-label="زبانه‌های دفتر"
         className={cn(
           "grid w-full",
-          tabCount >= 4
-            ? "grid-cols-4"
-            : tabCount === 3
-              ? "grid-cols-3"
-              : "grid-cols-2",
+          tabCount >= 5
+            ? "grid-cols-5"
+            : tabCount === 4
+              ? "grid-cols-4"
+              : tabCount === 3
+                ? "grid-cols-3"
+                : "grid-cols-2",
         )}
       >
         <TabsTrigger
@@ -197,7 +198,7 @@ export function FamilySpaceTabs({
             onPointerEnter={() => prefetchTab("debts")}
             onFocus={() => prefetchTab("debts")}
           >
-            بدهی / طلب
+            بدهی
           </TabsTrigger>
         ) : null}
         {showFamilyFunds ? (
@@ -206,7 +207,7 @@ export function FamilySpaceTabs({
             onPointerEnter={() => prefetchTab("funds")}
             onFocus={() => prefetchTab("funds")}
           >
-            صندوق و وام
+            صندوق
           </TabsTrigger>
         ) : null}
       </TabsList>

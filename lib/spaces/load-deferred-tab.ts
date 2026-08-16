@@ -5,7 +5,6 @@ import {
   getBuildingManagerView,
   listChargeProofsForManager,
 } from "@/app/actions/building";
-import { getChecklist } from "@/app/actions/checklist";
 import { listInternalLoans } from "@/app/actions/internalLoan";
 import { listSavingsPots } from "@/app/actions/savingsPot";
 import type { ExpenseCategory } from "@/lib/categorizer";
@@ -138,14 +137,6 @@ export async function loadDeferredTabData(
         ]);
         out.savingsPots = pots;
         out.internalLoans = loans;
-      })(),
-    );
-  }
-
-  if (tab === "checklist" && features.checklist) {
-    tasks.push(
-      (async () => {
-        out.checklist = await getChecklist(spaceId);
       })(),
     );
   }

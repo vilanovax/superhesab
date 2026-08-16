@@ -315,17 +315,35 @@ export default async function SpaceSettingsPage({
         }
       >
         {showBuilding ? (
-          <BuildingSettingsForm
-            spaceId={space.id}
-            initialName={space.name}
-            currency={space.currency}
-            planYear={planYear}
-            baseCharge={buildingPlan?.baseCharge ?? 0}
-            templateLabel={template.label}
-            roleLabel={roleLabel}
-            disabled={!isOwner}
-            error={error}
-          />
+          <>
+            <Link
+              href={`/spaces/${space.id}/contacts`}
+              className="mb-3 flex items-center gap-3 rounded-xl border border-border/50 bg-muted/30 px-3.5 py-3 transition-colors hover:bg-muted/50"
+            >
+              <span className="min-w-0 flex-1 text-start">
+                <span className="block text-body-sm font-semibold text-foreground">
+                  شماره‌های ضروری
+                </span>
+                <span className="mt-0.5 block text-caption text-muted-foreground">
+                  آتش‌نشانی، نگهبانی، پیمانکار و …
+                </span>
+              </span>
+              <span className="text-muted-foreground" aria-hidden>
+                ←
+              </span>
+            </Link>
+            <BuildingSettingsForm
+              spaceId={space.id}
+              initialName={space.name}
+              currency={space.currency}
+              planYear={planYear}
+              baseCharge={buildingPlan?.baseCharge ?? 0}
+              templateLabel={template.label}
+              roleLabel={roleLabel}
+              disabled={!isOwner}
+              error={error}
+            />
+          </>
         ) : isPartnerSpace ? (
           <PartnerSettingsForm
             spaceId={space.id}

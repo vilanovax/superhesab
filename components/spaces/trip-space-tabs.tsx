@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
 import { SpaceBalances } from "@/components/SpaceBalances";
-import { SpaceChecklist } from "@/components/SpaceChecklist";
 import { SpacePanelFallback } from "@/components/spaces/space-panel-fallback";
 import type { SpaceTabsProps } from "@/components/spaces/space-tabs-types";
 import { useDeferredSpaceTabs } from "@/components/spaces/use-deferred-space-tabs";
@@ -14,7 +13,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 
 /** TRIP / PARTNER — settlements tabs only (no BUILDING / FAMILY panel graph). */
 export function TripSpaceTabs({
@@ -28,21 +26,16 @@ export function TripSpaceTabs({
   inviteMembers,
   balances,
   suggestions,
-  checklist: checklistProp,
   currency = "TOMAN",
   roundUpToThousand = false,
   spaceType = "TRIP",
-  showChecklist = true,
   canMutate = true,
   initialTab,
   loadedTabs,
   tabLoadContext,
 }: SpaceTabsProps) {
   const defaultTab: SpaceTabId =
-    initialTab === "balances" ||
-    (initialTab === "checklist" && showChecklist)
-      ? (initialTab as SpaceTabId)
-      : "expenses";
+    initialTab === "balances" ? "balances" : "expenses";
 
   const {
     tab,
@@ -62,7 +55,6 @@ export function TripSpaceTabs({
       debts: [],
       savingsPots: [],
       internalLoans: [],
-      checklist: checklistProp,
       chargeProofs: [],
       categoryBudgets: {},
       expenses: defaultTab === "expenses" ? expenses : [],
@@ -75,17 +67,11 @@ export function TripSpaceTabs({
 
   /** Warm deferred tabs after first paint so switches feel instant. */
   useEffect(() => {
-    const tabsToWarm: SpaceTabId[] = [];
-    if (defaultTab !== "expenses") tabsToWarm.push("expenses");
-    if (showChecklist && defaultTab !== "checklist") {
-      tabsToWarm.push("checklist");
-    }
-    if (tabsToWarm.length === 0) return;
-
+    if (defaultTab === "expenses") return;
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
-      for (const t of tabsToWarm) prefetchTab(t);
+      prefetchTab("expenses");
     };
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -101,20 +87,16 @@ export function TripSpaceTabs({
       }
       if (timeoutId != null) clearTimeout(timeoutId);
     };
-  }, [defaultTab, prefetchTab, showChecklist]);
+  }, [defaultTab, prefetchTab]);
 
-  const tabCount = showChecklist ? 3 : 2;
   const isPartner = spaceType === "PARTNER";
 
-  // Prefer RSC expenses when this paint SSR'd the expenses tab — survives
-  // router.refresh() after create without mirroring props into client state.
   const ssrOwnsExpenses =
     defaultTab === "expenses" || Boolean(loadedTabs?.includes("expenses"));
   const liveExpenses = ssrOwnsExpenses ? expenses : deferred.expenses;
   const liveExpensesHasMore = ssrOwnsExpenses
     ? expensesHasMore
     : deferred.expensesHasMore;
-  /** Skeleton only while a real switch is in flight — idle prefetch stays silent. */
   const expensesWaiting =
     tab === "expenses" && !loaded.has("expenses") && tabBusy;
 
@@ -127,10 +109,7 @@ export function TripSpaceTabs({
     >
       <TabsList
         aria-label="زبانه‌های دفتر"
-        className={cn(
-          "grid w-full",
-          tabCount === 3 ? "grid-cols-3" : "grid-cols-2",
-        )}
+        className="grid w-full grid-cols-2"
       >
         <TabsTrigger
           value="expenses"
@@ -146,15 +125,6 @@ export function TripSpaceTabs({
         >
           تراز
         </TabsTrigger>
-        {showChecklist ? (
-          <TabsTrigger
-            value="checklist"
-            onPointerEnter={() => prefetchTab("checklist")}
-            onFocus={() => prefetchTab("checklist")}
-          >
-            چک‌لیست
-          </TabsTrigger>
-        ) : null}
       </TabsList>
 
       <TabsContent value="expenses" className="mt-3">
@@ -190,19 +160,6 @@ export function TripSpaceTabs({
           canMutate={canMutate}
         />
       </TabsContent>
-      {showChecklist ? (
-        <TabsContent value="checklist" className="mt-3">
-          {tabBusy && tab === "checklist" ? (
-            <SpacePanelFallback rows={3} />
-          ) : (
-            <SpaceChecklist
-              spaceId={spaceId}
-              items={deferred.checklist}
-              canMutate={canMutate}
-            />
-          )}
-        </TabsContent>
-      ) : null}
     </Tabs>
   );
 }

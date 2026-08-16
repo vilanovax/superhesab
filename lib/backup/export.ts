@@ -41,6 +41,7 @@ const spaceBackupInclude = {
   },
   settlements: { orderBy: { createdAt: "asc" as const } },
   checklist: { orderBy: { createdAt: "asc" as const } },
+  note: true,
   debts: {
     include: { payments: { orderBy: { date: "asc" as const } } },
     orderBy: { createdAt: "asc" as const },
@@ -55,6 +56,7 @@ const spaceBackupInclude = {
   chargePlans: { orderBy: { year: "asc" as const } },
   buildingSuggestions: { orderBy: { createdAt: "asc" as const } },
   buildingAnnouncements: { orderBy: { createdAt: "asc" as const } },
+  buildingContacts: { orderBy: { sortOrder: "asc" as const } },
   savingsPots: {
     include: {
       transactions: { orderBy: { date: "asc" as const } },
@@ -158,6 +160,12 @@ export function serializeSpace(
       isCompleted: c.isCompleted,
       createdAt: isoReq(c.createdAt),
     })),
+    spaceNote: space.note
+      ? {
+          body: space.note.body,
+          updatedAt: isoReq(space.note.updatedAt),
+        }
+      : null,
     debts: space.debts.map((d) => ({
       originalId: d.id,
       type: d.type,
@@ -196,6 +204,7 @@ export function serializeSpace(
       originalId: u.id,
       name: u.name,
       area: u.area,
+      phone: u.phone,
       multiplier: u.multiplier,
       isActive: u.isActive,
       linkedOriginalUserId: u.linkedUserId,
@@ -237,6 +246,15 @@ export function serializeSpace(
       pinned: a.pinned,
       archivedAt: iso(a.archivedAt),
       createdAt: isoReq(a.createdAt),
+    })),
+    buildingContacts: space.buildingContacts.map((c) => ({
+      title: c.title,
+      phone: c.phone,
+      category: c.category,
+      note: c.note,
+      sortOrder: c.sortOrder,
+      pinned: c.pinned,
+      visibleToResidents: c.visibleToResidents,
     })),
     savingsPots: space.savingsPots.map((pot) => ({
       originalId: pot.id,

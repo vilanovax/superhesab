@@ -417,12 +417,15 @@ function SwipeToEditRow({
 function UnitFormFields({
   nameId,
   areaId,
+  phoneId,
   multId,
   name,
   area,
+  phone,
   mult,
   onName,
   onArea,
+  onPhone,
   onMult,
   baseCharge,
   currency,
@@ -430,12 +433,15 @@ function UnitFormFields({
 }: {
   nameId: string;
   areaId: string;
+  phoneId: string;
   multId: string;
   name: string;
   area: string;
+  phone: string;
   mult: string;
   onName: (v: string) => void;
   onArea: (v: string) => void;
+  onPhone: (v: string) => void;
   onMult: (v: string) => void;
   baseCharge: number;
   currency: SpaceCurrency;
@@ -445,105 +451,149 @@ function UnitFormFields({
   const preview = chargePreview(multNum);
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border/55 bg-card p-3">
-      <div className="space-y-1.5">
-        <label htmlFor={nameId} className="text-label text-muted-foreground">
-          نام / شماره
-        </label>
-        <Input
-          id={nameId}
-          name="unitName"
-          autoComplete="off"
-          spellCheck={false}
-          value={name}
-          onChange={(e) => onName(e.target.value)}
-          placeholder="مثلاً ۱ یا شرقی…"
-          className="h-11 rounded-xl border-border/70 bg-sheet-muted"
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-3">
+      <div className="space-y-3 rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm">
         <div className="space-y-1.5">
-          <label htmlFor={areaId} className="text-label text-muted-foreground">
-            متراژ (م²)
+          <label htmlFor={nameId} className="text-label text-muted-foreground">
+            نام / شماره واحد
           </label>
           <Input
-            id={areaId}
-            name="area"
+            id={nameId}
+            name="unitName"
             autoComplete="off"
-            type="text"
-            inputMode="numeric"
-            value={area}
-            onChange={(e) => onArea(e.target.value.replace(/[^\d]/g, ""))}
-            placeholder="اختیاری"
-            className="h-11 rounded-xl border-border/70 bg-sheet-muted tabular-nums"
+            spellCheck={false}
+            value={name}
+            onChange={(e) => onName(e.target.value)}
+            placeholder="مثلاً ۱ یا شرقی…"
+            className="h-11 rounded-xl border-border/70 bg-sheet-muted"
+            required
           />
         </div>
-        <div className="space-y-1.5">
-          <label htmlFor={multId} className="text-label text-muted-foreground">
-            ضریب
-          </label>
-          <Input
-            id={multId}
-            name="multiplier"
-            autoComplete="off"
-            type="text"
-            inputMode="numeric"
-            value={mult}
-            onChange={(e) => onMult(e.target.value.replace(/[^\d]/g, ""))}
-            placeholder="۱۰۰۰"
-            className="h-11 rounded-xl border-border/70 bg-sheet-muted tabular-nums"
-          />
-        </div>
-      </div>
 
-      <div
-        role="group"
-        aria-label="پیش‌فرض ضریب"
-        className="flex flex-wrap gap-1.5"
-      >
-        {MULT_PRESETS.map((p) => {
-          const on = multNum === p.value;
-          return (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => onMult(String(p.value))}
-              className={cn(
-                "inline-flex h-8 items-center rounded-full px-2.5 text-caption font-semibold transition-colors",
-                on
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/80 text-muted-foreground hover:text-foreground",
-              )}
+        <div className="space-y-1.5">
+          <label htmlFor={phoneId} className="text-label text-muted-foreground">
+            تلفن / موبایل
+            <span className="ms-1 font-normal text-muted-foreground/70">
+              (اختیاری)
+            </span>
+          </label>
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-border/70 bg-sheet-muted px-3 focus-within:border-ring focus-within:ring-2 focus-within:ring-primary/35">
+            <svg
+              viewBox="0 0 24 24"
+              className="size-4 shrink-0 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
             >
-              {p.label}
-              <span className="ms-1 tabular-nums opacity-70">
-                {faDigits(p.value)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {baseCharge > 0 ? (
-        <div className="rounded-xl bg-primary/8 px-3 py-2.5 ring-1 ring-primary/15">
-          <p className="text-micro font-medium text-muted-foreground">
-            شارژ ماهانه این واحد
-          </p>
-          <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
-            {formatCurrency(preview, currency)}
-          </p>
-          <p className="mt-0.5 text-micro text-muted-foreground">
-            پایه {formatCurrency(baseCharge, currency)} ×{" "}
-            {faDigits(multNum)}⁄۱۰۰۰
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            <input
+              id={phoneId}
+              name="unitPhone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              dir="ltr"
+              value={phone}
+              onChange={(e) => onPhone(e.target.value)}
+              placeholder="09… یا 021…"
+              maxLength={40}
+              className="min-w-0 flex-1 bg-transparent text-start font-mono text-body-sm tabular-nums tracking-wide outline-none placeholder:font-sans placeholder:tracking-normal"
+            />
+          </div>
+          <p className="text-micro text-muted-foreground">
+            برای تماس سریع مدیر — جدا از حساب ساکن در اپ
           </p>
         </div>
-      ) : (
-        <p className="text-micro text-muted-foreground">
-          ۱۰۰۰ = شارژ کامل پایه — ابتدا پایه را در تنظیمات تعریف کنید
-        </p>
-      )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="space-y-1.5">
+            <label htmlFor={areaId} className="text-label text-muted-foreground">
+              متراژ (م²)
+            </label>
+            <Input
+              id={areaId}
+              name="area"
+              autoComplete="off"
+              type="text"
+              inputMode="numeric"
+              value={area}
+              onChange={(e) => onArea(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="اختیاری"
+              className="h-11 rounded-xl border-border/70 bg-sheet-muted tabular-nums"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor={multId} className="text-label text-muted-foreground">
+              ضریب
+            </label>
+            <Input
+              id={multId}
+              name="multiplier"
+              autoComplete="off"
+              type="text"
+              inputMode="numeric"
+              value={mult}
+              onChange={(e) => onMult(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="۱۰۰۰"
+              className="h-11 rounded-xl border-border/70 bg-sheet-muted tabular-nums"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2.5 rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm">
+        <p className="text-caption font-semibold text-foreground">ضریب شارژ</p>
+        <div
+          role="group"
+          aria-label="پیش‌فرض ضریب"
+          className="flex flex-wrap gap-1.5"
+        >
+          {MULT_PRESETS.map((p) => {
+            const on = multNum === p.value;
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => onMult(String(p.value))}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-full px-2.5 text-caption font-semibold transition-colors active:scale-[0.97]",
+                  on
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/80 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {p.label}
+                <span className="ms-1 tabular-nums opacity-70">
+                  {faDigits(p.value)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {baseCharge > 0 ? (
+          <div className="rounded-xl bg-primary/8 px-3 py-2.5 ring-1 ring-primary/15">
+            <p className="text-micro font-medium text-muted-foreground">
+              شارژ ماهانه این واحد
+            </p>
+            <p className="mt-0.5 text-body font-bold tabular-nums text-foreground">
+              {formatCurrency(preview, currency)}
+            </p>
+            <p className="mt-0.5 text-micro text-muted-foreground">
+              پایه {formatCurrency(baseCharge, currency)} ×{" "}
+              {faDigits(multNum)}⁄۱۰۰۰
+            </p>
+          </div>
+        ) : (
+          <p className="text-micro text-muted-foreground">
+            ۱۰۰۰ = شارژ کامل پایه — ابتدا پایه را در تنظیمات تعریف کنید
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -560,11 +610,13 @@ export function BuildingUnitsPanel({
   const [units, setUnits] = useState(initialUnits);
   const [unitName, setUnitName] = useState("");
   const [unitArea, setUnitArea] = useState("");
+  const [unitPhone, setUnitPhone] = useState("");
   const [unitMult, setUnitMult] = useState("1000");
   const [addOpen, setAddOpen] = useState(false);
   const [editUnit, setEditUnit] = useState<BuildingUnitRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editArea, setEditArea] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editMult, setEditMult] = useState("1000");
   const [editActive, setEditActive] = useState(true);
   /** Action sheet for ⋯ — Drawer avoids overflow clipping on cards. */
@@ -711,6 +763,7 @@ export function BuildingUnitsPanel({
     setEditUnit(unit);
     setEditName(unit.name);
     setEditArea(unit.area != null ? String(unit.area) : "");
+    setEditPhone(unit.phone ?? "");
     setEditMult(String(unit.multiplier));
     setEditActive(unit.isActive);
   }
@@ -725,6 +778,7 @@ export function BuildingUnitsPanel({
   function resetAddForm() {
     setUnitName("");
     setUnitArea("");
+    setUnitPhone("");
     setUnitMult("1000");
     setFormError(null);
   }
@@ -741,10 +795,12 @@ export function BuildingUnitsPanel({
     }
     startTransition(async () => {
       const areaRaw = unitArea.trim();
+      const phoneRaw = unitPhone.trim();
       const result = await createUnit({
         spaceId,
         name,
         area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
+        phone: phoneRaw || null,
         multiplier: Math.trunc(Number(unitMult)) || 1000,
       });
       if (!result.ok) {
@@ -771,10 +827,12 @@ export function BuildingUnitsPanel({
       return;
     }
     const areaRaw = editArea.trim();
+    const phoneRaw = editPhone.trim();
     const next: BuildingUnitRow = {
       ...editUnit,
       name,
       area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
+      phone: phoneRaw || null,
       multiplier: Math.trunc(Number(editMult)) || 1000,
       isActive: editActive,
     };
@@ -784,6 +842,7 @@ export function BuildingUnitsPanel({
         unitId: next.id,
         name: next.name,
         area: next.area,
+        phone: next.phone,
         multiplier: next.multiplier,
         isActive: next.isActive,
       });
@@ -995,6 +1054,12 @@ export function BuildingUnitsPanel({
                           ) : null}
                         </span>
                         <span className="mt-0.5 block text-caption tabular-nums text-muted-foreground">
+                          {u.phone ? (
+                            <span dir="ltr" className="me-1 inline-block font-mono tracking-wide">
+                              {u.phone}
+                            </span>
+                          ) : null}
+                          {u.phone ? " · " : null}
                           {claimed && u.linkedUserName
                             ? `${u.linkedUserName} · `
                             : null}
@@ -1076,7 +1141,7 @@ export function BuildingUnitsPanel({
               <SheetAction
                 icon={<PencilIcon className="size-4" />}
                 label="ویرایش واحد"
-                hint="نام، متراژ و ضریب"
+                hint="نام، تماس، متراژ و ضریب"
                 disabled={pending || !menuUnit}
                 onClick={() => menuUnit && openEdit(menuUnit)}
               />
@@ -1107,7 +1172,7 @@ export function BuildingUnitsPanel({
                 واحد جدید
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                نام، متراژ و ضریب شارژ
+                نام، تماس، متراژ و ضریب شارژ
               </DrawerDescription>
             </DrawerHeader>
           </div>
@@ -1119,12 +1184,15 @@ export function BuildingUnitsPanel({
               <UnitFormFields
                 nameId="unit-add-name"
                 areaId="unit-add-area"
+                phoneId="unit-add-phone"
                 multId="unit-add-mult"
                 name={unitName}
                 area={unitArea}
+                phone={unitPhone}
                 mult={unitMult}
                 onName={setUnitName}
                 onArea={setUnitArea}
+                onPhone={setUnitPhone}
                 onMult={setUnitMult}
                 baseCharge={baseCharge}
                 currency={currency}
@@ -1183,7 +1251,7 @@ export function BuildingUnitsPanel({
               </DrawerTitle>
               <DrawerDescription asChild>
                 <div className="mt-1 space-y-0.5 text-caption text-on-hero/70">
-                  <p>نام، متراژ و ضریب شارژ</p>
+                  <p>نام، تماس، متراژ و ضریب شارژ</p>
                   {editUnit?.linkedUserName ? (
                     <p>ساکن: {editUnit.linkedUserName}</p>
                   ) : (
@@ -1201,10 +1269,10 @@ export function BuildingUnitsPanel({
               {editUnit ? (
                 <div
                   className={cn(
-                    "flex items-center justify-between gap-2 rounded-2xl border px-3.5 py-2.5",
+                    "flex items-center justify-between gap-2 rounded-2xl border px-3.5 py-3 shadow-sm",
                     editUnit.linkedUserId
                       ? "border-success/25 bg-success-soft/40"
-                      : "border-border/45 bg-muted/40",
+                      : "border-border/45 bg-card",
                   )}
                 >
                   <div className="min-w-0">
@@ -1223,7 +1291,7 @@ export function BuildingUnitsPanel({
                     <Button
                       type="button"
                       size="sm"
-                      className="h-9 shrink-0 rounded-xl px-3 text-caption text-primary-foreground"
+                      className="h-9 shrink-0 gap-1 rounded-xl px-3 text-caption text-primary-foreground"
                       disabled={pending}
                       onClick={() => copyInvite(editUnit)}
                     >
@@ -1237,33 +1305,42 @@ export function BuildingUnitsPanel({
               <UnitFormFields
                 nameId="unit-edit-name"
                 areaId="unit-edit-area"
+                phoneId="unit-edit-phone"
                 multId="unit-edit-mult"
                 name={editName}
                 area={editArea}
+                phone={editPhone}
                 mult={editMult}
                 onName={setEditName}
                 onArea={setEditArea}
+                onPhone={setEditPhone}
                 onMult={setEditMult}
                 baseCharge={baseCharge}
                 currency={currency}
                 chargePreview={chargePreview}
               />
 
-              <div className="rounded-2xl border border-border/55 bg-card p-3">
-                <p className="text-label text-muted-foreground">وضعیت واحد</p>
+              <div className="rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm">
+                <p className="text-caption font-semibold text-foreground">
+                  وضعیت واحد
+                </p>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={editActive}
                   onClick={() => setEditActive((v) => !v)}
                   className={cn(
-                    "mt-2 flex h-12 w-full items-center justify-between rounded-xl px-3.5 text-body-sm font-semibold transition-colors",
+                    "mt-2.5 flex h-12 w-full items-center justify-between rounded-xl px-3.5 text-body-sm font-semibold transition-colors active:scale-[0.99]",
                     editActive
                       ? "bg-success-soft text-success ring-1 ring-success/25"
                       : "bg-muted/70 text-muted-foreground ring-1 ring-border/50",
                   )}
                 >
-                  <span>{editActive ? "فعال — در وصول دیده می‌شود" : "غیرفعال — از وصول مخفی"}</span>
+                  <span>
+                    {editActive
+                      ? "فعال — در وصول دیده می‌شود"
+                      : "غیرفعال — از وصول مخفی"}
+                  </span>
                   <span
                     className={cn(
                       "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors",
@@ -1274,7 +1351,9 @@ export function BuildingUnitsPanel({
                     <span
                       className={cn(
                         "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-[inset-inline-start]",
-                        editActive ? "inset-inline-start-5" : "inset-inline-start-0.5",
+                        editActive
+                          ? "inset-inline-start-5"
+                          : "inset-inline-start-0.5",
                       )}
                     />
                   </span>

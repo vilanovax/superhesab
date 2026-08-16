@@ -172,6 +172,7 @@ type BuildingChargeBundle = {
     id: string;
     name: string;
     area: number | null;
+    phone: string | null;
     multiplier: number;
     isActive: boolean;
     inviteToken: string;
@@ -335,6 +336,7 @@ function mapUnitRows(bundle: BuildingChargeBundle): BuildingUnitRow[] {
     id: u.id,
     name: u.name,
     area: u.area,
+    phone: u.phone,
     multiplier: u.multiplier,
     isActive: u.isActive,
     inviteToken: u.inviteToken,
@@ -457,6 +459,7 @@ export async function createUnit(
         spaceId: parsed.data.spaceId,
         name: parsed.data.name,
         area: parsed.data.area ?? null,
+        phone: parsed.data.phone?.trim() || null,
         multiplier: parsed.data.multiplier ?? 1000,
         isActive: true,
       },
@@ -491,6 +494,7 @@ export async function updateUnit(
     data: {
       name: parsed.data.name,
       area: parsed.data.area ?? null,
+      phone: parsed.data.phone?.trim() || null,
       multiplier: parsed.data.multiplier,
       isActive: parsed.data.isActive,
     },
@@ -502,6 +506,44 @@ export async function updateUnit(
   revalidatePath(`/spaces/${parsed.data.spaceId}`);
   revalidatePath(`/spaces/${parsed.data.spaceId}/settings`);
   return { ok: true, id: parsed.data.unitId };
+}
+
+/**
+ * Persist the hero year chip as the space's default plan year so leaving and
+ * re-opening the building (without `?year=`) keeps the same fiscal year.
+ * OWNER / EDITOR only — viewers may still browse via URL without writing.
+ */
+export async function rememberBuildingPlanYear(input: {
+  spaceId: string;
+  year: number;
+}): Promise<BuildingActionResult> {
+  const year = Math.trunc(input.year);
+  if (!Number.isFinite(year) || year < 1390 || year > 1500) {
+    return { ok: false, error: "سال مالی نامعتبر است." };
+  }
+  const session = await requireUser();
+  const access = await assertBuilding(input.spaceId, session.userId, {
+    needMutate: true,
+  });
+  if (!access.ok) return access;
+
+  const current = await prisma.space.findUnique({
+    where: { id: input.spaceId },
+    select: { defaultPlanYear: true },
+  });
+  if (current?.defaultPlanYear === year) {
+    return { ok: true };
+  }
+
+  await prisma.space.update({
+    where: { id: input.spaceId },
+    data: { defaultPlanYear: year },
+  });
+
+  revalidatePath(`/spaces/${input.spaceId}`);
+  revalidatePath(`/spaces/${input.spaceId}/settings`);
+  revalidatePath(`/spaces/${input.spaceId}/resident`);
+  return { ok: true };
 }
 
 export async function upsertChargePlan(
@@ -651,6 +693,8 @@ export type BuildingUnitRow = {
   id: string;
   name: string;
   area: number | null;
+  /** Optional unit contact phone / mobile. */
+  phone: string | null;
   multiplier: number;
   isActive: boolean;
   inviteToken: string;

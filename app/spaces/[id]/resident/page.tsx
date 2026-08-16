@@ -7,6 +7,7 @@ import {
   listMyBuildingSuggestions,
   listMyChargeProofs,
 } from "@/app/actions/building";
+import { listBuildingContacts } from "@/app/actions/building-contacts";
 import { ResidentPortal } from "@/components/spaces/resident-portal";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
@@ -36,13 +37,14 @@ export default async function ResidentPortalPage({
     notFound();
   }
 
-  const [data, suggestions, announcements, notifications, chargeProofs] =
+  const [data, suggestions, announcements, notifications, chargeProofs, contacts] =
     await Promise.all([
       getResidentPortalData(id),
       listMyBuildingSuggestions(id),
       listBuildingAnnouncements(id),
       listMyBuildingNotifications(id),
       listMyChargeProofs(id),
+      listBuildingContacts(id),
     ]);
 
   if (!data) {
@@ -92,6 +94,7 @@ export default async function ResidentPortalPage({
         announcements={announcements}
         notifications={notifications}
         chargeProofs={chargeProofs}
+        contacts={contacts}
       />
     </main>
   );

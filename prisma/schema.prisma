@@ -128,6 +128,7 @@ model User {
   fundProofsUploaded    FundPaymentProof[]     @relation("FundProofUploadedBy")
   fundProofsReviewed    FundPaymentProof[]     @relation("FundProofReviewedBy")
   categoryPoliciesOwned SpaceCategoryPolicy[]  @relation("CategoryPolicyOwner")
+  spaceNotesUpdated     SpaceNote[]            @relation("SpaceNoteUpdatedBy")
   adminAuditEvents      AdminAuditEvent[]      @relation("AdminAuditActor")
   featureFlagsUpdated   FeatureFlag[]          @relation("FeatureFlagUpdatedBy")
 
@@ -196,6 +197,7 @@ model Space {
   expenses     Expense[]
   settlements  Settlement[]
   checklist    ChecklistItem[]
+  note         SpaceNote?
   debts        Debt[]
   categoryBudgets CategoryBudget[]
   recurringRules  RecurringRule[]
@@ -204,6 +206,7 @@ model Space {
   buildingSuggestions BuildingSuggestion[]
   buildingAnnouncements BuildingAnnouncement[]
   buildingNotifications BuildingNotification[]
+  buildingContacts    BuildingContact[]
   savingsPots         SavingsPot[]
   internalLoans       InternalLoan[]
   fundPlan            FundPlan?
@@ -344,6 +347,22 @@ model ChecklistItem {
 
   @@index([spaceId])
   @@index([createdAt])
+}
+
+/// Freeform shared note pad for a Space (one row per space). Isolated from money.
+model SpaceNote {
+  id          String   @id @default(cuid())
+  spaceId     String   @unique
+  /// Plain text body — empty string when unused
+  body        String   @default("")
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space     Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation("SpaceNoteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
 }
 
 /// Personal lend/borrow ledger — isolated from Expense & Settlement (see debt-module-prd).
@@ -497,6 +516,8 @@ model Unit {
   name       String
   /// Optional area in whole square meters
   area       Int?
+  /// Optional contact phone / mobile for the unit (manager notes; not auth).
+  phone      String?
   /// Charge coefficient in thousandths (1000 = 1.0×). Never Float.
   multiplier Int      @default(1000)
   isActive   Boolean  @default(true)
@@ -715,6 +736,40 @@ model BuildingAnnouncement {
   @@index([spaceId, pinned])
   @@index([authorId])
   @@index([createdAt])
+}
+
+/// BUILDING: structured essential contacts directory (manager CRUD; resident-visible opt-in).
+enum BuildingContactCategory {
+  EMERGENCY
+  FACILITIES
+  CONTRACTOR
+  ADMIN
+  OTHER
+}
+
+model BuildingContact {
+  id                 String                  @id @default(cuid())
+  spaceId            String
+  /// Display label (e.g. «آتش‌نشانی»، «آسانسور»)
+  title              String
+  phone              String
+  category           BuildingContactCategory @default(OTHER)
+  /// Optional one-line note
+  note               String?
+  /// Lower = earlier in list (after pinned).
+  sortOrder          Int                     @default(0)
+  pinned             Boolean                 @default(false)
+  /// When true, VIEWER/residents can see this contact.
+  visibleToResidents Boolean                 @default(false)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId])
+  @@index([spaceId, sortOrder])
+  @@index([spaceId, pinned])
+  @@index([spaceId, visibleToResidents])
 }
 
 /// BUILDING B2B2C: in-app inbox for linked residents (phase 27).

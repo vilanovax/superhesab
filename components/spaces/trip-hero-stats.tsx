@@ -18,7 +18,7 @@ type TripHeroStatsProps = {
 };
 
 /**
- * Trip hero KPIs: slim on هزینه‌ها / چک‌لیست; full 2-up on تراز.
+ * Trip hero KPIs: slim on هزینه‌ها; full 2-up on تراز.
  * Listens to `superhesab:space-tab` so client tab switches update instantly.
  */
 export function TripHeroStats({
@@ -40,8 +40,8 @@ export function TripHeroStats({
     return () => window.removeEventListener("superhesab:space-tab", onTab);
   }, []);
 
-  /** Checklist: max list space. Expenses: slim KPI + members. Balances: full 2-up. */
-  const compact = tab === "expenses" || tab === "checklist";
+  /** Expenses: slim KPI + members. Balances: full 2-up. */
+  const compact = tab === "expenses";
   const showMembers =
     (tab === "balances" || tab === "expenses") && Boolean(membersSlot);
   const zeroBalanceLabel =

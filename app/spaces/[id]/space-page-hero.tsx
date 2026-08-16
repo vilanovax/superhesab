@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { BuildingBoardNavButton } from "@/components/spaces/building-board-nav-button";
+import { BuildingContactsNavButton } from "@/components/spaces/building-contacts-nav-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { BuildingMonthHero } from "@/components/spaces/building-dashboard";
 import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
 import { PartnerHeroStats } from "@/components/spaces/partner-hero-stats";
+import { SpaceNotesNavButton } from "@/components/spaces/space-notes-nav-button";
 import { TripHeroStats } from "@/components/spaces/trip-hero-stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -158,6 +160,12 @@ function SpacePageHeroChrome({
               <HeroBoardButton spaceId={spaceId} ctxPromise={ctxPromise} />
             </Suspense>
           ) : null}
+          {isBuildingShell ? (
+            <BuildingContactsNavButton spaceId={spaceId} />
+          ) : null}
+          {features.checklist ? (
+            <SpaceNotesNavButton spaceId={spaceId} />
+          ) : null}
           <Button
             asChild
             variant="outline"
@@ -179,6 +187,9 @@ function SpacePageHeroChrome({
             <Suspense fallback={<ChromeIconFallback />}>
               <HeroShareButton spaceId={spaceId} ctxPromise={ctxPromise} />
             </Suspense>
+          ) : null}
+          {features.checklist ? (
+            <SpaceNotesNavButton spaceId={spaceId} />
           ) : null}
           <Button
             asChild
@@ -407,6 +418,7 @@ async function SpacePageHeroCard({
               currency={space.currency}
               settingsHref={`/spaces/${space.id}/settings`}
               isOwner={isOwner}
+              canRememberYear={myRole === "OWNER" || myRole === "EDITOR"}
               // Full وصول KPIs on شارژ (building «تراز»); slim elsewhere.
               compactStats={activeTab !== "charges"}
               yearNavTab={

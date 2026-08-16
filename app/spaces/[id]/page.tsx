@@ -43,9 +43,12 @@ export default async function SpacePage({ params, searchParams }: SpacePageProps
     redirect(`/spaces/${id}/member`);
   }
 
-  // Board moved out of the tab bar → dedicated route.
+  // Board / notes moved out of the tab bar → dedicated routes.
   if (sp.tab === "suggestions") {
     redirect(`/spaces/${id}/board`);
+  }
+  if (sp.tab === "checklist" && features.checklist) {
+    redirect(`/spaces/${id}/notes`);
   }
 
   if (features.recurring) {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
+import { BuildingYearNav } from "@/components/spaces/building-year-nav";
 import { formatJalaliYear } from "@/lib/building";
 import { currencyLabel, formatMoney, type SpaceCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,8 @@ type BuildingMonthHeroProps = {
   currency: SpaceCurrency;
   settingsHref: string;
   isOwner: boolean;
+  /** OWNER/EDITOR: persist year chip as Space.defaultPlanYear */
+  canRememberYear?: boolean;
   /** OWNER: invite / manage co-managers */
   managersAction?: ReactNode;
   /** Preserve active tab when changing year in the hero chip. */
@@ -36,6 +39,7 @@ export function BuildingMonthHero({
   currency,
   settingsHref,
   isOwner,
+  canRememberYear = false,
   managersAction,
   yearNavTab = "charges",
   compactStats = false,
@@ -49,7 +53,6 @@ export function BuildingMonthHero({
   const year = dashboard?.year;
   const collectPct =
     expected > 0 ? Math.min(100, Math.round((collected * 100) / expected)) : 0;
-  const yearTab = yearNavTab;
 
   return (
     <div className="space-y-3">
@@ -71,25 +74,13 @@ export function BuildingMonthHero({
         <div className="flex shrink-0 items-center gap-1.5">
           {managersAction}
           {year != null ? (
-            <div className="flex items-center gap-1 rounded-full bg-on-hero/10 p-0.5 ring-1 ring-on-hero/15">
-              <Link
-                href={`/spaces/${spaceId}?year=${year - 1}&tab=${yearTab}`}
-                className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
-                aria-label="سال قبل"
-              >
-                ‹
-              </Link>
-              <span className="min-w-[2.75rem] text-center text-caption font-bold tabular-nums text-on-hero">
-                {formatJalaliYear(year)}
-              </span>
-              <Link
-                href={`/spaces/${spaceId}?year=${year + 1}&tab=${yearTab}`}
-                className="rounded-full px-2 py-1 text-micro font-semibold text-on-hero/65 hover:bg-on-hero/10 hover:text-on-hero"
-                aria-label="سال بعد"
-              >
-                ›
-              </Link>
-            </div>
+            <BuildingYearNav
+              spaceId={spaceId}
+              year={year}
+              tab={yearNavTab}
+              canRemember={canRememberYear}
+              tone="hero"
+            />
           ) : null}
         </div>
       </div>

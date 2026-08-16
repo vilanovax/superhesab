@@ -11,6 +11,13 @@ export const createUnitSchema = z.object({
   spaceId: z.string().min(1, { error: "فضا نامعتبر است." }),
   name: z.string().trim().min(1, { error: "نام واحد الزامی است." }).max(40),
   area: z.number().int().positive().nullable().optional(),
+  /** Optional unit contact phone / mobile (not auth). */
+  phone: z
+    .string()
+    .trim()
+    .max(40, { error: "شماره حداکثر ۴۰ کاراکتر است." })
+    .nullable()
+    .optional(),
   /** Thousandths; 1000 = 1.0× */
   multiplier: z.number().int().min(1).max(100_000).default(1000),
 });
@@ -20,6 +27,12 @@ export const updateUnitSchema = z.object({
   unitId: z.string().min(1),
   name: z.string().trim().min(1).max(40),
   area: z.number().int().positive().nullable().optional(),
+  phone: z
+    .string()
+    .trim()
+    .max(40, { error: "شماره حداکثر ۴۰ کاراکتر است." })
+    .nullable()
+    .optional(),
   multiplier: z.number().int().min(1).max(100_000),
   isActive: z.boolean(),
 });
@@ -165,3 +178,74 @@ export type ConfirmChargeProofUploadInput = z.infer<
   typeof confirmChargeProofUploadSchema
 >;
 export type ReviewChargeProofInput = z.infer<typeof reviewChargeProofSchema>;
+
+const contactCategory = z.enum(
+  ["EMERGENCY", "FACILITIES", "CONTRACTOR", "ADMIN", "OTHER"],
+  { error: "دسته تماس نامعتبر است." },
+);
+
+const contactPhone = z
+  .string()
+  .trim()
+  .min(3, { error: "شماره تماس کوتاه است." })
+  .max(40, { error: "شماره تماس حداکثر ۴۰ کاراکتر است." })
+  .refine((v) => /[\d۰-۹]/.test(v), {
+    error: "شماره تماس باید شامل رقم باشد.",
+  });
+
+export const createBuildingContactSchema = z.object({
+  spaceId: z.string().min(1),
+  title: z
+    .string()
+    .trim()
+    .min(2, { error: "عنوان حداقل ۲ حرف باشد." })
+    .max(80, { error: "عنوان حداکثر ۸۰ حرف است." }),
+  phone: contactPhone,
+  category: contactCategory.optional().default("OTHER"),
+  note: z
+    .string()
+    .trim()
+    .max(200, { error: "یادداشت حداکثر ۲۰۰ حرف است." })
+    .optional()
+    .nullable(),
+  pinned: z.boolean().optional().default(false),
+  visibleToResidents: z.boolean().optional().default(false),
+});
+
+export const updateBuildingContactSchema = z.object({
+  spaceId: z.string().min(1),
+  contactId: z.string().min(1),
+  title: z.string().trim().min(2).max(80).optional(),
+  phone: contactPhone.optional(),
+  category: contactCategory.optional(),
+  note: z.string().trim().max(200).optional().nullable(),
+  pinned: z.boolean().optional(),
+  visibleToResidents: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(10_000).optional(),
+});
+
+export const deleteBuildingContactSchema = z.object({
+  spaceId: z.string().min(1),
+  contactId: z.string().min(1),
+});
+
+export const reorderBuildingContactsSchema = z.object({
+  spaceId: z.string().min(1),
+  orderedIds: z
+    .array(z.string().min(1))
+    .min(1, { error: "لیست ترتیب خالی است." })
+    .max(100),
+});
+
+export type CreateBuildingContactInput = z.infer<
+  typeof createBuildingContactSchema
+>;
+export type UpdateBuildingContactInput = z.infer<
+  typeof updateBuildingContactSchema
+>;
+export type DeleteBuildingContactInput = z.infer<
+  typeof deleteBuildingContactSchema
+>;
+export type ReorderBuildingContactsInput = z.infer<
+  typeof reorderBuildingContactsSchema
+>;

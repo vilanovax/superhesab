@@ -221,7 +221,7 @@ export function AddExpenseButton({
   }
 
   /** Checklist / balances own the focus — hide expense FAB. */
-  if (liveTab === "checklist" || liveTab === "balances") {
+  if (liveTab === "balances") {
     return null;
   }
 

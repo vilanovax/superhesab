@@ -16,6 +16,7 @@ export type CachedBuildingUnit = {
   id: string;
   name: string;
   area: number | null;
+  phone: string | null;
   multiplier: number;
   isActive: boolean;
   inviteToken: string;
@@ -43,6 +44,7 @@ export function getCachedBuildingUnits(
           id: true,
           name: true,
           area: true,
+          phone: true,
           multiplier: true,
           isActive: true,
           inviteToken: true,

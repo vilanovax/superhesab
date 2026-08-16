@@ -8,7 +8,9 @@ import type {
   ChargePaymentProofDTO,
   ResidentPortalDTO,
 } from "@/app/actions/building";
+import type { BuildingContactDTO } from "@/app/actions/building-contacts";
 import { BuildingAnnouncementsBoard } from "@/components/spaces/building-announcements-board";
+import { ResidentContactsCard } from "@/components/spaces/building-contacts-panel";
 import { ResidentNotificationsBell } from "@/components/spaces/resident-notifications-bell";
 import { ResidentPaymentProof } from "@/components/spaces/resident-payment-proof";
 import { ResidentSuggestionsPanel } from "@/components/spaces/resident-suggestions-panel";
@@ -43,6 +45,7 @@ type ResidentPortalProps = {
   announcements: BuildingAnnouncementDTO[];
   notifications: BuildingNotificationDTO[];
   chargeProofs: ChargePaymentProofDTO[];
+  contacts: BuildingContactDTO[];
 };
 
 function faDigits(n: number): string {
@@ -74,6 +77,7 @@ export function ResidentPortal({
   announcements,
   notifications,
   chargeProofs,
+  contacts,
 }: ResidentPortalProps) {
   const settled = data.unit.arrears <= 0;
   const unitLabel =
@@ -171,6 +175,8 @@ export function ResidentPortal({
             : ` تا ${monthLabelFa(data.throughMonth)}`}
         </p>
       </header>
+
+      <ResidentContactsCard contacts={contacts} />
 
       <Tabs
         value={tab}

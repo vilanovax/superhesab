@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import type {
   AnnualChargeCalendarDTO,
   ChargePaymentDTO,
 } from "@/app/actions/building";
+import { BuildingYearNav } from "@/components/spaces/building-year-nav";
 import {
   CHARGE_STATUS_LABELS,
   MONTH_LABELS_FA,
@@ -282,29 +282,14 @@ export function BuildingAnnualCalendar({
           </div>
         ) : null}
         {!hideYearNav ? (
-          <div
-            className="flex h-9 items-center gap-0.5 rounded-xl bg-muted/80 p-0.5 ring-1 ring-border/40"
-            role="group"
-            aria-label="سال تقویم"
-          >
-            <Link
-              href={`/spaces/${spaceId}?year=${year - 1}&tab=charges`}
-              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-body-sm font-bold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-              aria-label="سال قبل"
-            >
-              ‹
-            </Link>
-            <span className="min-w-11 px-1 text-center text-caption font-bold tabular-nums text-foreground">
-              {formatJalaliYear(year)}
-            </span>
-            <Link
-              href={`/spaces/${spaceId}?year=${year + 1}&tab=charges`}
-              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-body-sm font-bold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-              aria-label="سال بعد"
-            >
-              ›
-            </Link>
-          </div>
+          <BuildingYearNav
+            spaceId={spaceId}
+            year={year}
+            tab="charges"
+            canRemember={canMutate}
+            tone="surface"
+            className="h-9 gap-0.5 rounded-xl"
+          />
         ) : null}
       </div>
 

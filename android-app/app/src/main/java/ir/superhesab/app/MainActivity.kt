@@ -1,13 +1,21 @@
 package ir.superhesab.app
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
+import android.webkit.CookieManager
+import android.webkit.URLUtil
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -15,8 +23,11 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.button.MaterialButton
@@ -27,8 +38,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loading: LinearLayout
     private lateinit var offline: LinearLayout
 
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
     private val startUrl: String
         get() = BuildConfig.WEB_URL
+
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            filePathCallback?.onReceiveValue(uris)
+            filePathCallback = null
+        }
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* optional */ }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,6 +88,11 @@ class MainActivity : AppCompatActivity() {
         loadApp(url = deepLink ?: startUrl)
     }
 
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -72,6 +100,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configureWebView() {
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -81,9 +112,39 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
+            allowFileAccess = false
+            allowContentAccess = false
+            javaScriptCanOpenWindowsAutomatically = false
             userAgentString = "$userAgentString SuperHesabAndroid/${BuildConfig.VERSION_NAME}"
         }
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient =
+            object : WebChromeClient() {
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?,
+                ): Boolean {
+                    this@MainActivity.filePathCallback?.onReceiveValue(null)
+                    this@MainActivity.filePathCallback = filePathCallback
+                    val intent =
+                        fileChooserParams?.createIntent()
+                            ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
+                            }
+                    return try {
+                        fileChooserLauncher.launch(intent)
+                        true
+                    } catch (_: Exception) {
+                        this@MainActivity.filePathCallback = null
+                        filePathCallback?.onReceiveValue(null)
+                        false
+                    }
+                }
+            }
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+            enqueueDownload(url, userAgent, contentDisposition, mimeType)
+        }
         webView.webViewClient =
             object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(
@@ -117,6 +178,7 @@ class MainActivity : AppCompatActivity() {
                 ) {
                     loading.visibility = View.GONE
                     refresh.isRefreshing = false
+                    CookieManager.getInstance().flush()
                 }
 
                 override fun onReceivedError(
@@ -129,6 +191,42 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+    }
+
+    private fun enqueueDownload(
+        url: String,
+        userAgent: String,
+        contentDisposition: String?,
+        mimeType: String?,
+    ) {
+        if (url.startsWith("blob:") || url.startsWith("data:")) {
+            Toast.makeText(this, R.string.download_unsupported, Toast.LENGTH_LONG).show()
+            return
+        }
+        ensureNotificationPermission()
+        val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
+        val request =
+            DownloadManager.Request(Uri.parse(url)).apply {
+                setMimeType(mimeType)
+                addRequestHeader("User-Agent", userAgent)
+                CookieManager.getInstance().getCookie(url)?.let { addRequestHeader("Cookie", it) }
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+                setTitle(filename)
+                setDescription(getString(R.string.app_name))
+            }
+        getSystemService(DownloadManager::class.java).enqueue(request)
+        Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     private fun loadApp(

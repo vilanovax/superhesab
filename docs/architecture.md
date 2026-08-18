@@ -50,6 +50,7 @@ Future template-specific data goes in **additive** tables or JSON metadata keyed
 - `Debt` / `DebtPayment` — optional lend/borrow for خانه/`FAMILY` (additive; not Expense)
 - `CategoryBudget` / `RecurringRule` / `RecurringOccurrence` — خانه depth (additive)
 - `Unit` / `ChargePlan` / `ChargePayment` — BUILDING charges (additive; not Expense)
+- `BuildingShareLink` / `BuildingShareFollow` — BUILDING view-only neighbor report (token; not membership)
 - `BuildingCategoryScope` / `ExpenseUnitParticipation` — BUILDING category→unit scope (transparency; additive)
 - `FundPlan` / `FundTurn` / `FundPayment` — FUND rotating savings (additive; not Expense)
 - `SpaceMember` — RBAC (`OWNER` | `EDITOR`)

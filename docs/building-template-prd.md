@@ -51,7 +51,8 @@
 10. خروجی Excel/PDF شارژ + رسید پرداخت ساکن (فاز ۲۸) ✅ — `ChargePaymentProof` + S3/R2 presign، مسیر `/api/spaces/[id]/export/building`، صندوق رسید مدیر، نوتیف `PAYMENT_PROOF`؛ سپس خروجی مشترک گزارش همه قالب‌ها در `/api/spaces/[id]/export/report`  
 11. دعوت/لیست مدیران در UI ✅ — هیرو + تنظیمات؛ `SpaceMember`های OWNER/EDITOR جدا از ساکن VIEWER؛ دعوت عمومی همیشه EDITOR  
 12. محدوده واحد دسته‌های مشاع (فاز ۳۰) ✅ — `BuildingCategoryScope` (`ALL` | `FIXED` | `HYBRID`) + snapshot `ExpenseUnitParticipation`؛ شفافیت/گزارش (بدون تخصیص بدهی شارژ)؛ هیبرید پیش‌فرض همه واحدها تا حذف صریح در فرم ثبت
-13. شماره‌های ضروری ✅ — مدل `BuildingContact`، صفحه `/contacts` از آیکون هدر + تنظیمات؛ ساکن فقط `visibleToResidents`
+13. شماره‌های ضروری ✅ — مدل `BuildingContact`، صفحه `/contacts` از آیکون هدر + تنظیمات؛ ساکن فقط `visibleToResidents`  
+14. گزارش عمومی همسایه ✅ — مدل `BuildingShareLink` + `BuildingShareFollow`؛ لینک `/share/b/[token]` بدون عضویت؛ اسکوپ انتخابی (جمع هزینه / وصول تجمیعی / اعلان = پیش‌فرض؛ لیست هزینه و وضعیت هر واحد = opt-in حساس)؛ کاربر لاگین می‌تواند گزارش را روی هوم پین کند (کارت جدا، نه Space)
 
 ## ۶. محدوده واحد دسته‌ها (فاز ۳۰)
 

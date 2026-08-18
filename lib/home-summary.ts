@@ -16,7 +16,7 @@ import { expenseCategoryPrivacyWhere } from "@/lib/category-privacy";
 import { prisma } from "@/lib/db/prisma";
 import type { SpaceCurrency } from "@/lib/format";
 import { tehranMonthRange } from "@/lib/personal";
-import { getTemplate } from "@/lib/templates/registry";
+import { canonicalizeSpaceType, getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
 
 export type HomeSpaceInput = {
@@ -50,12 +50,23 @@ export type HomeSummary = {
   }[];
   /** Total spend this Tehran month per currency, across ledger spaces. */
   monthSpendByCurrency: { currency: SpaceCurrency; amount: number }[];
+  /**
+   * Same month spend, split by canonical template so the home widget can
+   * name the source (خانه / ساختمان) instead of an unlabeled total.
+   */
+  monthSpendByTemplate: {
+    type: SpaceType;
+    currency: SpaceCurrency;
+    amount: number;
+    spaceCount: number;
+  }[];
 };
 
 const EMPTY: HomeSummary = {
   statBySpace: {},
   netByCurrency: [],
   monthSpendByCurrency: [],
+  monthSpendByTemplate: [],
 };
 
 export async function getHomeSummary(
@@ -236,10 +247,33 @@ export async function getHomeSummary(
   }
 
   const spendMap = new Map<SpaceCurrency, number>();
+  const templateSpendMap = new Map<
+    string,
+    {
+      type: SpaceType;
+      currency: SpaceCurrency;
+      amount: number;
+      spaceCount: number;
+    }
+  >();
   for (const space of spendSpaces) {
     const amount = spendBySpace[space.id] ?? 0;
     if (amount === 0) continue;
     spendMap.set(space.currency, (spendMap.get(space.currency) ?? 0) + amount);
+    const type = canonicalizeSpaceType(space.type);
+    const key = `${type}:${space.currency}`;
+    const row = templateSpendMap.get(key);
+    if (row) {
+      row.amount += amount;
+      row.spaceCount += 1;
+    } else {
+      templateSpendMap.set(key, {
+        type,
+        currency: space.currency,
+        amount,
+        spaceCount: 1,
+      });
+    }
   }
 
   return {
@@ -250,5 +284,8 @@ export async function getHomeSummary(
     monthSpendByCurrency: [...spendMap.entries()]
       .map(([currency, amount]) => ({ currency, amount }))
       .sort((a, b) => b.amount - a.amount),
+    monthSpendByTemplate: [...templateSpendMap.values()].sort(
+      (a, b) => b.amount - a.amount,
+    ),
   };
 }

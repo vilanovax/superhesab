@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { BuildingBoardNavButton } from "@/components/spaces/building-board-nav-button";
 import { BuildingContactsNavButton } from "@/components/spaces/building-contacts-nav-button";
+import { BuildingShareNavButton } from "@/components/spaces/building-share-nav-button";
 import { CopyInviteLinkButton } from "@/components/spaces/copy-invite-link-button";
 import { InviteMembersButton } from "@/components/spaces/invite-members-button";
 import { BuildingMonthHero } from "@/components/spaces/building-dashboard";
@@ -162,6 +163,9 @@ function SpacePageHeroChrome({
           ) : null}
           {isBuildingShell ? (
             <BuildingContactsNavButton spaceId={spaceId} />
+          ) : null}
+          {isBuildingShell ? (
+            <BuildingShareNavButton spaceId={spaceId} />
           ) : null}
           {features.checklist ? (
             <SpaceNotesNavButton spaceId={spaceId} />
@@ -377,7 +381,71 @@ async function SpacePageHeroCard({
   const partnerOnboarding =
     isPartner && space.members.length === 1 && expenseCount === 0;
   const needsFamilyInvite =
-    isFamilyShell && space.members.length < 2 && isOwner;
+    isFamilyShell && space.members.length < 2 && isOwner && expenseCount > 0;
+  const atPartnerCap =
+    isPartner &&
+    template.maxMembers != null &&
+    space.members.length >= template.maxMembers;
+  const memberAvatars = (
+    <div className="flex -space-x-2 space-x-reverse">
+      {space.members.slice(0, 4).map((m) => (
+        <UserAvatar
+          key={m.user.id}
+          phone={m.user.phone}
+          name={m.user.name}
+          avatarUrl={m.user.avatarUrl}
+          size={32}
+          className="size-8 border-2 border-on-hero/35 bg-on-hero/20"
+        />
+      ))}
+      {space.members.length > 4 ? (
+        <span className="flex size-8 items-center justify-center rounded-full border-2 border-on-hero/35 bg-on-hero/20 text-micro font-semibold">
+          +{space.members.length - 4}
+        </span>
+      ) : null}
+    </div>
+  );
+  const membersSlot =
+    !isPersonalShell &&
+    !isBuildingShell &&
+    !isFundShell &&
+    features.invites ? (
+      isOwner ? (
+        <InviteMembersButton
+          spaceId={space.id}
+          spaceName={space.name}
+          members={inviteMembers}
+          currentUserRole={myRole}
+          inviteRolePicker={isFamilyShell}
+          spaceType={space.type}
+          maxMembers={template.maxMembers}
+          trigger={
+            <button
+              type="button"
+              className="flex min-h-11 items-center gap-2 rounded-full py-1 pe-1 ps-0.5 transition-opacity active:opacity-80"
+              aria-label={
+                atPartnerCap ? "مدیریت اعضا" : "دعوت یا مدیریت اعضا"
+              }
+            >
+              {memberAvatars}
+              {!atPartnerCap ? (
+                <span className="flex size-8 items-center justify-center rounded-full border border-on-hero/35 bg-on-hero/15 text-on-hero">
+                  <span className="text-base leading-none">+</span>
+                </span>
+              ) : null}
+            </button>
+          }
+        />
+      ) : (
+        <div
+          role="group"
+          className="flex items-center gap-2"
+          aria-label={`${formatFaDigits(space.members.length)} عضو`}
+        >
+          {memberAvatars}
+        </div>
+      )
+    ) : null;
 
   return (
     <>
@@ -507,116 +575,58 @@ async function SpacePageHeroCard({
               </span>
             </div>
           ) : (
-            <div className="space-y-1">
-              <p className="text-caption font-medium tracking-wide text-on-hero/60">
-                {isPartner
-                  ? "حساب مشترک"
-                  : isFamilyShell
-                    ? "لجر خانواده"
-                    : "فضای مشترک"}
-              </p>
-              <h1 className="text-title font-bold leading-tight tracking-tight text-on-hero">
-                {space.name}
-              </h1>
-              <p className="text-xs text-on-hero/70">
-                {isPartner ? (
-                  partnerLabel ? (
-                    <>من و {partnerLabel}</>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1 text-start">
+                <p className="text-caption font-medium tracking-wide text-on-hero/60">
+                  {isPartner
+                    ? "حساب مشترک"
+                    : isFamilyShell
+                      ? "لجر خانواده"
+                      : "فضای مشترک"}
+                </p>
+                <h1 className="truncate text-title font-bold leading-tight tracking-tight text-on-hero">
+                  {space.name}
+                </h1>
+                <p className="text-xs text-on-hero/70">
+                  {isPartner ? (
+                    partnerLabel ? (
+                      <>من و {partnerLabel}</>
+                    ) : (
+                      <>من · منتظر طرف مقابل</>
+                    )
+                  ) : expenseCount === 0 && isFamilyShell ? (
+                    <>
+                      {formatFaDigits(space.members.length)} عضو · آمادهٔ شروع
+                    </>
                   ) : (
-                    <>من · منتظر طرف مقابل</>
-                  )
-                ) : (
-                  <>
-                    {formatFaDigits(space.members.length)} عضو ·{" "}
-                    {formatFaDigits(expenseCount)} هزینه
-                    {totalExpenses > 0 ? (
-                      <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
-                    ) : null}
-                  </>
-                )}
-              </p>
+                    <>
+                      {formatFaDigits(space.members.length)} عضو ·{" "}
+                      {formatFaDigits(expenseCount)} هزینه
+                      {totalExpenses > 0 ? (
+                        <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
+                      ) : null}
+                    </>
+                  )}
+                </p>
+              </div>
+              {isFamilyShell ? (
+                <div className="shrink-0 pt-0.5">{membersSlot}</div>
+              ) : null}
             </div>
           )}
 
           {(() => {
-            const atPartnerCap =
-              isPartner &&
-              template.maxMembers != null &&
-              space.members.length >= template.maxMembers;
-            const memberAvatars = (
-              <div className="flex -space-x-2 space-x-reverse">
-                {space.members.slice(0, 4).map((m) => (
-                  <UserAvatar
-                    key={m.user.id}
-                    phone={m.user.phone}
-                    name={m.user.name}
-                    avatarUrl={m.user.avatarUrl}
-                    size={32}
-                    className="size-8 border-2 border-on-hero/35 bg-on-hero/20"
-                  />
-                ))}
-                {space.members.length > 4 ? (
-                  <span className="flex size-8 items-center justify-center rounded-full border-2 border-on-hero/35 bg-on-hero/20 text-micro font-semibold">
-                    +{space.members.length - 4}
-                  </span>
-                ) : null}
-              </div>
-            );
-            const membersSlot =
-              !isPersonalShell &&
-              !isBuildingShell &&
-              !isFundShell &&
-              features.invites ? (
-                isOwner ? (
-                  <InviteMembersButton
-                    spaceId={space.id}
-                    spaceName={space.name}
-                    members={inviteMembers}
-                    currentUserRole={myRole}
-                    inviteRolePicker={isFamilyShell}
-                    spaceType={space.type}
-                    maxMembers={template.maxMembers}
-                    trigger={
-                      <button
-                        type="button"
-                        className="flex min-h-11 items-center gap-2 rounded-full py-1 pe-1 ps-0.5 transition-opacity active:opacity-80"
-                        aria-label={
-                          atPartnerCap ? "مدیریت اعضا" : "دعوت یا مدیریت اعضا"
-                        }
-                      >
-                        {memberAvatars}
-                        {!atPartnerCap ? (
-                          <span className="flex size-8 items-center justify-center rounded-full border border-on-hero/35 bg-on-hero/15 text-on-hero">
-                            <span className="text-base leading-none">+</span>
-                          </span>
-                        ) : null}
-                      </button>
-                    }
-                  />
-                ) : (
-                  <div
-                    role="group"
-                    className="flex items-center gap-2"
-                    aria-label={`${formatFaDigits(space.members.length)} عضو`}
-                  >
-                    {memberAvatars}
-                  </div>
-                )
-              ) : null;
-
             if (isBuildingShell || isFundShell) return null;
             if (isPersonalShell || isFamilyShell) {
               return (
-                <>
-                  {membersSlot}
-                  <PersonalMonthHero
-                    income={monthIncome}
-                    expenses={monthExpense}
-                    monthlyBudget={space.monthlyBudget}
-                    currency={space.currency}
-                    settingsHref={`/spaces/${space.id}/settings`}
-                  />
-                </>
+                <PersonalMonthHero
+                  income={monthIncome}
+                  expenses={monthExpense}
+                  monthlyBudget={space.monthlyBudget}
+                  currency={space.currency}
+                  settingsHref={`/spaces/${space.id}/settings`}
+                  household={isFamilyShell}
+                />
               );
             }
             if (isPartner) {
@@ -680,21 +690,24 @@ async function SpacePageHeroCard({
           />
         </div>
       ) : needsFamilyInvite ? (
-        <div className="animate-fade-up mb-4 rounded-2xl border border-primary/20 bg-card px-4 py-5 text-center shadow-sm">
-          <p className="text-body font-semibold text-foreground">
-            اعضای خانواده را دعوت کنید
-          </p>
-          <p className="mt-1.5 text-body-sm leading-relaxed text-muted-foreground">
-            با لینک دعوت می‌توانید همسر یا اعضا را به‌عنوان عضو فعال یا ناظر اضافه
-            کنید.
-          </p>
+        <div className="animate-fade-up mb-3 flex items-center gap-3 rounded-2xl border border-border/55 bg-card px-3 py-2.5 shadow-sm">
+          <div className="min-w-0 flex-1 text-start">
+            <p className="text-body-sm font-semibold text-foreground">
+              همسر یا اعضا را دعوت کنید
+            </p>
+            <p className="mt-0.5 text-caption text-muted-foreground">
+              فعال یا ناظر · با لینک دعوت
+            </p>
+          </div>
           <InviteMembersButton
             spaceId={space.id}
             spaceName={space.name}
             members={inviteMembers}
             currentUserRole={myRole}
-            variant="banner"
+            variant="inline"
             inviteRolePicker
+            spaceType={space.type}
+            maxMembers={template.maxMembers}
           />
         </div>
       ) : null}

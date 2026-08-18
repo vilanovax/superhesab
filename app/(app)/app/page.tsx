@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { listDueSoonDebtsForUser, type DueSoonDebtSummary } from "@/app/actions/debt";
+import { listMyFollowedBuildingShares } from "@/app/actions/building-share";
 import { BrandLockup } from "@/components/brand/brand-lockup";
 import { CreateSpaceSheet } from "@/components/spaces/create-space-sheet";
 import { HomeEmptyActions } from "@/components/spaces/home-empty-actions";
+import { HomeFollowedReports } from "@/components/spaces/home-followed-reports";
 import { HomeQuickActions } from "@/components/spaces/home-quick-actions";
 import { HomeSpaceSpeculation } from "@/components/spaces/home-space-speculation";
 import { HomeSummaryCard } from "@/components/spaces/home-summary-card";
@@ -348,7 +350,7 @@ export default async function AppHomePage({
    * Profile comes from requireCurrentUser (same cached getSessionUser as auth).
    * Summary / lastExpense depend on memberships and start after this settles.
    */
-  const [memberships, archivedCount, dueSoonDebts, disabledSpaceTypes] =
+  const [memberships, archivedCount, dueSoonDebts, disabledSpaceTypes, followedShares] =
     await Promise.all([
       prisma.spaceMember.findMany({
         where: {
@@ -377,6 +379,7 @@ export default async function AppHomePage({
       }),
       listDueSoonDebtsForUser(),
       listDisabledSpaceTypes(),
+      listMyFollowedBuildingShares(),
     ]);
 
   const spaceCount = memberships.length;
@@ -489,6 +492,7 @@ export default async function AppHomePage({
               error={error}
               disabledTypes={disabledSpaceTypes}
             />
+            <HomeFollowedReports cards={followedShares} />
           </div>
         ) : (
           <Suspense fallback={<HomeListSkeleton />}>
@@ -498,6 +502,7 @@ export default async function AppHomePage({
             />
           </Suspense>
         )}
+        {!isEmpty ? <HomeFollowedReports cards={followedShares} /> : null}
       </section>
     </main>
   );

@@ -131,6 +131,8 @@ model User {
   spaceNotesUpdated     SpaceNote[]            @relation("SpaceNoteUpdatedBy")
   adminAuditEvents      AdminAuditEvent[]      @relation("AdminAuditActor")
   featureFlagsUpdated   FeatureFlag[]          @relation("FeatureFlagUpdatedBy")
+  buildingShareLinksCreated BuildingShareLink[] @relation("BuildingShareLinkCreatedBy")
+  buildingShareFollows      BuildingShareFollow[]
 
   @@index([phone])
   @@index([email])
@@ -215,6 +217,7 @@ model Space {
   fundPaymentProofs   FundPaymentProof[]
   categoryPolicies    SpaceCategoryPolicy[]
   buildingCategoryScopes BuildingCategoryScope[]
+  buildingShareLinks  BuildingShareLink[]
 
   @@index([ownerId])
   @@index([type])
@@ -736,6 +739,49 @@ model BuildingAnnouncement {
   @@index([spaceId, pinned])
   @@index([authorId])
   @@index([createdAt])
+}
+
+/// BUILDING: tokenized view-only report for neighbors (not SpaceMember).
+model BuildingShareLink {
+  id                     String    @id @default(cuid())
+  spaceId                String
+  /// Unguessable public token (`/share/b/[token]`).
+  token                  String    @unique
+  title                  String?
+  includeExpensesSummary Boolean   @default(true)
+  includeExpensesList    Boolean   @default(false)
+  includeChargesSummary  Boolean   @default(true)
+  includeChargesUnits    Boolean   @default(false)
+  includeAnnouncements   Boolean   @default(true)
+  revokedAt              DateTime?
+  expiresAt              DateTime?
+  createdById            String
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  space     Space                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy User                  @relation("BuildingShareLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  follows   BuildingShareFollow[]
+
+  @@index([spaceId])
+  @@index([spaceId, revokedAt])
+  @@index([token])
+  @@index([createdById])
+}
+
+/// Logged-in user pinning a building report on home — not membership.
+model BuildingShareFollow {
+  id        String   @id @default(cuid())
+  linkId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  link BuildingShareLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  user User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, userId])
+  @@index([userId])
+  @@index([linkId])
 }
 
 /// BUILDING: structured essential contacts directory (manager CRUD; resident-visible opt-in).

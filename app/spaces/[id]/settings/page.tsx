@@ -6,10 +6,12 @@ import {
   getChargePlanForYear,
 } from "@/app/actions/building";
 import { listBuildingCategoryScopes } from "@/app/actions/buildingCategoryScope";
+import { listBuildingShareLinks } from "@/app/actions/building-share";
 import { listRecurringRules } from "@/app/actions/recurring";
 import { updateSpaceSettingsAndRedirect } from "@/app/actions/space";
 import { BuildingCategoryScopeSettings } from "@/components/spaces/building-category-scope-settings";
 import { BuildingSettingsForm } from "@/components/spaces/building-settings-form";
+import { BuildingShareSettings } from "@/components/spaces/building-share-settings";
 import { CategoryBudgetSettings } from "@/components/spaces/category-budget-settings";
 import { CategoryPrivacySettings } from "@/components/spaces/category-privacy-settings";
 import { FundPlanSettings } from "@/components/spaces/fund-plan-settings";
@@ -35,6 +37,7 @@ import {
 } from "@/lib/format";
 import { prisma } from "@/lib/db/prisma";
 import { isFeatureEnabled } from "@/lib/feature-flags";
+import { canMutateMoney } from "@/lib/rbac";
 import {
   getTemplate,
   getTemplateDataset,
@@ -75,6 +78,7 @@ export default async function SpaceSettingsPage({
   const template = getTemplate(space.type);
   const templateDataset = getTemplateDataset(space.type);
   const isOwner = membership.role === "OWNER";
+  const canManageBuilding = canMutateMoney(membership.role);
   const showBudget = template.features.budget && !template.features.buildingCharges;
   const showCategoryBudgets = template.features.categoryBudgets;
   const categoryPrivacyPossible = Boolean(template.features.categoryPrivacy);
@@ -95,6 +99,7 @@ export default async function SpaceSettingsPage({
     tripMembers,
     buildingUnits,
     buildingCategoryScopes,
+    buildingShareLinks,
   ] = await Promise.all([
     categoryPrivacyPossible
       ? isFeatureEnabled("category_privacy")
@@ -154,6 +159,9 @@ export default async function SpaceSettingsPage({
       : Promise.resolve([]),
     showBuilding && isOwner
       ? listBuildingCategoryScopes(id)
+      : Promise.resolve([]),
+    showBuilding && canManageBuilding
+      ? listBuildingShareLinks(id)
       : Promise.resolve([]),
   ]);
 
@@ -547,6 +555,14 @@ export default async function SpaceSettingsPage({
             }
           />
         </section>
+      ) : null}
+
+      {showBuilding && canManageBuilding ? (
+        <BuildingShareSettings
+          spaceId={space.id}
+          initialLinks={buildingShareLinks}
+          disabled={!canManageBuilding}
+        />
       ) : null}
 
       {showBuilding && isOwner ? (

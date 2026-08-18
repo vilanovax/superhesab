@@ -14,7 +14,30 @@ type PersonalMonthHeroProps = {
   monthlyBudget: number | null;
   currency: SpaceCurrency;
   settingsHref: string;
+  /** خانه / FAMILY — empty-month copy without fake zeros. */
+  household?: boolean;
 };
+
+function SignedAmount({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
+  return (
+    <span
+      dir="ltr"
+      className={cn(
+        "inline-block [unicode-bidi:isolate] tabular-nums",
+        className,
+      )}
+    >
+      {value >= 0 ? "+" : "−"}
+      {formatMoney(Math.abs(value))}
+    </span>
+  );
+}
 
 function ArrowUpIcon({ className }: { className?: string }) {
   return (
@@ -79,6 +102,7 @@ export function PersonalMonthHero({
   monthlyBudget,
   currency,
   settingsHref,
+  household = false,
 }: PersonalMonthHeroProps) {
   const net = income - expenses;
   const usedPct = budgetUsedPercent(expenses, monthlyBudget);
@@ -88,51 +112,66 @@ export function PersonalMonthHero({
   const pace = paceVsBudget(expenses, monthlyBudget);
   const unit = currencyLabel(currency);
   const clampedPct = hasBudget ? Math.min(100, usedPct!) : 0;
+  const monthEmpty = income === 0 && expenses === 0;
+
+  if (monthEmpty && !hasBudget) {
+    if (household) return null;
+    return (
+      <p className="text-pretty text-body-sm leading-relaxed text-on-hero/78">
+        خالص، درآمد و هزینه بعد از ثبت همین‌جا می‌آید.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3.5">
-      <div className="text-center">
-        <p className="text-[0.6875rem] font-medium tracking-wide text-on-hero/55">
-          خالص ماه
-        </p>
-        <p
-          className={cn(
-            "mt-1.5 text-pretty text-[2rem] font-bold leading-none tracking-tight tabular-nums",
-            net >= 0 ? "text-on-hero" : "text-[#ffd0d0]",
-          )}
-        >
-          {net >= 0 ? "+" : "−"}
-          {formatMoney(Math.abs(net))}
-        </p>
-        <p className="mt-1.5 text-caption font-medium text-on-hero/55">{unit}</p>
-      </div>
+      {!monthEmpty ? (
+        <>
+          <div className="text-center">
+            <p className="text-[0.6875rem] font-medium tracking-wide text-on-hero/55">
+              خالص ماه
+            </p>
+            <p
+              className={cn(
+                "mt-1.5 text-pretty text-[2rem] font-bold leading-none tracking-tight",
+                net >= 0 ? "text-on-hero" : "text-[#ffd0d0]",
+              )}
+            >
+              <SignedAmount value={net} />
+            </p>
+            <p className="mt-1.5 text-caption font-medium text-on-hero/55">
+              {unit}
+            </p>
+          </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-2xl bg-black/15 px-3 py-2.5 backdrop-blur-[2px]">
-          <div className="flex items-center gap-1.5 text-emerald-200/90">
-            <span className="flex size-5 items-center justify-center rounded-md bg-emerald-300/20">
-              <ArrowUpIcon className="size-3" />
-            </span>
-            <span className="text-[0.6875rem] font-semibold">درآمد</span>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-black/15 px-3 py-2.5 backdrop-blur-[2px]">
+              <div className="flex items-center gap-1.5 text-emerald-200/90">
+                <span className="flex size-5 items-center justify-center rounded-md bg-emerald-300/20">
+                  <ArrowUpIcon className="size-3" />
+                </span>
+                <span className="text-[0.6875rem] font-semibold">درآمد</span>
+              </div>
+              <p className="mt-1.5 truncate text-[0.9375rem] font-bold tabular-nums leading-none text-on-hero">
+                {formatMoney(income)}
+              </p>
+              <p className="mt-1 text-micro text-on-hero/50">{unit}</p>
+            </div>
+            <div className="rounded-2xl bg-black/15 px-3 py-2.5 backdrop-blur-[2px]">
+              <div className="flex items-center gap-1.5 text-rose-200/90">
+                <span className="flex size-5 items-center justify-center rounded-md bg-rose-300/20">
+                  <ArrowDownIcon className="size-3" />
+                </span>
+                <span className="text-[0.6875rem] font-semibold">هزینه</span>
+              </div>
+              <p className="mt-1.5 truncate text-[0.9375rem] font-bold tabular-nums leading-none text-on-hero">
+                {formatMoney(expenses)}
+              </p>
+              <p className="mt-1 text-micro text-on-hero/50">{unit}</p>
+            </div>
           </div>
-          <p className="mt-1.5 truncate text-[0.9375rem] font-bold tabular-nums leading-none text-on-hero">
-            {formatMoney(income)}
-          </p>
-          <p className="mt-1 text-micro text-on-hero/50">{unit}</p>
-        </div>
-        <div className="rounded-2xl bg-black/15 px-3 py-2.5 backdrop-blur-[2px]">
-          <div className="flex items-center gap-1.5 text-rose-200/90">
-            <span className="flex size-5 items-center justify-center rounded-md bg-rose-300/20">
-              <ArrowDownIcon className="size-3" />
-            </span>
-            <span className="text-[0.6875rem] font-semibold">هزینه</span>
-          </div>
-          <p className="mt-1.5 truncate text-[0.9375rem] font-bold tabular-nums leading-none text-on-hero">
-            {formatMoney(expenses)}
-          </p>
-          <p className="mt-1 text-micro text-on-hero/50">{unit}</p>
-        </div>
-      </div>
+        </>
+      ) : null}
 
       {hasBudget ? (
         <div className="rounded-2xl bg-black/15 px-3.5 py-3 backdrop-blur-[2px]">

@@ -492,7 +492,8 @@ export function ExpenseList({
   const [pendingEdit, startEditTransition] = useTransition();
   const setExpenseFormOpen = useUiStore((s) => s.setExpenseFormOpen);
   const isOwner = currentUserRole === "OWNER";
-  const features = getTemplate(spaceType).features;
+  const template = getTemplate(spaceType);
+  const features = template.features;
   const isBuilding = features.buildingCharges;
   /** Trip / partner shared-expense list (not building, not personal/family). */
   const isTripStyle = !isBuilding && !features.incomeExpense;
@@ -568,7 +569,42 @@ export function ExpenseList({
 
   if (items.length === 0) {
     if (features.incomeExpense) {
-      return <PersonalEmptyState canMutate={canMutate} />;
+      return (
+        <PersonalEmptyState
+          canMutate={canMutate}
+          household={features.householdLedger}
+          inviteSlot={
+            features.householdLedger &&
+            canMutate &&
+            isOwner &&
+            members.length < 2 ? (
+              <InviteMembersButton
+                spaceId={spaceId}
+                spaceName={spaceName}
+                members={inviteMembers ?? []}
+                currentUserRole={currentUserRole}
+                inviteRolePicker
+                spaceType={spaceType}
+                maxMembers={template.maxMembers}
+                trigger={
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-3",
+                      "text-body-sm font-medium text-muted-foreground",
+                      "transition-colors duration-150 hover:bg-muted/60 hover:text-foreground",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "touch-manipulation [-webkit-tap-highlight-color:transparent]",
+                    )}
+                  >
+                    دعوت همسر یا عضو خانواده
+                  </button>
+                }
+              />
+            ) : undefined
+          }
+        />
+      );
     }
 
     const buildingYearEmpty =

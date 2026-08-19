@@ -94,6 +94,7 @@ export function FamilySpaceTabs({
     tabBusy,
     onTabChange,
     prefetchTab,
+    reloadTab,
   } = useDeferredSpaceTabs({
     spaceId,
     defaultTab,
@@ -262,6 +263,7 @@ export function FamilySpaceTabs({
               currency={currency}
               canMutate={canMutate}
               sharedHousehold
+              onMutated={() => reloadTab("debts")}
             />
           )}
         </TabsContent>

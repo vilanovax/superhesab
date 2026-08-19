@@ -67,6 +67,8 @@ type DebtPanelProps = {
   canMutate: boolean;
   /** FAMILY: shared household wording + show who registered each debt. */
   sharedHousehold?: boolean;
+  /** Refetch deferred tab payload after create / edit / delete. */
+  onMutated?: () => void | Promise<void>;
 };
 
 export function DebtPanel({
@@ -75,6 +77,7 @@ export function DebtPanel({
   currency,
   canMutate,
   sharedHousehold = false,
+  onMutated,
 }: DebtPanelProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -331,6 +334,7 @@ export function DebtPanel({
         setError(result.error);
         return;
       }
+      await onMutated?.();
       resetCreate();
       setCreateOpen(false);
     });
@@ -353,6 +357,7 @@ export function DebtPanel({
           setError(result.error);
           return;
         }
+        await onMutated?.();
         clearAccountForm();
         return;
       }
@@ -368,6 +373,7 @@ export function DebtPanel({
           setError(result.error);
           return;
         }
+        await onMutated?.();
         clearAccountForm();
         return;
       }
@@ -383,6 +389,7 @@ export function DebtPanel({
           setError(result.error);
           return;
         }
+        await onMutated?.();
         setPayAmount(0);
         setHasDueDate(false);
         setDueDate("");
@@ -400,6 +407,7 @@ export function DebtPanel({
         setError(result.error);
         return;
       }
+      await onMutated?.();
       setPayAmount(0);
       setPayNote("");
       setPayDate(todayIsoDateTehran());
@@ -421,6 +429,7 @@ export function DebtPanel({
         setError(result.error);
         return;
       }
+      await onMutated?.();
       clearAccountForm();
     });
   }

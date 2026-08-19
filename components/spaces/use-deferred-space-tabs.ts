@@ -181,6 +181,39 @@ export function useDeferredSpaceTabs(args: {
     ],
   );
 
+  /**
+   * Force-refetch a deferred tab after a mutation. `ensureTabData` no-ops when
+   * the tab is already in `loaded`, so create/edit/delete would otherwise stay
+   * stale until a full page refresh.
+   */
+  const reloadTab = useCallback(
+    (next: SpaceTabId) => {
+      if (!DEFERRED_TABS.has(next)) return Promise.resolve();
+      const year = tabLoadContext?.planYear ?? reportPlanYear;
+      const month = tabLoadContext?.reportMonth ?? reportMonth;
+      tabInflight.delete(tabFetchKey(spaceId, next, year, month));
+      return (async () => {
+        const result = await loadSpaceTabData({
+          spaceId,
+          tab: next,
+          year,
+          reportMonth: month,
+        });
+        if (result.ok) {
+          setDeferred((prev) => mergeDeferred(prev, next, result.data));
+          setLoaded((prev) => new Set(prev).add(next));
+        }
+      })();
+    },
+    [
+      reportMonth,
+      reportPlanYear,
+      spaceId,
+      tabLoadContext?.planYear,
+      tabLoadContext?.reportMonth,
+    ],
+  );
+
   /** Warm tab payload before click (hover / focus / idle) without skeleton. */
   const prefetchTab = useCallback(
     (next: SpaceTabId) => {
@@ -235,6 +268,7 @@ export function useDeferredSpaceTabs(args: {
     tabBusy: pendingTab !== null && pendingTab === tab,
     onTabChange,
     prefetchTab,
+    reloadTab,
     hydrateChargeProofs,
   };
 }

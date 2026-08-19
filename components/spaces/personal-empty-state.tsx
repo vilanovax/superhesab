@@ -10,6 +10,8 @@ type PersonalEmptyStateProps = {
   household?: boolean;
   /** Solo household owner: quiet invite, never a competing primary CTA. */
   inviteSlot?: ReactNode;
+  /** Household: jump to debts tab — lend is not an expense category. */
+  debtsSlot?: ReactNode;
 };
 
 function ArrowUpIcon({ className }: { className?: string }) {
@@ -181,6 +183,7 @@ export function PersonalEmptyState({
   canMutate,
   household = false,
   inviteSlot,
+  debtsSlot,
 }: PersonalEmptyStateProps) {
   const openExpenseForm = useUiStore((s) => s.openExpenseForm);
 
@@ -222,8 +225,19 @@ export function PersonalEmptyState({
           </div>
         ) : null}
 
+        {canMutate && debtsSlot ? (
+          <div className="mt-3 border-t border-border/50 pt-3">{debtsSlot}</div>
+        ) : null}
+
         {canMutate && inviteSlot ? (
-          <div className="mt-3 border-t border-border/50 pt-3">{inviteSlot}</div>
+          <div
+            className={cn(
+              "pt-3",
+              debtsSlot ? "mt-0" : "mt-3 border-t border-border/50",
+            )}
+          >
+            {inviteSlot}
+          </div>
         ) : null}
       </div>
     </div>

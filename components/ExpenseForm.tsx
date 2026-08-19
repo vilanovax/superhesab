@@ -308,13 +308,18 @@ export function ExpenseForm({
   const useDenseChrome = isBuilding || isLedgerDense;
   /** Income/expense toggle — not for building shared costs. */
   const showIncomeExpense = features.incomeExpense && !isBuilding;
+  /** خانه / شخصی — compact fields without trip chips or sticky chrome. */
+  const isHomeSheet = showIncomeExpense;
+  const compactFields = isLedgerDense || isHomeSheet;
   const showManualSplits = features.manualSplits;
   const isSoloLedger = features.solo;
   /** Family shared ledger only — do not conflate with building. */
   const isHouseholdLedger = features.householdLedger;
   const hideSplits = !showManualSplits;
   const showPaidByPicker =
-    (!hideSplits || isHouseholdLedger || isPartnerEqual) && !isBuilding;
+    (!hideSplits || isHouseholdLedger || isPartnerEqual) &&
+    !isBuilding &&
+    members.length > 1;
   const partnerOther = isPartnerEqual
     ? members.find((m) => m.userId !== currentUserId)
     : undefined;
@@ -918,7 +923,9 @@ export function ExpenseForm({
         className={cn(
           useDenseChrome
             ? "flex min-h-0 flex-1 flex-col gap-0"
-            : "flex flex-col gap-3",
+            : isHomeSheet
+              ? "flex flex-col gap-3"
+              : "flex flex-col gap-3",
         )}
       >
         <div
@@ -936,22 +943,14 @@ export function ExpenseForm({
             render={({ field }) => (
               <FormItem className="space-y-0">
                 <div
-                  className="grid grid-cols-2 gap-1 rounded-2xl border border-border/55 bg-card p-1 shadow-sm"
+                  className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
                   role="radiogroup"
                   aria-label="نوع تراکنش"
                 >
                   {(
                     [
-                      {
-                        value: "EXPENSE" as const,
-                        label: "هزینه",
-                        hint: "خروجی",
-                      },
-                      {
-                        value: "INCOME" as const,
-                        label: "درآمد",
-                        hint: "ورودی",
-                      },
+                      { value: "EXPENSE" as const, label: "هزینه" },
+                      { value: "INCOME" as const, label: "درآمد" },
                     ] as const
                   ).map((opt) => {
                     const selected = field.value === opt.value;
@@ -974,20 +973,16 @@ export function ExpenseForm({
                           }
                         }}
                         className={cn(
-                          "flex flex-col items-center rounded-xl px-2 py-2.5 transition-[color,background-color,box-shadow,transform] duration-150",
+                          "h-10 rounded-lg text-body-sm font-semibold transition-[color,background-color,transform] duration-150",
+                          "active:scale-[0.98]",
                           selected && opt.value === "EXPENSE"
-                            ? "bg-destructive text-destructive-foreground shadow-sm"
+                            ? "bg-destructive-soft text-destructive shadow-none"
                             : selected && opt.value === "INCOME"
-                              ? "bg-success text-success-foreground shadow-sm"
+                              ? "bg-success-soft text-success shadow-none"
                               : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                         )}
                       >
-                        <span className="text-body-sm font-bold">
-                          {opt.label}
-                        </span>
-                        <span className="mt-0.5 text-micro opacity-80">
-                          {opt.hint}
-                        </span>
+                        {opt.label}
                       </button>
                     );
                   })}
@@ -1000,10 +995,11 @@ export function ExpenseForm({
 
         <div
           className={cn(
-            "space-y-3 rounded-2xl border border-border/55 bg-card p-3.5",
-            isBuilding && "space-y-2.5 p-3",
-            isLedgerDense &&
-              "space-y-2.5 rounded-none border-0 bg-transparent p-0 shadow-none",
+            isLedgerDense || isHomeSheet
+              ? "space-y-3"
+              : isBuilding
+                ? "space-y-2.5 rounded-2xl border border-border/55 bg-card p-3"
+                : "space-y-3 rounded-2xl border border-border/55 bg-card p-3.5",
           )}
         >
           {(isBuilding && !isEdit) || isLedgerDense ? (
@@ -1059,14 +1055,66 @@ export function ExpenseForm({
             </div>
           ) : null}
 
-          {isLedgerDense ? (
+          {isHomeSheet ? (
+            <>
+              <FormField
+                control={form.control}
+                name="totalAmount"
+                render={({ field }) => {
+                  const live = asAmount(field.value);
+                  return (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-label text-muted-foreground">
+                        مبلغ ({currencyLabel(_currency)})
+                      </FormLabel>
+                      <FormControl>
+                        <MoneyInput
+                          id="expense-amount"
+                          name={field.name}
+                          value={live}
+                          onValueChange={(n) => field.onChange(n)}
+                          onBlur={field.onBlur}
+                          className="h-14 rounded-xl border-border/60 bg-card text-2xl font-semibold tracking-tight"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-label text-muted-foreground">
+                      عنوان
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete="off"
+                        placeholder={
+                          transactionType === "INCOME"
+                            ? "مثلاً حقوق…"
+                            : "مثلاً ناهار…"
+                        }
+                        className="h-12 rounded-xl border-border/60 bg-card placeholder:text-muted-foreground"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          ) : compactFields ? (
             <div className="grid grid-cols-[1.35fr_1fr] gap-2">
               <FormField
                 control={form.control}
                 name="title"
                 render={({ field }) => (
                   <FormItem className="min-w-0 space-y-1">
-                    <FormLabel className="text-[11px] text-muted-foreground">
+                    <FormLabel className="text-label text-muted-foreground">
                       عنوان
                     </FormLabel>
                     <FormControl>
@@ -1088,7 +1136,7 @@ export function ExpenseForm({
                   const live = asAmount(field.value);
                   return (
                     <FormItem className="min-w-0 space-y-1">
-                      <FormLabel className="text-[11px] text-muted-foreground">
+                      <FormLabel className="text-label text-muted-foreground">
                         مبلغ
                       </FormLabel>
                       <FormControl>
@@ -1098,8 +1146,8 @@ export function ExpenseForm({
                           value={live}
                           onValueChange={(n) => field.onChange(n)}
                           onBlur={field.onBlur}
-                          placeholder="۰"
-                          className="h-11 rounded-xl border-border/60 bg-card text-base font-bold"
+                          placeholder=" "
+                          className="h-11 rounded-xl border-border/60 bg-card text-base font-semibold"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1372,7 +1420,7 @@ export function ExpenseForm({
             />
           ) : null}
 
-          {!isLedgerDense ? (
+          {!compactFields ? (
           <FormField
             control={form.control}
             name="totalAmount"
@@ -1401,14 +1449,19 @@ export function ExpenseForm({
           />
           ) : null}
 
-          {isLedgerDense ? (
-            <div className="grid grid-cols-2 gap-2">
+          {compactFields ? (
+            <div
+              className={cn(
+                "grid gap-2",
+                showPaidByPicker ? "grid-cols-2" : "grid-cols-1",
+              )}
+            >
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
                   <FormItem className="min-w-0 space-y-1">
-                    <FormLabel className="text-[11px] text-muted-foreground">
+                    <FormLabel className="text-label text-muted-foreground">
                       تاریخ
                     </FormLabel>
                     <FormControl>
@@ -1429,8 +1482,8 @@ export function ExpenseForm({
                   name="paidById"
                   render={({ field }) => (
                     <FormItem className="min-w-0 space-y-1">
-                      <FormLabel className="text-[11px] text-muted-foreground">
-                        پرداخت‌کننده
+                      <FormLabel className="text-label text-muted-foreground">
+                        {isHouseholdLedger ? "از حساب کی" : "پرداخت‌کننده"}
                       </FormLabel>
                       <Select
                         value={field.value}
@@ -1525,7 +1578,7 @@ export function ExpenseForm({
           </div>
           ) : null}
 
-          {showPaidByPicker && !isLedgerDense ? (
+          {showPaidByPicker && !compactFields ? (
           <FormField
             control={form.control}
             name="paidById"
@@ -1619,11 +1672,7 @@ export function ExpenseForm({
             <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">
               تسهیم مساوی ۵۰–۵۰ با {partnerOtherLabel}
             </p>
-          ) : isBuilding ? null : isHouseholdLedger ? (
-            <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
-              این تراکنش در لجر مشترک خانواده ثبت می‌شود — بدون بدهی بین اعضا.
-            </p>
-          ) : isSoloLedger ? (
+          ) : isBuilding ? null : isSoloLedger ? (
             <p className="rounded-xl bg-sheet-muted px-3 py-2.5 text-label text-muted-foreground">
               {transactionType === "INCOME"
                 ? "این مبلغ به عنوان درآمد شخصی شما ثبت می‌شود."

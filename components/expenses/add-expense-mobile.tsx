@@ -52,13 +52,13 @@ export function AddExpenseMobile({
               <DrawerTitle
                 className={cn(
                   "font-bold text-on-hero",
-                  compact ? "text-body-sm" : "text-lg",
+                  compact ? "text-body" : "text-lg",
                 )}
               >
                 {title}
               </DrawerTitle>
               {showDesc ? (
-                <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
+                <DrawerDescription className="mt-0.5 text-caption text-on-hero/75">
                   {description}
                 </DrawerDescription>
               ) : (
@@ -72,7 +72,7 @@ export function AddExpenseMobile({
             className={cn(
               "surface-sheet-canvas flex min-h-0 flex-1 flex-col px-4",
               compact
-                ? "overflow-hidden py-2.5"
+                ? "overflow-hidden py-3"
                 : "min-h-0 max-h-[calc(85dvh-4.5rem)] overflow-y-auto overscroll-contain py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
             )}
           >

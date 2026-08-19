@@ -5,7 +5,10 @@ import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import {
   DEBT_DUE_SOON_DAYS,
+  allocatePaymentFifo,
+  counterpartyKey,
   debtPaidTotal,
+  debtStatusAfter,
   isDebtFullyPaid,
   isDueSoon,
   type DebtStatusValue,
@@ -17,9 +20,19 @@ import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
 import {
   addDebtPaymentSchema,
+  addGroupedDebtPaymentSchema,
   createDebtSchema,
+  deleteDebtPaymentSchema,
+  deleteDebtSchema,
+  updateDebtPaymentSchema,
+  updateDebtSchema,
   type AddDebtPaymentInput,
+  type AddGroupedDebtPaymentInput,
   type CreateDebtInput,
+  type DeleteDebtInput,
+  type DeleteDebtPaymentInput,
+  type UpdateDebtInput,
+  type UpdateDebtPaymentInput,
 } from "@/lib/validations/debt";
 
 export type DebtActionResult =
@@ -47,6 +60,7 @@ export type DebtDTO = {
   remaining: number;
   progressPercent: number;
   payments: DebtPaymentDTO[];
+  createdAt: string;
 };
 
 async function assertDebtsEnabled(spaceId: string, userId: string) {
@@ -84,6 +98,7 @@ function toDebtDTO(row: {
   status: DebtStatusValue;
   createdById: string;
   createdBy: { name: string | null };
+  createdAt: Date;
   payments: { id: string; amount: number; date: Date; note: string | null }[];
 }): DebtDTO {
   const paidTotal = debtPaidTotal(row.payments);
@@ -108,6 +123,7 @@ function toDebtDTO(row: {
     paidTotal,
     remaining,
     progressPercent,
+    createdAt: row.createdAt.toISOString(),
     payments: row.payments.map((p) => ({
       id: p.id,
       amount: p.amount,
@@ -246,6 +262,317 @@ export async function addDebtPayment(
     return { ok: true, debtId: debt.id };
   } catch {
     return { ok: false, error: "ثبت پرداخت ناموفق بود." };
+  }
+}
+
+export async function addGroupedDebtPayment(
+  input: AddGroupedDebtPaymentInput,
+): Promise<DebtActionResult> {
+  const session = await requireUser();
+  const parsed = addGroupedDebtPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const data = parsed.data;
+  const access = await assertDebtsEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه ثبت پرداخت ندارد." };
+  }
+
+  const rows = await prisma.debt.findMany({
+    where: {
+      spaceId: data.spaceId,
+      type: data.type,
+      status: "ACTIVE",
+    },
+    include: { payments: { select: { amount: true } } },
+  });
+  const key = counterpartyKey(data.counterparty);
+  const matches = rows.filter(
+    (row) => counterpartyKey(row.counterparty) === key,
+  );
+  if (matches.length === 0) {
+    return { ok: false, error: "طلب یا بدهی فعالی برای این طرف پیدا نشد." };
+  }
+
+  const amount = asMoney(data.amount);
+  const allocated = allocatePaymentFifo(
+    matches.map((row) => ({
+      id: row.id,
+      remaining: Math.max(0, row.initialAmount - debtPaidTotal(row.payments)),
+      dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    amount,
+  );
+  if (!allocated.ok) {
+    return {
+      ok: false,
+      error:
+        allocated.remaining <= 0
+          ? "مانده‌ای برای تسویه نیست."
+          : `مبلغ از مانده (${allocated.remaining}) بیشتر است.`,
+    };
+  }
+
+  const paidById = new Map(matches.map((row) => [row.id, row]));
+
+  try {
+    const firstId = allocated.splits[0]?.id;
+    if (!firstId) {
+      return { ok: false, error: "مانده‌ای برای تسویه نیست." };
+    }
+    const payDate = parseExpenseDateInput(data.date);
+    const note = data.note?.trim() || null;
+
+    await prisma.$transaction(async (tx) => {
+      for (const split of allocated.splits) {
+        const row = paidById.get(split.id);
+        if (!row) continue;
+        await tx.debtPayment.create({
+          data: {
+            debtId: split.id,
+            amount: split.amount,
+            date: payDate,
+            note,
+            createdById: session.userId,
+          },
+        });
+        const nextPaid = debtPaidTotal(row.payments) + split.amount;
+        if (nextPaid >= row.initialAmount) {
+          await tx.debt.update({
+            where: { id: split.id },
+            data: { status: "SETTLED" },
+          });
+        }
+      }
+    });
+
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath("/app");
+    return { ok: true, debtId: firstId };
+  } catch {
+    return { ok: false, error: "ثبت پرداخت ناموفق بود." };
+  }
+}
+
+export async function updateDebt(
+  input: UpdateDebtInput,
+): Promise<DebtActionResult> {
+  const session = await requireUser();
+  const parsed = updateDebtSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const data = parsed.data;
+  const access = await assertDebtsEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه ویرایش بدهی ندارد." };
+  }
+
+  const debt = await prisma.debt.findFirst({
+    where: { id: data.debtId, spaceId: data.spaceId },
+    include: { payments: { select: { amount: true } } },
+  });
+  if (!debt) {
+    return { ok: false, error: "مورد پیدا نشد." };
+  }
+
+  const initialAmount = asMoney(data.initialAmount);
+  const paid = debtPaidTotal(debt.payments);
+  if (initialAmount < paid) {
+    return {
+      ok: false,
+      error: `مبلغ نمی‌تواند از دریافت‌های ثبت‌شده (${paid}) کمتر باشد.`,
+    };
+  }
+
+  try {
+    await prisma.debt.update({
+      where: { id: debt.id },
+      data: {
+        initialAmount,
+        dueDate: data.dueDate ? parseExpenseDateInput(data.dueDate) : null,
+        status: debtStatusAfter(initialAmount, debt.payments),
+        ...(data.occurredOn
+          ? { createdAt: parseExpenseDateInput(data.occurredOn) }
+          : {}),
+      },
+    });
+
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath("/app");
+    return { ok: true, debtId: debt.id };
+  } catch {
+    return { ok: false, error: "ویرایش ناموفق بود." };
+  }
+}
+
+export async function deleteDebt(
+  input: DeleteDebtInput,
+): Promise<DebtActionResult> {
+  const session = await requireUser();
+  const parsed = deleteDebtSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const data = parsed.data;
+  const access = await assertDebtsEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه حذف بدهی ندارد." };
+  }
+
+  const debt = await prisma.debt.findFirst({
+    where: { id: data.debtId, spaceId: data.spaceId },
+    select: { id: true },
+  });
+  if (!debt) {
+    return { ok: false, error: "مورد پیدا نشد." };
+  }
+
+  try {
+    await prisma.debt.delete({ where: { id: debt.id } });
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath("/app");
+    return { ok: true, debtId: debt.id };
+  } catch {
+    return { ok: false, error: "حذف ناموفق بود." };
+  }
+}
+
+export async function updateDebtPayment(
+  input: UpdateDebtPaymentInput,
+): Promise<DebtActionResult> {
+  const session = await requireUser();
+  const parsed = updateDebtPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const data = parsed.data;
+  const access = await assertDebtsEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه ویرایش پرداخت ندارد." };
+  }
+
+  const payment = await prisma.debtPayment.findFirst({
+    where: { id: data.paymentId, debt: { spaceId: data.spaceId } },
+    include: {
+      debt: { include: { payments: { select: { id: true, amount: true } } } },
+    },
+  });
+  if (!payment) {
+    return { ok: false, error: "پرداخت پیدا نشد." };
+  }
+
+  const amount = asMoney(data.amount);
+  const others = payment.debt.payments.filter((p) => p.id !== payment.id);
+  if (debtPaidTotal(others) + amount > payment.debt.initialAmount) {
+    const room =
+      payment.debt.initialAmount - debtPaidTotal(others);
+    return {
+      ok: false,
+      error:
+        room <= 0
+          ? "مانده‌ای برای این دریافت نیست."
+          : `مبلغ از مانده این فقره (${room}) بیشتر است.`,
+    };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.debtPayment.update({
+        where: { id: payment.id },
+        data: {
+          amount,
+          date: parseExpenseDateInput(data.date),
+          note: data.note?.trim() || null,
+        },
+      });
+      const nextPayments = [...others, { amount }];
+      await tx.debt.update({
+        where: { id: payment.debtId },
+        data: {
+          status: debtStatusAfter(payment.debt.initialAmount, nextPayments),
+        },
+      });
+    });
+
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath("/app");
+    return { ok: true, debtId: payment.debtId };
+  } catch {
+    return { ok: false, error: "ویرایش پرداخت ناموفق بود." };
+  }
+}
+
+export async function deleteDebtPayment(
+  input: DeleteDebtPaymentInput,
+): Promise<DebtActionResult> {
+  const session = await requireUser();
+  const parsed = deleteDebtPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+
+  const data = parsed.data;
+  const access = await assertDebtsEnabled(data.spaceId, session.userId);
+  if (!access.ok) return access;
+  if (!canMutateMoney(access.membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه حذف پرداخت ندارد." };
+  }
+
+  const payment = await prisma.debtPayment.findFirst({
+    where: { id: data.paymentId, debt: { spaceId: data.spaceId } },
+    include: {
+      debt: { include: { payments: { select: { id: true, amount: true } } } },
+    },
+  });
+  if (!payment) {
+    return { ok: false, error: "پرداخت پیدا نشد." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.debtPayment.delete({ where: { id: payment.id } });
+      const remainingPays = payment.debt.payments.filter(
+        (p) => p.id !== payment.id,
+      );
+      await tx.debt.update({
+        where: { id: payment.debtId },
+        data: {
+          status: debtStatusAfter(payment.debt.initialAmount, remainingPays),
+        },
+      });
+    });
+
+    revalidatePath(`/spaces/${data.spaceId}`);
+    revalidatePath("/app");
+    return { ok: true, debtId: payment.debtId };
+  } catch {
+    return { ok: false, error: "حذف پرداخت ناموفق بود." };
   }
 }
 

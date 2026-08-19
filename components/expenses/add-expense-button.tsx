@@ -157,15 +157,16 @@ export function AddExpenseButton({
     isBuilding && liveTab === "charges" && !chargesCalendarView;
   const isTrip = spaceType === "TRIP";
   const isPartner = spaceType === "PARTNER";
-  const denseSheet = isBuilding || isTrip || isPartner;
+  const denseSheet =
+    isBuilding || isTrip || isPartner || features.incomeExpense;
   const description = isBuilding
     ? "کسر از صندوق ساختمان"
     : isTrip || isPartner
       ? ""
       : features.householdLedger
-        ? "درآمد یا هزینه خانواده — بدون دنگ‌ودونگ"
+        ? "بدون دنگ بین اعضا"
         : features.incomeExpense
-          ? "درآمد یا هزینه — سریع و بدون تسهیم"
+          ? "درآمد یا هزینه — بدون تسهیم"
           : "عنوان، مبلغ و سهم‌ها";
   const sheetTitle = isBuilding
     ? "ثبت هزینه مشاع"

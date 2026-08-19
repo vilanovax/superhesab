@@ -1,15 +1,23 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
-  addDebtPayment,
+  addGroupedDebtPayment,
   createDebt,
+  deleteDebt,
+  deleteDebtPayment,
+  updateDebt,
+  updateDebtPayment,
   type DebtDTO,
 } from "@/app/actions/debt";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  FamilyFirstRun,
+  FamilyFirstRunTile,
+} from "@/components/spaces/family-first-run";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Drawer,
   DrawerContent,
@@ -19,14 +27,20 @@ import {
 } from "@/components/ui/drawer";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import {
+  counterpartyKey,
   daysUntilDue,
   debtTypeLabel,
+  groupDebtAccounts,
   isDueSoon,
+  summarizeDebtsForMonth,
+  type DebtAccount,
+  type DebtMonthSummary,
   type DebtTypeValue,
 } from "@/lib/debts";
 import type { SpaceCurrency } from "@/lib/format";
 import { formatDateFa, todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import { tehranMonthKey } from "@/lib/personal";
 import { cn } from "@/lib/utils";
 
 const JalaliDatePicker = dynamic(
@@ -37,10 +51,14 @@ const JalaliDatePicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />
+      <div className="h-11 animate-pulse rounded-xl bg-muted/40" />
     ),
   },
 );
+
+type LedgerEdit =
+  | { kind: "open"; debtId: string }
+  | { kind: "pay"; debtId: string; paymentId: string };
 
 type DebtPanelProps = {
   spaceId: string;
@@ -50,11 +68,6 @@ type DebtPanelProps = {
   /** FAMILY: shared household wording + show who registered each debt. */
   sharedHousehold?: boolean;
 };
-
-function parseAmount(raw: string): number {
-  const n = Number(raw);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-}
 
 export function DebtPanel({
   spaceId,
@@ -67,18 +80,23 @@ export function DebtPanel({
   const [error, setError] = useState<string | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [payDebt, setPayDebt] = useState<DebtDTO | null>(null);
+  const [accountKey, setAccountKey] = useState<string | null>(null);
+  const [accountMode, setAccountMode] = useState<"increase" | "pay">(
+    "increase",
+  );
+  const [editing, setEditing] = useState<LedgerEdit | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [type, setType] = useState<DebtTypeValue>("LENT");
   const [counterparty, setCounterparty] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
   const [dueDate, setDueDate] = useState("");
   const [hasDueDate, setHasDueDate] = useState(false);
 
-  const [payAmount, setPayAmount] = useState("");
+  const [payAmount, setPayAmount] = useState(0);
   const [payDate, setPayDate] = useState(todayIsoDateTehran());
   const [payNote, setPayNote] = useState("");
-  const [changePayDate, setChangePayDate] = useState(false);
+  const accountFormRef = useRef<HTMLFormElement>(null);
 
   const active = useMemo(
     () => debts.filter((d) => d.status === "ACTIVE"),
@@ -88,8 +106,78 @@ export function DebtPanel({
     () => debts.filter((d) => d.status === "SETTLED"),
     [debts],
   );
-  const lent = active.filter((d) => d.type === "LENT");
-  const borrowed = active.filter((d) => d.type === "BORROWED");
+  const accounts = useMemo(() => groupDebtAccounts(debts), [debts]);
+  const lentAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "LENT" && a.remaining > 0),
+    [accounts],
+  );
+  const borrowedAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "BORROWED" && a.remaining > 0),
+    [accounts],
+  );
+  const settledAccounts = useMemo(
+    () => accounts.filter((a) => a.remaining <= 0),
+    [accounts],
+  );
+  const selectedAccount = useMemo(() => {
+    if (!accountKey) return null;
+    return accounts.find((a) => a.key === accountKey) ?? null;
+  }, [accountKey, accounts]);
+  const editingSnapshot = useMemo(() => {
+    if (!editing || !selectedAccount) return null;
+    if (editing.kind === "open") {
+      const debt = selectedAccount.debts.find((d) => d.id === editing.debtId);
+      if (!debt) return null;
+      return {
+        kind: "open" as const,
+        amount: debt.initialAmount,
+        date: debt.createdAt.slice(0, 10),
+        dueDate: debt.dueDate,
+        note: null as string | null,
+        paymentCount: debt.payments.length,
+      };
+    }
+    const debt = selectedAccount.debts.find((d) => d.id === editing.debtId);
+    const payment = debt?.payments.find((p) => p.id === editing.paymentId);
+    if (!debt || !payment) return null;
+    return {
+      kind: "pay" as const,
+      amount: payment.amount,
+      date: payment.date,
+      dueDate: null as string | null,
+      note: payment.note,
+      paymentCount: 0,
+    };
+  }, [editing, selectedAccount]);
+  const knownNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const d of debts) {
+      const key = counterpartyKey(d.counterparty);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(d.counterparty);
+    }
+    return names;
+  }, [debts]);
+  const matchingCreate = useMemo(() => {
+    const key = counterpartyKey(counterparty);
+    if (key.length < 2) return null;
+    const pool = type === "LENT" ? lentAccounts : borrowedAccounts;
+    return pool.find((a) => counterpartyKey(a.counterparty) === key) ?? null;
+  }, [borrowedAccounts, counterparty, lentAccounts, type]);
+
+  const monthSummary = useMemo(
+    () => summarizeDebtsForMonth(debts, tehranMonthKey()),
+    [debts],
+  );
+  const showMonthSummary =
+    monthSummary.lentRemaining > 0 ||
+    monthSummary.lentOpened > 0 ||
+    monthSummary.lentReturned > 0 ||
+    monthSummary.borrowedRemaining > 0 ||
+    monthSummary.borrowedOpened > 0 ||
+    monthSummary.borrowedPaid > 0;
 
   const dueSoon = useMemo(
     () =>
@@ -102,14 +190,24 @@ export function DebtPanel({
   const createDirty =
     createOpen &&
     (counterparty.trim().length > 0 ||
-      amount.trim().length > 0 ||
+      amount > 0 ||
       hasDueDate ||
       type !== "LENT");
-  const payDirty =
-    Boolean(payDebt) &&
-    (payAmount.trim().length > 0 ||
-      payNote.trim().length > 0 ||
-      changePayDate);
+  const editDirty =
+    Boolean(editingSnapshot) &&
+    (payAmount !== (editingSnapshot?.amount ?? 0) ||
+      payDate !== (editingSnapshot?.date ?? "") ||
+      payNote.trim() !== (editingSnapshot?.note ?? "").trim() ||
+      (editingSnapshot?.kind === "open" &&
+        (hasDueDate !== Boolean(editingSnapshot.dueDate) ||
+          (hasDueDate && dueDate !== (editingSnapshot.dueDate ?? "")))));
+  const payDirty = editing
+    ? editDirty
+    : Boolean(selectedAccount) &&
+      (payAmount > 0 ||
+        payNote.trim().length > 0 ||
+        payDate !== todayIsoDateTehran() ||
+        hasDueDate);
   const formBlocked = createDirty || payDirty || pending;
   const { requestOpenChange, discardConfirm } =
     useUnsavedCloseGuard(formBlocked);
@@ -126,20 +224,96 @@ export function DebtPanel({
   function resetCreate() {
     setType("LENT");
     setCounterparty("");
-    setAmount("");
+    setAmount(0);
     setDueDate("");
     setHasDueDate(false);
     setError(null);
   }
 
   function resetPay() {
-    setPayDebt(null);
-    setPayAmount("");
+    setAccountKey(null);
+    setPayAmount(0);
     setPayNote("");
     setPayDate(todayIsoDateTehran());
-    setChangePayDate(false);
+    setHasDueDate(false);
+    setDueDate("");
+    setAccountMode("increase");
+    setEditing(null);
+    setConfirmDelete(false);
     setError(null);
   }
+
+  function clearAccountForm() {
+    setPayAmount(0);
+    setPayNote("");
+    setPayDate(todayIsoDateTehran());
+    setHasDueDate(false);
+    setDueDate("");
+    setAccountMode("increase");
+    setEditing(null);
+    setConfirmDelete(false);
+    setError(null);
+  }
+
+  function openAccount(
+    account: DebtAccount<DebtDTO>,
+    mode: "increase" | "pay" = "increase",
+  ) {
+    setError(null);
+    setAccountKey(account.key);
+    setAccountMode(account.remaining > 0 ? mode : "increase");
+    setPayAmount(0);
+    setPayNote("");
+    setPayDate(todayIsoDateTehran());
+    setHasDueDate(false);
+    setDueDate("");
+    setEditing(null);
+    setConfirmDelete(false);
+  }
+
+  function startLedgerEdit(next: LedgerEdit) {
+    if (!selectedAccount) return;
+    if (next.kind === "open") {
+      const debt = selectedAccount.debts.find((d) => d.id === next.debtId);
+      if (!debt) return;
+      setEditing(next);
+      setConfirmDelete(false);
+      setError(null);
+      setPayAmount(debt.initialAmount);
+      setPayDate(debt.createdAt.slice(0, 10));
+      setPayNote("");
+      setHasDueDate(Boolean(debt.dueDate));
+      setDueDate(debt.dueDate ?? "");
+      accountFormRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    const debt = selectedAccount.debts.find((d) => d.id === next.debtId);
+    const payment = debt?.payments.find((p) => p.id === next.paymentId);
+    if (!payment) return;
+    setEditing(next);
+    setConfirmDelete(false);
+    setError(null);
+    setPayAmount(payment.amount);
+    setPayDate(payment.date);
+    setPayNote(payment.note ?? "");
+    setHasDueDate(false);
+    setDueDate("");
+    accountFormRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  useEffect(() => {
+    if (!accountKey || pending) return;
+    if (!selectedAccount) {
+      resetPay();
+    }
+  }, [accountKey, pending, selectedAccount]);
+
+  useEffect(() => {
+    if (!editing || pending) return;
+    if (!editingSnapshot) {
+      clearAccountForm();
+    }
+  }, [editing, editingSnapshot, pending]);
 
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -150,7 +324,7 @@ export function DebtPanel({
         spaceId,
         type,
         counterparty,
-        initialAmount: parseAmount(amount),
+        initialAmount: amount,
         dueDate: hasDueDate && dueDate ? dueDate : null,
       });
       if (!result.ok) {
@@ -164,13 +338,61 @@ export function DebtPanel({
 
   function onPay(e: React.FormEvent) {
     e.preventDefault();
-    if (!payDebt || pending) return;
+    if (!selectedAccount || pending) return;
     setError(null);
     startTransition(async () => {
-      const result = await addDebtPayment({
+      if (editing?.kind === "open") {
+        const result = await updateDebt({
+          spaceId,
+          debtId: editing.debtId,
+          initialAmount: payAmount,
+          dueDate: hasDueDate && dueDate ? dueDate : null,
+          occurredOn: payDate || undefined,
+        });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        clearAccountForm();
+        return;
+      }
+      if (editing?.kind === "pay") {
+        const result = await updateDebtPayment({
+          spaceId,
+          paymentId: editing.paymentId,
+          amount: payAmount,
+          date: payDate || todayIsoDateTehran(),
+          note: payNote || null,
+        });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        clearAccountForm();
+        return;
+      }
+      if (accountMode === "increase") {
+        const result = await createDebt({
+          spaceId,
+          type: selectedAccount.type,
+          counterparty: selectedAccount.counterparty,
+          initialAmount: payAmount,
+          dueDate: hasDueDate && dueDate ? dueDate : null,
+        });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setPayAmount(0);
+        setHasDueDate(false);
+        setDueDate("");
+        return;
+      }
+      const result = await addGroupedDebtPayment({
         spaceId,
-        debtId: payDebt.id,
-        amount: parseAmount(payAmount),
+        type: selectedAccount.type,
+        counterparty: selectedAccount.counterparty,
+        amount: payAmount,
         date: payDate || todayIsoDateTehran(),
         note: payNote || null,
       });
@@ -178,12 +400,33 @@ export function DebtPanel({
         setError(result.error);
         return;
       }
-      resetPay();
+      setPayAmount(0);
+      setPayNote("");
+      setPayDate(todayIsoDateTehran());
+    });
+  }
+
+  function onDeleteLedgerItem() {
+    if (!editing || pending) return;
+    setError(null);
+    startTransition(async () => {
+      const result =
+        editing.kind === "open"
+          ? await deleteDebt({ spaceId, debtId: editing.debtId })
+          : await deleteDebtPayment({
+              spaceId,
+              paymentId: editing.paymentId,
+            });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      clearAccountForm();
     });
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
       {dueSoon.length > 0 ? (
         <div className="animate-fade-up rounded-2xl border border-destructive/25 bg-destructive-soft px-4 py-3">
           <p className="text-body-sm font-semibold text-destructive">
@@ -216,64 +459,84 @@ export function DebtPanel({
         </div>
       ) : null}
 
-      {canMutate ? (
-        <Button
-          type="button"
-          className="h-11 w-full rounded-xl font-semibold"
-          onClick={() => {
-            resetCreate();
-            setCreateOpen(true);
-          }}
+      {showMonthSummary ? (
+        <DebtMonthOverview
+          summary={monthSummary}
+          currency={currency}
+          sharedHousehold={sharedHousehold}
+        />
+      ) : null}
+
+      {active.length === 0 && settled.length === 0 ? (
+        <FamilyFirstRun
+          icon={<DebtMark />}
+          title="وام و قسط بیرون از خانه"
+          description="بانک، دوست یا فروشگاه — جدا از خرج ماهانه و بدون تسویه بین اعضا."
         >
-          ثبت بدهی / طلب جدید
-        </Button>
-      ) : null}
+          {canMutate ? (
+            <div className="grid grid-cols-2 gap-2">
+              <FamilyFirstRunTile
+                tone="success"
+                label="طلب"
+                hint="کسی به خانه بدهکار است"
+                onClick={() => {
+                  resetCreate();
+                  setType("LENT");
+                  setCreateOpen(true);
+                }}
+              />
+              <FamilyFirstRunTile
+                tone="danger"
+                label="بدهی"
+                hint="خانه به کسی بدهکار است"
+                onClick={() => {
+                  resetCreate();
+                  setType("BORROWED");
+                  setCreateOpen(true);
+                }}
+              />
+            </div>
+          ) : null}
+        </FamilyFirstRun>
+      ) : (
+        <>
+          {canMutate ? (
+            <Button
+              type="button"
+              className="h-11 w-full rounded-xl font-semibold"
+              onClick={() => {
+                resetCreate();
+                setCreateOpen(true);
+              }}
+            >
+              ثبت بدهی / طلب جدید
+            </Button>
+          ) : null}
 
-      {sharedHousehold ? (
-        <p className="text-caption text-muted-foreground">
-          وام و اقساط بیرون از خانواده — جدا از لجر مشترک و بدون تسویه بین اعضا.
-        </p>
-      ) : null}
+          {sharedHousehold && !showMonthSummary ? (
+            <p className="text-caption text-muted-foreground">
+              وام و اقساط بیرون از خانواده — جدا از لجر مشترک و بدون تسویه بین
+              اعضا.
+            </p>
+          ) : null}
 
-      <DebtSection
-        title={sharedHousehold ? "طلب‌های خانواده" : "من طلبکارم"}
-        tone="lent"
-        empty={
-          sharedHousehold ? "طلب فعالی ثبت نشده" : "طلب فعالی ندارید"
-        }
-        items={lent}
-        currency={currency}
-        canMutate={canMutate}
-        showCreator={sharedHousehold}
-        onPay={(d) => {
-          setError(null);
-          setPayDebt(d);
-          setPayAmount("");
-          setPayDate(todayIsoDateTehran());
-          setPayNote("");
-          setChangePayDate(false);
-        }}
-      />
+          <DebtAccountList
+            title={sharedHousehold ? "طلب‌های خانواده" : "من طلبکارم"}
+            tone="lent"
+            accounts={lentAccounts}
+            currency={currency}
+            onOpen={(account) => openAccount(account)}
+          />
 
-      <DebtSection
-        title={sharedHousehold ? "بدهی‌های خانواده" : "من بدهکارم"}
-        tone="borrowed"
-        empty={
-          sharedHousehold ? "بدهی فعالی ثبت نشده" : "بدهی فعالی ندارید"
-        }
-        items={borrowed}
-        currency={currency}
-        canMutate={canMutate}
-        showCreator={sharedHousehold}
-        onPay={(d) => {
-          setError(null);
-          setPayDebt(d);
-          setPayAmount("");
-          setPayDate(todayIsoDateTehran());
-          setPayNote("");
-          setChangePayDate(false);
-        }}
-      />
+          <DebtAccountList
+            title={sharedHousehold ? "بدهی‌های خانواده" : "من بدهکارم"}
+            tone="borrowed"
+            accounts={borrowedAccounts}
+            currency={currency}
+            onOpen={(account) => openAccount(account)}
+          />
+        </>
+      )}
 
       {settled.length > 0 ? (
         <div className="space-y-2">
@@ -283,18 +546,15 @@ export function DebtPanel({
             className="text-caption font-semibold text-muted-foreground underline-offset-2 hover:underline"
             onClick={() => setShowArchive((v) => !v)}
           >
-            {showArchive ? "پنهان کردن آرشیو" : `آرشیو تسویه‌شده (${settled.length})`}
+            {showArchive ? "پنهان کردن آرشیو" : `آرشیو تسویه‌شده (${settledAccounts.length})`}
           </button>
           {showArchive ? (
-            <DebtSection
+            <DebtAccountList
               title="تسویه‌شده"
               tone="settled"
-              empty=""
-              items={settled}
+              accounts={settledAccounts}
               currency={currency}
-              canMutate={false}
-              showCreator={sharedHousehold}
-              onPay={() => {}}
+              onOpen={(account) => openAccount(account)}
             />
           ) : null}
         </div>
@@ -311,34 +571,32 @@ export function DebtPanel({
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-5 pb-3.5 pt-2">
-            <DrawerHeader className="space-y-0.5 p-0 text-start">
-              <DrawerTitle className="text-lg font-bold text-on-hero">
-                ثبت بدهی / طلب
+          <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
+            <DrawerHeader className="relative space-y-0 p-0 text-start">
+              <DrawerTitle className="text-body font-bold text-on-hero">
+                {type === "LENT" ? "ثبت طلب" : "ثبت بدهی"}
               </DrawerTitle>
-              <DrawerDescription className="text-body-sm text-on-hero/70">
-                وام، قرض یا قسط — جدا از بودجه ماهانه
+              <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
+                {sharedHousehold
+                  ? "جدا از خرج ماه — بدون تسویه بین اعضا"
+                  : "وام یا قسط — جدا از بودجه ماه"}
               </DrawerDescription>
             </DrawerHeader>
           </div>
 
           <form
             onSubmit={onCreate}
-            className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
             <div
               role="radiogroup"
               aria-label="نوع بدهی یا طلب"
-              className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/80 p-1"
+              className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
             >
               {(
                 [
-                  { value: "LENT" as const, label: "طلب", hint: "قرض دادم" },
-                  {
-                    value: "BORROWED" as const,
-                    label: "بدهی",
-                    hint: "قرض گرفتم",
-                  },
+                  { value: "LENT" as const, label: "طلب" },
+                  { value: "BORROWED" as const, label: "بدهی" },
                 ] as const
               ).map((opt) => {
                 const active = type === opt.value;
@@ -350,90 +608,126 @@ export function DebtPanel({
                     aria-checked={active}
                     onClick={() => setType(opt.value)}
                     className={cn(
-                      "flex h-12 flex-col items-center justify-center rounded-xl transition-colors",
-                      active
-                        ? opt.value === "LENT"
-                          ? "bg-success text-success-foreground shadow-sm"
-                          : "bg-destructive text-destructive-foreground shadow-sm"
-                        : "text-muted-foreground",
+                      "h-10 rounded-lg text-body-sm font-semibold transition-[color,background-color,transform] duration-150",
+                      "active:scale-[0.98]",
+                      active && opt.value === "LENT"
+                        ? "bg-success-soft text-success"
+                        : active && opt.value === "BORROWED"
+                          ? "bg-destructive-soft text-destructive"
+                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                     )}
                   >
-                    <span className="text-body-sm font-bold">{opt.label}</span>
-                    <span
-                      className={cn(
-                        "text-micro",
-                        active ? "opacity-85" : "opacity-70",
-                      )}
-                    >
-                      {opt.hint}
-                    </span>
+                    {opt.label}
                   </button>
                 );
               })}
             </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="debt-counterparty"
-                className="text-label text-muted-foreground"
-              >
-                طرف حساب
-              </label>
-              <Input
-                id="debt-counterparty"
-                name="counterparty"
-                autoComplete="off"
-                value={counterparty}
-                onChange={(e) => setCounterparty(e.target.value)}
-                placeholder="مثلاً علی…"
-                className="h-12 rounded-xl border-border/70 bg-card text-base"
-                required
-                minLength={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="debt-amount"
-                className="text-label text-muted-foreground"
-              >
-                مبلغ اولیه
-              </label>
-              <Input
-                id="debt-amount"
-                name="amount"
-                autoComplete="off"
-                type="text"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) =>
-                  setAmount(e.target.value.replace(/[^\d]/g, ""))
-                }
-                placeholder="مثلاً ۵۰۰۰۰۰…"
-                className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
-                required
-              />
-            </div>
-
-            <div className="space-y-2 rounded-2xl bg-sheet-muted px-3.5 py-3">
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <Checkbox
-                  checked={hasDueDate}
-                  onCheckedChange={(v) => {
-                    const on = v === true;
-                    setHasDueDate(on);
-                    if (!on) setDueDate("");
-                    else if (!dueDate) setDueDate(todayIsoDateTehran());
-                  }}
-                  className="size-4.5 rounded data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+            <div className="grid grid-cols-[1.35fr_1fr] gap-2">
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="debt-counterparty"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  طرف حساب
+                </label>
+                <Input
+                  id="debt-counterparty"
+                  name="counterparty"
+                  autoComplete="off"
+                  value={counterparty}
+                  onChange={(e) => setCounterparty(e.target.value)}
+                  placeholder="مثلاً علی…"
+                  className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
+                  required
+                  minLength={2}
                 />
-                <span className="text-label text-foreground">
-                  سررسید دارم
-                </span>
-              </label>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="debt-amount"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  مبلغ
+                </label>
+                <MoneyInput
+                  id="debt-amount"
+                  name="amount"
+                  value={amount}
+                  onValueChange={setAmount}
+                  placeholder="۰"
+                  className="h-11 rounded-xl border-border/60 bg-card text-base font-semibold placeholder:font-normal placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+
+            {knownNames.length > 0 ? (
+              <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 scrollbar-none">
+                {knownNames.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setCounterparty(name)}
+                    className={cn(
+                      "inline-flex h-8 shrink-0 items-center rounded-full px-2.5 text-caption font-semibold transition-colors",
+                      counterpartyKey(counterparty) === counterpartyKey(name)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {matchingCreate ? (
+              <p className="text-caption text-muted-foreground">
+                به {debtTypeLabel(type)} «{matchingCreate.counterparty}» اضافه
+                می‌شود — ردیف جدا ساخته نمی‌شود.
+              </p>
+            ) : null}
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">سررسید</p>
+                {hasDueDate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasDueDate(false);
+                      setDueDate("");
+                    }}
+                    className="text-caption font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    حذف
+                  </button>
+                ) : null}
+              </div>
               {hasDueDate ? (
-                <JalaliDatePicker value={dueDate} onChange={setDueDate} />
-              ) : null}
+                <JalaliDatePicker
+                  id="debt-due"
+                  value={dueDate}
+                  onChange={setDueDate}
+                  variant="compact"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasDueDate(true);
+                    setDueDate(todayIsoDateTehran());
+                  }}
+                  className={cn(
+                    "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-3 text-start",
+                    "text-body-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+                    "active:scale-[0.99]",
+                  )}
+                >
+                  <span>اختیاری</span>
+                  <span aria-hidden>▾</span>
+                </button>
+              )}
             </div>
 
             {error ? (
@@ -448,17 +742,23 @@ export function DebtPanel({
 
             <Button
               type="submit"
-              className="h-12 w-full rounded-2xl text-base font-semibold"
+              className="h-11 w-full rounded-xl text-body-sm font-semibold"
               disabled={pending}
             >
-              {pending ? "در حال ثبت…" : "ثبت"}
+              {pending
+                ? "در حال ثبت…"
+                : matchingCreate
+                  ? `افزودن به ${debtTypeLabel(type)} ${matchingCreate.counterparty}`
+                  : type === "LENT"
+                    ? "ثبت طلب"
+                    : "ثبت بدهی"}
             </Button>
           </form>
         </DrawerContent>
       </Drawer>
 
       <Drawer
-        open={Boolean(payDebt)}
+        open={Boolean(selectedAccount)}
         onOpenChange={(open) => {
           requestOpenChange(open, (next) => {
             if (!next) resetPay();
@@ -467,110 +767,295 @@ export function DebtPanel({
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-5 pb-3.5 pt-2">
-            <DrawerHeader className="space-y-0.5 p-0 text-start">
-              <DrawerTitle className="text-lg font-bold text-on-hero">
-                {payDebt?.type === "LENT" ? "ثبت دریافت" : "ثبت پرداخت"}
+          <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
+            <DrawerHeader className="relative space-y-0 p-0 text-start">
+              <DrawerTitle className="text-body font-bold text-on-hero">
+                {selectedAccount?.counterparty}
               </DrawerTitle>
-              <DrawerDescription className="text-body-sm text-on-hero/70">
-                {payDebt
-                  ? `${payDebt.counterparty} · مانده ${formatCurrency(payDebt.remaining, currency)}`
+              <DrawerDescription className="mt-0.5 text-caption text-on-hero/75">
+                {selectedAccount
+                  ? `مانده ${formatCurrency(selectedAccount.remaining, currency)} · ${debtTypeLabel(selectedAccount.type)}`
                   : ""}
               </DrawerDescription>
             </DrawerHeader>
           </div>
 
           <form
+            ref={accountFormRef}
             onSubmit={onPay}
-            className="surface-sheet-canvas min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-2">
-              <label
-                htmlFor="debt-pay-amount"
-                className="text-label text-muted-foreground"
-              >
-                مبلغ
-              </label>
-              <Input
-                id="debt-pay-amount"
-                name="payAmount"
-                autoComplete="off"
-                type="text"
-                inputMode="numeric"
-                value={payAmount}
-                onChange={(e) =>
-                  setPayAmount(e.target.value.replace(/[^\d]/g, ""))
-                }
-                placeholder="مثلاً ۱۰۰۰۰۰…"
-                className="h-12 rounded-xl border-border/70 bg-card text-lg font-bold tabular-nums"
-                required
-              />
-            </div>
+            {canMutate ? (
+              <>
+                {editing ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-body-sm font-semibold text-foreground">
+                      {editing.kind === "open"
+                        ? "ویرایش افزایش"
+                        : selectedAccount?.type === "LENT"
+                          ? "ویرایش دریافت"
+                          : "ویرایش پرداخت"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => clearAccountForm()}
+                      className="text-caption font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      انصراف
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    role="radiogroup"
+                    aria-label="افزایش یا تسویه"
+                    className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
+                  >
+                    {(
+                      [
+                        { value: "increase" as const, label: "افزایش" },
+                        {
+                          value: "pay" as const,
+                          label:
+                            selectedAccount?.type === "LENT"
+                              ? "دریافت"
+                              : "پرداخت",
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = accountMode === opt.value;
+                      const payDisabled =
+                        opt.value === "pay" &&
+                        (selectedAccount?.remaining ?? 0) <= 0;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          disabled={payDisabled}
+                          onClick={() => {
+                            if (payDisabled) return;
+                            setAccountMode(opt.value);
+                            setError(null);
+                          }}
+                          className={cn(
+                            "h-10 rounded-lg text-body-sm font-semibold transition-[color,background-color,transform] duration-150 active:scale-[0.98] disabled:opacity-40",
+                            active && opt.value === "increase"
+                              ? "bg-primary text-primary-foreground"
+                              : active && opt.value === "pay"
+                                ? selectedAccount?.type === "LENT"
+                                  ? "bg-success-soft text-success"
+                                  : "bg-destructive-soft text-destructive"
+                                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-            <div className="space-y-2 rounded-2xl bg-sheet-muted px-3.5 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-label text-muted-foreground">تاریخ</p>
-                <p className="text-body-sm font-semibold text-foreground">
-                  {!changePayDate
-                    ? "امروز"
-                    : formatDateFa(new Date(`${payDate}T12:00:00Z`))}
-                </p>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <Checkbox
-                  checked={changePayDate}
-                  onCheckedChange={(v) => {
-                    const on = v === true;
-                    setChangePayDate(on);
-                    if (!on) setPayDate(todayIsoDateTehran());
-                  }}
-                  className="size-4.5 rounded data-[state=checked]:border-primary data-[state=checked]:bg-primary"
-                />
-                <span className="text-label text-foreground">
-                  تاریخ دیگری ثبت کنم
-                </span>
-              </label>
-              {changePayDate ? (
-                <JalaliDatePicker value={payDate} onChange={setPayDate} />
-              ) : null}
-            </div>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="debt-pay-amount"
+                    className="text-label text-muted-foreground"
+                  >
+                    مبلغ
+                  </label>
+                  <MoneyInput
+                    key={
+                      editing
+                        ? `${editing.kind}-${editing.kind === "open" ? editing.debtId : editing.paymentId}`
+                        : "new"
+                    }
+                    id="debt-pay-amount"
+                    name="payAmount"
+                    value={payAmount}
+                    onValueChange={setPayAmount}
+                    className="h-14 rounded-xl border-border/60 bg-card text-2xl font-semibold tracking-tight"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="debt-pay-note"
-                className="text-label text-muted-foreground"
-              >
-                یادداشت
-              </label>
-              <Input
-                id="debt-pay-note"
-                name="payNote"
-                autoComplete="off"
-                value={payNote}
-                onChange={(e) => setPayNote(e.target.value)}
-                placeholder="اختیاری…"
-                className="h-12 rounded-xl border-border/70 bg-card"
-                maxLength={200}
-              />
-            </div>
+                {editing?.kind === "open" ||
+                (!editing && accountMode === "increase") ? (
+                  <>
+                    {editing?.kind === "open" ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="debt-pay-date"
+                          className="text-label text-muted-foreground"
+                        >
+                          تاریخ
+                        </label>
+                        <JalaliDatePicker
+                          id="debt-pay-date"
+                          value={payDate}
+                          onChange={setPayDate}
+                          variant="compact"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-label text-muted-foreground">
+                          سررسید
+                        </p>
+                        {hasDueDate ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasDueDate(false);
+                              setDueDate("");
+                            }}
+                            className="text-caption font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            حذف
+                          </button>
+                        ) : null}
+                      </div>
+                      {hasDueDate ? (
+                        <JalaliDatePicker
+                          id="debt-account-due"
+                          value={dueDate}
+                          onChange={setDueDate}
+                          variant="compact"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasDueDate(true);
+                            setDueDate(todayIsoDateTehran());
+                          }}
+                          className="flex h-12 w-full items-center justify-between rounded-xl border border-border/60 bg-card px-3 text-start text-body-sm text-muted-foreground"
+                        >
+                          <span>اختیاری</span>
+                          <span aria-hidden>▾</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="debt-pay-date"
+                        className="text-label text-muted-foreground"
+                      >
+                        تاریخ
+                      </label>
+                      <JalaliDatePicker
+                        id="debt-pay-date"
+                        value={payDate}
+                        onChange={setPayDate}
+                        variant="compact"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="debt-pay-note"
+                        className="text-label text-muted-foreground"
+                      >
+                        یادداشت
+                      </label>
+                      <Input
+                        id="debt-pay-note"
+                        name="payNote"
+                        autoComplete="off"
+                        value={payNote}
+                        onChange={(e) => setPayNote(e.target.value)}
+                        placeholder="اختیاری…"
+                        className="h-12 rounded-xl border-border/60 bg-card"
+                        maxLength={200}
+                      />
+                    </div>
+                  </>
+                )}
 
-            {error ? (
-              <p
-                className="text-sm text-destructive"
-                role="alert"
-                aria-live="assertive"
-              >
-                {error}
-              </p>
+                {error ? (
+                  <p
+                    className="text-sm text-destructive"
+                    role="alert"
+                    aria-live="assertive"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl text-body-sm font-semibold"
+                  disabled={pending}
+                >
+                  {pending
+                    ? editing
+                      ? "در حال ذخیره…"
+                      : "در حال ثبت…"
+                    : editing
+                      ? "ذخیره تغییرات"
+                      : accountMode === "increase"
+                        ? "ثبت افزایش"
+                        : selectedAccount?.type === "LENT"
+                          ? "ثبت دریافت"
+                          : "ثبت پرداخت"}
+                </Button>
+
+                {editing ? (
+                  confirmDelete ? (
+                    <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive-soft/40 px-3 py-2.5">
+                      <p className="text-center text-[11px] text-destructive">
+                        {editing.kind === "open" &&
+                        (editingSnapshot?.paymentCount ?? 0) > 0
+                          ? "این افزایش و دریافت‌هایش برای همیشه حذف می‌شود."
+                          : "مطمئنی؟ این مورد از گردش حذف می‌شود."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-xl"
+                          disabled={pending}
+                          onClick={() => setConfirmDelete(false)}
+                        >
+                          انصراف
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="h-10 rounded-xl"
+                          disabled={pending}
+                          onClick={onDeleteLedgerItem}
+                        >
+                          {pending ? "در حال حذف…" : "حذف شود"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-10 w-full rounded-xl text-caption font-medium text-destructive hover:bg-destructive/8 hover:text-destructive"
+                      disabled={pending}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      حذف این مورد
+                    </Button>
+                  )
+                ) : null}
+              </>
             ) : null}
 
-            <Button
-              type="submit"
-              className="h-12 w-full rounded-2xl text-base font-semibold"
-              disabled={pending}
-            >
-              {pending ? "در حال ثبت…" : "ثبت"}
-            </Button>
+            {selectedAccount ? (
+              <AccountLedger
+                account={selectedAccount}
+                currency={currency}
+                sharedHousehold={sharedHousehold}
+                canMutate={canMutate}
+                editing={editing}
+                onEdit={startLedgerEdit}
+              />
+            ) : null}
           </form>
         </DrawerContent>
       </Drawer>
@@ -580,174 +1065,327 @@ export function DebtPanel({
   );
 }
 
-function DebtSection({
+function SummaryRow({
+  label,
+  amount,
+  currency,
+}: {
+  label: string;
+  amount: number;
+  currency: SpaceCurrency;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-caption text-muted-foreground">{label}</dt>
+      <dd className="text-body-sm font-semibold tabular-nums text-foreground">
+        {formatCurrency(amount, currency)}
+      </dd>
+    </div>
+  );
+}
+
+function DebtMonthOverview({
+  summary,
+  currency,
+  sharedHousehold,
+}: {
+  summary: DebtMonthSummary;
+  currency: SpaceCurrency;
+  sharedHousehold: boolean;
+}) {
+  const showLent =
+    summary.lentRemaining > 0 ||
+    summary.lentOpened > 0 ||
+    summary.lentReturned > 0;
+  const showBorrowed =
+    summary.borrowedRemaining > 0 ||
+    summary.borrowedOpened > 0 ||
+    summary.borrowedPaid > 0;
+
+  return (
+    <section className="animate-fade-up rounded-2xl border border-border/55 bg-card px-4 py-3.5 shadow-sm">
+      <p className="text-pretty text-caption font-semibold text-muted-foreground">
+        {sharedHousehold
+          ? "خلاصه طلب و بدهی — داخل خرج ماه نیست"
+          : "خلاصه طلب و بدهی — داخل بودجه ماه نیست"}
+      </p>
+      <div
+        className={cn(
+          "mt-3",
+          showLent && showBorrowed ? "space-y-4" : "space-y-3",
+        )}
+      >
+        {showLent ? (
+          <div className="space-y-1.5">
+            <p className="text-body-sm font-semibold text-success">طلب</p>
+            <dl className="space-y-1.5">
+              <SummaryRow
+                label="مانده"
+                amount={summary.lentRemaining}
+                currency={currency}
+              />
+              <SummaryRow
+                label="این ماه داده‌شده"
+                amount={summary.lentOpened}
+                currency={currency}
+              />
+              <SummaryRow
+                label="این ماه برگشته"
+                amount={summary.lentReturned}
+                currency={currency}
+              />
+            </dl>
+          </div>
+        ) : null}
+        {showBorrowed ? (
+          <div className="space-y-1.5">
+            <p className="text-body-sm font-semibold text-destructive">بدهی</p>
+            <dl className="space-y-1.5">
+              <SummaryRow
+                label="مانده"
+                amount={summary.borrowedRemaining}
+                currency={currency}
+              />
+              <SummaryRow
+                label="این ماه گرفته‌شده"
+                amount={summary.borrowedOpened}
+                currency={currency}
+              />
+              <SummaryRow
+                label="این ماه پرداخت‌شده"
+                amount={summary.borrowedPaid}
+                currency={currency}
+              />
+            </dl>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function DebtAccountList({
   title,
   tone,
-  empty,
-  items,
+  accounts,
   currency,
-  canMutate,
-  showCreator = false,
-  onPay,
+  onOpen,
 }: {
   title: string;
   tone: "lent" | "borrowed" | "settled";
-  empty: string;
-  items: DebtDTO[];
+  accounts: DebtAccount<DebtDTO>[];
   currency: SpaceCurrency;
-  canMutate: boolean;
-  showCreator?: boolean;
-  onPay: (d: DebtDTO) => void;
+  onOpen: (account: DebtAccount<DebtDTO>) => void;
 }) {
-  if (items.length === 0 && empty) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border/60 bg-card/50 px-4 py-6 text-center">
-        <p className="text-body-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-1 text-caption text-muted-foreground">{empty}</p>
-      </div>
-    );
-  }
-  if (items.length === 0) return null;
+  if (accounts.length === 0) return null;
 
   return (
-    <section className="space-y-2">
+    <section className="space-y-1.5">
       <h3 className="px-0.5 text-pretty text-caption font-semibold text-muted-foreground">
         {title}
       </h3>
-      <ul className="space-y-2.5">
-        {items.map((d) => (
-          <DebtCard
-            key={d.id}
-            debt={d}
-            tone={tone}
-            currency={currency}
-            canMutate={canMutate}
-            showCreator={showCreator}
-            onPay={() => onPay(d)}
-          />
+      <ul className="space-y-1.5">
+        {accounts.map((account) => (
+          <li key={account.key}>
+            <button
+              type="button"
+              onClick={() => onOpen(account)}
+              className={cn(
+                "flex w-full items-center justify-between gap-3 rounded-2xl border bg-card px-3.5 py-2.5 text-start shadow-sm",
+                "transition-colors hover:bg-muted/40 active:scale-[0.99]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                tone === "lent" && "border-success/25",
+                tone === "borrowed" && "border-destructive/25",
+                tone === "settled" && "border-border/50",
+              )}
+            >
+              <div className="min-w-0">
+                <p className="truncate text-body-sm font-semibold text-foreground">
+                  {account.counterparty}
+                </p>
+                <p className="mt-0.5 text-caption text-muted-foreground">
+                  {debtTypeLabel(account.type)}
+                  {account.itemCount > 1
+                    ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`
+                    : ""}
+                  {account.nearestDueDate
+                    ? ` · سررسید ${formatDateFa(new Date(`${account.nearestDueDate}T12:00:00Z`))}`
+                    : ""}
+                </p>
+              </div>
+              <div className="shrink-0 text-end">
+                <p
+                  className={cn(
+                    "text-body-sm font-bold tabular-nums",
+                    tone === "lent" && "text-success",
+                    tone === "borrowed" && "text-destructive",
+                    tone === "settled" && "text-muted-foreground",
+                  )}
+                >
+                  {formatCurrency(account.remaining, currency)}
+                </p>
+                <p className="text-micro text-muted-foreground">مانده</p>
+              </div>
+            </button>
+          </li>
         ))}
       </ul>
     </section>
   );
 }
 
-function DebtCard({
-  debt,
-  tone,
+function AccountLedger({
+  account,
   currency,
+  sharedHousehold,
   canMutate,
-  showCreator = false,
-  onPay,
+  editing,
+  onEdit,
 }: {
-  debt: DebtDTO;
-  tone: "lent" | "borrowed" | "settled";
+  account: DebtAccount<DebtDTO>;
   currency: SpaceCurrency;
+  sharedHousehold: boolean;
   canMutate: boolean;
-  showCreator?: boolean;
-  onPay: () => void;
+  editing: LedgerEdit | null;
+  onEdit: (next: LedgerEdit) => void;
 }) {
-  const days = daysUntilDue(
-    debt.dueDate ? new Date(`${debt.dueDate}T12:00:00Z`) : null,
-  );
-  const barColor =
-    tone === "lent"
-      ? "bg-success"
-      : tone === "borrowed"
-        ? "bg-destructive"
-        : "bg-muted-foreground";
+  const movements = [...account.debts]
+    .flatMap((debt) => {
+      const opened = [
+        {
+          id: `open-${debt.id}`,
+          debtId: debt.id,
+          paymentId: null as string | null,
+          date: debt.createdAt.slice(0, 10),
+          amount: debt.initialAmount,
+          kind: "open" as const,
+          note: sharedHousehold ? `ثبت توسط ${debt.createdByName}` : null,
+        },
+      ];
+      const pays = debt.payments.map((p) => ({
+        id: p.id,
+        debtId: debt.id,
+        paymentId: p.id,
+        date: p.date,
+        amount: p.amount,
+        kind: "pay" as const,
+        note: p.note,
+      }));
+      return [...opened, ...pays];
+    })
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+  if (movements.length === 0) return null;
 
   return (
-    <li
-      className={cn(
-        "rounded-2xl border bg-card p-3.5 shadow-sm [content-visibility:auto] [contain-intrinsic-size:auto_7rem]",
-        tone === "lent" && "border-success/25",
-        tone === "borrowed" && "border-destructive/25",
-        tone === "settled" && "border-border/50 opacity-80",
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-body font-semibold text-foreground">
-            {debt.counterparty}
-          </p>
-          <p className="mt-0.5 text-caption text-muted-foreground">
-            {debtTypeLabel(debt.type)} · کل{" "}
-            {formatCurrency(debt.initialAmount, currency)}
-            {debt.dueDate
-              ? ` · سررسید ${formatDateFa(new Date(`${debt.dueDate}T12:00:00Z`))}`
-              : ""}
-            {days != null && debt.status === "ACTIVE"
-              ? days < 0
-                ? ` · ${Math.abs(days)} روز گذشته`
-                : days === 0
-                  ? " · امروز"
-                  : ` · ${days} روز مانده`
-              : ""}
-          </p>
-          {showCreator ? (
-            <p className="mt-0.5 text-micro text-muted-foreground">
-              ثبت توسط {debt.createdByName}
-            </p>
-          ) : null}
-        </div>
-        <div className="shrink-0 text-end">
-          <p
-            className={cn(
-              "text-body-sm font-bold tabular-nums",
-              tone === "lent" && "text-success",
-              tone === "borrowed" && "text-destructive",
-            )}
-          >
-            {formatCurrency(debt.remaining, currency)}
-          </p>
-          <p className="text-micro text-muted-foreground">مانده</p>
-        </div>
-      </div>
-
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-300 ease-out",
-            barColor,
-          )}
-          style={{ width: `${debt.progressPercent}%` }}
-        />
-      </div>
-      <p className="mt-1 text-micro text-muted-foreground">
-        پرداخت‌شده {formatCurrency(debt.paidTotal, currency)} (
-        {debt.progressPercent}٪)
-      </p>
-
-      {canMutate && debt.status === "ACTIVE" ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-3 h-9 w-full rounded-xl"
-          onClick={onPay}
-        >
-          {debt.type === "LENT" ? "ثبت دریافت جزئی" : "ثبت پرداخت جزئی"}
-        </Button>
+    <div className="border-t border-border/45 pt-2.5">
+      <p className="text-caption font-semibold text-muted-foreground">گردش</p>
+      {canMutate ? (
+        <p className="mt-0.5 text-micro text-muted-foreground">
+          برای ویرایش یا حذف، روی مورد بزن
+        </p>
       ) : null}
+      <ul className="mt-1.5 divide-y divide-border/40">
+        {movements.map((row) => {
+          const selected =
+            editing?.kind === "open"
+              ? row.kind === "open" && editing.debtId === row.debtId
+              : editing?.kind === "pay"
+                ? row.kind === "pay" && editing.paymentId === row.paymentId
+                : false;
+          const body = (
+            <>
+              <div className="min-w-0">
+                <p className="text-caption text-foreground">
+                  {formatDateFa(new Date(`${row.date}T12:00:00Z`))}
+                  {" · "}
+                  {row.kind === "open"
+                    ? account.type === "LENT"
+                      ? "قرض داده‌شده"
+                      : "قرض گرفته‌شده"
+                    : account.type === "LENT"
+                      ? "دریافت"
+                      : "پرداخت"}
+                </p>
+                {row.note ? (
+                  <p className="truncate text-micro text-muted-foreground">
+                    {row.note}
+                  </p>
+                ) : null}
+              </div>
+              <p
+                className={cn(
+                  "shrink-0 text-caption font-semibold tabular-nums",
+                  row.kind === "open"
+                    ? account.type === "LENT"
+                      ? "text-success"
+                      : "text-destructive"
+                    : "text-foreground",
+                )}
+              >
+                {row.kind === "open" ? "+" : "−"}
+                {formatCurrency(row.amount, currency)}
+              </p>
+            </>
+          );
 
-      {debt.payments.length > 0 ? (
-        <ul className="mt-3 space-y-1 border-t border-border/45 pt-2">
-          {debt.payments.slice(0, 3).map((p) => (
-            <li
-              key={p.id}
-              className="flex justify-between gap-2 text-caption text-muted-foreground"
-            >
-              <span>
-                {formatDateFa(new Date(`${p.date}T12:00:00Z`))}
-                {p.note ? ` · ${p.note}` : ""}
-              </span>
-              <span className="tabular-nums font-medium text-foreground">
-                {formatCurrency(p.amount, currency)}
-              </span>
+          return (
+            <li key={row.id}>
+              {canMutate ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onEdit(
+                      row.kind === "open"
+                        ? { kind: "open", debtId: row.debtId }
+                        : {
+                            kind: "pay",
+                            debtId: row.debtId,
+                            paymentId: row.paymentId!,
+                          },
+                    )
+                  }
+                  className={cn(
+                    "flex w-full items-baseline justify-between gap-3 py-1.5 text-start",
+                    "rounded-lg px-1 -mx-1 transition-colors",
+                    "hover:bg-muted/50 active:bg-muted/70",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    selected && "bg-primary/8",
+                  )}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className="flex items-baseline justify-between gap-3 py-1.5">
+                  {body}
+                </div>
+              )}
             </li>
-          ))}
-        </ul>
-      ) : null}
-    </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function DebtMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-7" fill="none" aria-hidden="true">
+      <rect
+        x="10"
+        y="12"
+        width="28"
+        height="24"
+        rx="5"
+        stroke="currentColor"
+        strokeWidth="2.25"
+      />
+      <path
+        d="M16 20h16M16 26h10M16 32h7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

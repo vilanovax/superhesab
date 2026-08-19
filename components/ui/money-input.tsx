@@ -37,7 +37,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
         inputMode="numeric"
         dir="ltr"
         autoComplete="off"
-        className={cn("tabular-nums", className)}
+        className={cn("tabular-nums text-end placeholder:font-normal", className)}
         value={display}
         onFocus={(e) => {
           setFocused(true);

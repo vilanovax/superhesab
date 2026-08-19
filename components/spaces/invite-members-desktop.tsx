@@ -19,7 +19,7 @@ type InviteMembersDesktopProps = {
   children: ReactNode;
 };
 
-/** Desktop-only shell — keeps Radix Dialog out of the mobile chunk. */
+/** Desktop-only shell — same hero + sheet canvas as expense dialogs. */
 export function InviteMembersDesktop({
   open,
   onOpenChange,
@@ -28,17 +28,28 @@ export function InviteMembersDesktop({
   description,
   children,
 }: InviteMembersDesktopProps) {
+  const showDesc = description.trim().length > 0;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto overscroll-contain border-border/70 bg-card/95 sm:max-w-md">
-        <DialogHeader className="space-y-1 text-start">
-          <DialogTitle className="text-pretty text-lg">{title}</DialogTitle>
-          <DialogDescription className="text-caption">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        {children}
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-dialog sm:max-w-md">
+        <div className="surface-hero relative shrink-0 overflow-hidden px-5 pb-3.5 pt-2">
+          <DialogHeader className="relative space-y-0 text-start">
+            <DialogTitle className="text-pretty text-lg font-bold text-on-hero">
+              {title}
+            </DialogTitle>
+            {showDesc ? (
+              <DialogDescription className="mt-0.5 text-caption text-on-hero/70">
+                {description}
+              </DialogDescription>
+            ) : (
+              <DialogDescription className="sr-only">{title}</DialogDescription>
+            )}
+          </DialogHeader>
+        </div>
+        <div className="surface-sheet-canvas min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+          {children}
+        </div>
       </DialogContent>
     </Dialog>
   );

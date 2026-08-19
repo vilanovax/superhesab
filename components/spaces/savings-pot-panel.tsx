@@ -9,8 +9,9 @@ import {
   type SavingsPotDTO,
 } from "@/app/actions/savingsPot";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { FamilyFirstRun } from "@/components/spaces/family-first-run";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Drawer,
   DrawerContent,
@@ -39,7 +40,7 @@ const JalaliDatePicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />
+      <div className="h-11 animate-pulse rounded-xl bg-muted/40" />
     ),
   },
 );
@@ -59,11 +60,6 @@ type SavingsPotPanelProps = {
   canMutate: boolean;
 };
 
-function parseAmount(raw: string): number {
-  const n = Number(raw);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-}
-
 export function SavingsPotPanel({
   spaceId,
   pots,
@@ -78,12 +74,12 @@ export function SavingsPotPanel({
   const [txPot, setTxPot] = useState<SavingsPotDTO | null>(null);
 
   const [title, setTitle] = useState("");
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useState(0);
   const [deadline, setDeadline] = useState("");
   const [hasDeadline, setHasDeadline] = useState(false);
 
   const [txType, setTxType] = useState<"DEPOSIT" | "WITHDRAWAL">("DEPOSIT");
-  const [txAmount, setTxAmount] = useState("");
+  const [txAmount, setTxAmount] = useState(0);
   const [txMemberId, setTxMemberId] = useState(currentMemberId ?? "");
   const [txDate, setTxDate] = useState(todayIsoDateTehran());
   const [txNote, setTxNote] = useState("");
@@ -99,14 +95,13 @@ export function SavingsPotPanel({
 
   const createDirty =
     createOpen &&
-    (title.trim().length > 0 ||
-      target.trim().length > 0 ||
-      hasDeadline);
+    (title.trim().length > 0 || target > 0 || hasDeadline);
   const txDirty =
     Boolean(txPot) &&
-    (txAmount.trim().length > 0 ||
+    (txAmount > 0 ||
       txNote.trim().length > 0 ||
-      txType !== "DEPOSIT");
+      txType !== "DEPOSIT" ||
+      txDate !== todayIsoDateTehran());
   const formBlocked = createDirty || txDirty || pending;
   const { requestOpenChange, discardConfirm } =
     useUnsavedCloseGuard(formBlocked);
@@ -122,7 +117,7 @@ export function SavingsPotPanel({
 
   function resetCreate() {
     setTitle("");
-    setTarget("");
+    setTarget(0);
     setDeadline("");
     setHasDeadline(false);
     setError(null);
@@ -130,7 +125,7 @@ export function SavingsPotPanel({
 
   function resetTx() {
     setTxPot(null);
-    setTxAmount("");
+    setTxAmount(0);
     setTxNote("");
     setTxType("DEPOSIT");
     setTxDate(todayIsoDateTehran());
@@ -144,7 +139,7 @@ export function SavingsPotPanel({
       const result = await createSavingsPot({
         spaceId,
         title,
-        targetAmount: parseAmount(target),
+        targetAmount: target,
         deadline: hasDeadline && deadline ? deadline : null,
       });
       if (!result.ok) {
@@ -165,7 +160,7 @@ export function SavingsPotPanel({
         spaceId,
         potId: txPot.id,
         memberId: txMemberId,
-        amount: parseAmount(txAmount),
+        amount: txAmount,
         type: txType,
         date: txDate || todayIsoDateTehran(),
         note: txNote || null,
@@ -192,47 +187,53 @@ export function SavingsPotPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
-            صندوق پس‌انداز
-          </h3>
-          <p className="text-caption text-muted-foreground">
-            هدف مشترک — جدا از بودجه ماهانه
-          </p>
-        </div>
-        {canMutate ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 rounded-xl"
-            onClick={() => {
-              setError(null);
-              setCreateOpen(true);
-            }}
-          >
-            صندوق جدید
-          </Button>
-        ) : null}
-      </div>
-
-      {error && !createOpen && !txPot ? (
-        <p
-          className="text-caption text-destructive"
-          role="alert"
-          aria-live="assertive"
-        >
-          {error}
-        </p>
-      ) : null}
-
       {active.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-body-sm text-muted-foreground">
-          هنوز صندوقی نیست. مثلاً «سفر نوروز» یا «پیش‌پرداخت ماشین».
-        </p>
+        <FamilyFirstRun
+          icon={<PotMark />}
+          title="صندوق پس‌انداز"
+          description="پول را برای یک هدف جمع کنید؛ جدا از بودجهٔ ماه. مثلاً سفر نوروز یا پیش‌پرداخت ماشین."
+        >
+          {canMutate ? (
+            <Button
+              type="button"
+              className="h-11 w-full rounded-xl text-body-sm font-semibold"
+              onClick={() => {
+                setError(null);
+                setCreateOpen(true);
+              }}
+            >
+              صندوق جدید
+            </Button>
+          ) : null}
+        </FamilyFirstRun>
       ) : (
-        <ul className="space-y-2.5">
-          {active.map((pot) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-pretty text-body-sm font-semibold text-foreground">
+                صندوق پس‌انداز
+              </h3>
+              <p className="text-caption text-muted-foreground">
+                هدف مشترک — جدا از بودجه ماهانه
+              </p>
+            </div>
+            {canMutate ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-xl"
+                onClick={() => {
+                  setError(null);
+                  setCreateOpen(true);
+                }}
+              >
+                صندوق جدید
+              </Button>
+            ) : null}
+          </div>
+
+          <ul className="space-y-2.5">
+            {active.map((pot) => (
             <li
               key={pot.id}
               className="rounded-2xl border border-border/55 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_6.5rem]"
@@ -300,7 +301,18 @@ export function SavingsPotPanel({
             </li>
           ))}
         </ul>
+        </>
       )}
+
+      {error && !createOpen && !txPot ? (
+        <p
+          className="text-caption text-destructive"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </p>
+      ) : null}
 
       {archived.length > 0 ? (
         <p className="text-caption text-muted-foreground">
@@ -319,68 +331,100 @@ export function SavingsPotPanel({
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
-            <DrawerHeader className="space-y-0 p-0 text-start">
+          <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
+            <DrawerHeader className="relative space-y-0 p-0 text-start">
               <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
-                صندوق پس‌انداز جدید
+                صندوق جدید
               </DrawerTitle>
-              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                مبلغ هدف را مشخص کنید؛ واریزها بودجه ماه را جابه‌جا نمی‌کنند.
+              <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
+                هدف جدا از بودجه ماه
               </DrawerDescription>
             </DrawerHeader>
           </div>
           <form
             onSubmit={onCreate}
-            className="space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-1">
-              <label
-                htmlFor="savings-pot-title"
-                className="text-label text-muted-foreground"
-              >
-                عنوان
-              </label>
-              <Input
-                id="savings-pot-title"
-                name="title"
-                autoComplete="off"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="مثلاً سفر نوروز…"
-                className="h-11 rounded-xl"
-                required
-                minLength={2}
-              />
+            <div className="grid grid-cols-[1.35fr_1fr] gap-2">
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="savings-pot-title"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  عنوان
+                </label>
+                <Input
+                  id="savings-pot-title"
+                  name="title"
+                  autoComplete="off"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="مثلاً سفر نوروز…"
+                  className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
+                  required
+                  minLength={2}
+                />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="savings-pot-target"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  مبلغ هدف
+                </label>
+                <MoneyInput
+                  id="savings-pot-target"
+                  name="targetAmount"
+                  value={target}
+                  onValueChange={setTarget}
+                  placeholder="۰"
+                  className="h-11 rounded-xl border-border/60 bg-card text-base font-semibold placeholder:font-normal placeholder:text-muted-foreground"
+                />
+              </div>
             </div>
+
             <div className="space-y-1">
-              <label
-                htmlFor="savings-pot-target"
-                className="text-label text-muted-foreground"
-              >
-                مبلغ هدف
-              </label>
-              <Input
-                id="savings-pot-target"
-                name="targetAmount"
-                autoComplete="off"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                inputMode="numeric"
-                placeholder="مثلاً ۵۰۰۰۰۰۰…"
-                className="h-11 rounded-xl"
-                required
-              />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">مهلت</p>
+                {hasDeadline ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasDeadline(false);
+                      setDeadline("");
+                    }}
+                    className="text-caption font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    حذف
+                  </button>
+                ) : null}
+              </div>
+              {hasDeadline ? (
+                <JalaliDatePicker
+                  id="savings-pot-deadline"
+                  value={deadline}
+                  onChange={setDeadline}
+                  variant="compact"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasDeadline(true);
+                    setDeadline(todayIsoDateTehran());
+                  }}
+                  className={cn(
+                    "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-3 text-start",
+                    "text-body-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+                    "active:scale-[0.99]",
+                  )}
+                >
+                  <span>اختیاری</span>
+                  <span aria-hidden>▾</span>
+                </button>
+              )}
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-body-sm">
-              <Checkbox
-                checked={hasDeadline}
-                onCheckedChange={(v) => setHasDeadline(v === true)}
-              />
-              مهلت دارد
-            </label>
-            {hasDeadline ? (
-              <JalaliDatePicker value={deadline} onChange={setDeadline} />
-            ) : null}
+
             {error ? (
               <p
                 className="text-caption text-destructive"
@@ -392,7 +436,7 @@ export function SavingsPotPanel({
             ) : null}
             <Button
               type="submit"
-              className="h-11 w-full rounded-xl"
+              className="h-11 w-full rounded-xl text-body-sm font-semibold"
               disabled={pending}
             >
               {pending ? "در حال ایجاد…" : "ایجاد صندوق"}
@@ -411,85 +455,114 @@ export function SavingsPotPanel({
         repositionInputs={false}
       >
         <DrawerContent className="mt-0! max-h-[92dvh] gap-0 overflow-hidden border-border/50 bg-background p-0">
-          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
-            <DrawerHeader className="space-y-0 p-0 text-start">
+          <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
+            <DrawerHeader className="relative space-y-0 p-0 text-start">
               <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
                 {txPot?.title}
               </DrawerTitle>
-              <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                موجودی:{" "}
+              <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
+                موجودی{" "}
                 {txPot ? formatCurrency(txPot.balance, currency) : "—"}
               </DrawerDescription>
             </DrawerHeader>
           </div>
           <form
             onSubmit={onTx}
-            className="space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            className="surface-sheet-canvas min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 py-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
             <div
               role="radiogroup"
               aria-label="نوع تراکنش"
-              className="grid grid-cols-2 gap-2"
+              className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
             >
-              <Button
-                type="button"
-                role="radio"
-                aria-checked={txType === "DEPOSIT"}
-                variant={txType === "DEPOSIT" ? "default" : "outline"}
-                className="h-10 rounded-xl"
-                onClick={() => setTxType("DEPOSIT")}
-              >
-                واریز
-              </Button>
-              <Button
-                type="button"
-                role="radio"
-                aria-checked={txType === "WITHDRAWAL"}
-                variant={txType === "WITHDRAWAL" ? "default" : "outline"}
-                className="h-10 rounded-xl"
-                onClick={() => setTxType("WITHDRAWAL")}
-              >
-                برداشت
-              </Button>
+              {(
+                [
+                  { value: "DEPOSIT" as const, label: "واریز" },
+                  { value: "WITHDRAWAL" as const, label: "برداشت" },
+                ] as const
+              ).map((opt) => {
+                const active = txType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setTxType(opt.value)}
+                    className={cn(
+                      "h-10 rounded-lg text-body-sm font-bold transition-[color,background-color,transform] duration-150",
+                      "active:scale-[0.98]",
+                      active && opt.value === "DEPOSIT"
+                        ? "bg-success text-success-foreground shadow-sm"
+                        : active && opt.value === "WITHDRAWAL"
+                          ? "bg-destructive text-destructive-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
-            <Select value={txMemberId} onValueChange={setTxMemberId}>
-              <SelectTrigger
-                className="h-11 rounded-xl"
-                aria-label="عضو"
-              >
-                <SelectValue placeholder="عضو…" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.map((m) => (
-                  <SelectItem key={m.memberId} value={m.memberId}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="space-y-1">
-              <label
-                htmlFor="savings-tx-amount"
-                className="text-label text-muted-foreground"
-              >
-                مبلغ
-              </label>
-              <Input
-                id="savings-tx-amount"
-                name="amount"
-                autoComplete="off"
-                value={txAmount}
-                onChange={(e) => setTxAmount(e.target.value)}
-                inputMode="numeric"
-                placeholder="مثلاً ۵۰۰۰۰۰…"
-                className="h-11 rounded-xl"
-                required
-              />
+
+            <div className="grid grid-cols-[1.15fr_1fr] gap-2">
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="savings-tx-amount"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  مبلغ
+                </label>
+                <MoneyInput
+                  id="savings-tx-amount"
+                  name="amount"
+                  value={txAmount}
+                  onValueChange={setTxAmount}
+                  placeholder="۰"
+                  className="h-11 rounded-xl border-border/60 bg-card text-base font-semibold placeholder:font-normal placeholder:text-muted-foreground"
+                />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor="savings-tx-date"
+                  className="text-[11px] text-muted-foreground"
+                >
+                  تاریخ
+                </label>
+                <JalaliDatePicker
+                  id="savings-tx-date"
+                  value={txDate}
+                  onChange={setTxDate}
+                  variant="compact"
+                />
+              </div>
             </div>
+
+            {members.length > 1 ? (
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">از حساب کی</p>
+                <Select value={txMemberId} onValueChange={setTxMemberId}>
+                  <SelectTrigger
+                    className="h-11 rounded-xl border-border/60 bg-card"
+                    aria-label="عضو"
+                  >
+                    <SelectValue placeholder="عضو…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.memberId} value={m.memberId}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
             <div className="space-y-1">
               <label
                 htmlFor="savings-tx-note"
-                className="text-label text-muted-foreground"
+                className="text-[11px] text-muted-foreground"
               >
                 یادداشت
               </label>
@@ -500,10 +573,9 @@ export function SavingsPotPanel({
                 value={txNote}
                 onChange={(e) => setTxNote(e.target.value)}
                 placeholder="اختیاری…"
-                className="h-11 rounded-xl"
+                className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
               />
             </div>
-            <JalaliDatePicker value={txDate} onChange={setTxDate} />
             {error ? (
               <p
                 className="text-caption text-destructive"
@@ -515,10 +587,14 @@ export function SavingsPotPanel({
             ) : null}
             <Button
               type="submit"
-              className="h-11 w-full rounded-xl"
+              className="h-11 w-full rounded-xl text-body-sm font-semibold"
               disabled={pending || !txMemberId}
             >
-              {pending ? "در حال ثبت…" : "ثبت"}
+              {pending
+                ? "در حال ثبت…"
+                : txType === "DEPOSIT"
+                  ? "ثبت واریز"
+                  : "ثبت برداشت"}
             </Button>
           </form>
         </DrawerContent>
@@ -526,5 +602,24 @@ export function SavingsPotPanel({
 
       {discardConfirm}
     </div>
+  );
+}
+
+function PotMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-7" fill="none" aria-hidden="true">
+      <path
+        d="M14 20h20l-1.5 16.5A3 3 0 0 1 29.5 39h-11a3 3 0 0 1-3-2.5L14 20Z"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18 20c0-4 2.5-8 6-8s6 4 6 8"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

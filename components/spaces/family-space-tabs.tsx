@@ -235,7 +235,9 @@ export function FamilySpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            <ReportExportButtons spaceId={spaceId} variant="row" />
+            {familyMonthExpenses.length > 0 ? (
+              <ReportExportButtons spaceId={spaceId} variant="row" />
+            ) : null}
             <FamilyReportPanel
               currentUserId={currentUserId}
               members={familyReportMembers}
@@ -244,6 +246,7 @@ export function FamilySpaceTabs({
               currency={currency}
               initialReport={deferred.personalReportData}
               categoryBudgets={deferred.categoryBudgets}
+              canMutate={canMutate}
             />
           </>
         )}

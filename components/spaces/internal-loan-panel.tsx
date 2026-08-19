@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/internalLoan";
 import type { FundMemberOption } from "@/components/spaces/savings-pot-panel";
 import { Button } from "@/components/ui/button";
+import { FamilyFirstRun } from "@/components/spaces/family-first-run";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -176,82 +177,114 @@ export function InternalLoanPanel({
     });
   }
 
+  const canLendInside = members.length >= 2;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-pretty text-body-sm font-semibold text-foreground">
-            وام خانوادگی
-          </h3>
-          <p className="text-caption text-muted-foreground">
-            قرض بین اعضا — جدا از بدهی بیرونی و تسویه
-          </p>
-        </div>
-        {canMutate ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 rounded-xl"
-            onClick={() => {
-              setError(null);
-              setFromId(currentMemberId ?? members[0]?.memberId ?? "");
-              setToId(
-                members.find((m) => m.memberId !== currentMemberId)
-                  ?.memberId ?? "",
-              );
-              setCreateOpen(true);
-            }}
-          >
-            وام جدید
-          </Button>
-        ) : null}
-      </div>
-
-      {dueSoon.length > 0 ? (
-        <div className="rounded-2xl border border-destructive/25 bg-destructive-soft px-3.5 py-2.5">
-          <p className="text-caption font-semibold text-destructive">
-            سررسید نزدیک
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {dueSoon.map((l) => {
-              const days = daysUntilDue(
-                l.dueDate ? new Date(`${l.dueDate}T12:00:00Z`) : null,
-              );
-              return (
-                <li key={l.id} className="text-caption text-destructive/90">
-                  {l.fromName} → {l.toName} ·{" "}
-                  {formatCurrency(l.remaining, currency)}
-                  {days != null
-                    ? days < 0
-                      ? ` · ${Math.abs(days)} روز گذشته`
-                      : days === 0
-                        ? " · امروز"
-                        : ` · ${days} روز`
-                    : ""}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-
-      {error && !createOpen && !payLoan ? (
-        <p
-          className="text-caption text-destructive"
-          role="alert"
-          aria-live="assertive"
+      {active.length === 0 && settled.length === 0 ? (
+        <FamilyFirstRun
+          icon={<LoanMark />}
+          title="وام خانوادگی"
+          description={
+            canLendInside
+              ? "قرض بین اعضای خانه — جدا از بدهی بانک و دوست."
+              : "قرض بین اعضای خانه است. با دعوت نفر دوم، اینجا ثبت می‌شود."
+          }
         >
-          {error}
-        </p>
-      ) : null}
-
-      {active.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-body-sm text-muted-foreground">
-          وام داخلی ثبت نشده. برای قرض بین اعضای خانواده اینجا ثبت کنید.
-        </p>
+          {canMutate && canLendInside ? (
+            <Button
+              type="button"
+              className="h-11 w-full rounded-xl text-body-sm font-semibold"
+              onClick={() => {
+                setError(null);
+                setFromId(currentMemberId ?? members[0]?.memberId ?? "");
+                setToId(
+                  members.find((m) => m.memberId !== currentMemberId)
+                    ?.memberId ?? "",
+                );
+                setCreateOpen(true);
+              }}
+            >
+              وام جدید
+            </Button>
+          ) : null}
+        </FamilyFirstRun>
       ) : (
-        <ul className="space-y-2.5">
-          {active.map((loan) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-pretty text-body-sm font-semibold text-foreground">
+                وام خانوادگی
+              </h3>
+              <p className="text-caption text-muted-foreground">
+                قرض بین اعضا — جدا از بدهی بیرونی و تسویه
+              </p>
+            </div>
+            {canMutate && canLendInside ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-xl"
+                onClick={() => {
+                  setError(null);
+                  setFromId(currentMemberId ?? members[0]?.memberId ?? "");
+                  setToId(
+                    members.find((m) => m.memberId !== currentMemberId)
+                      ?.memberId ?? "",
+                  );
+                  setCreateOpen(true);
+                }}
+              >
+                وام جدید
+              </Button>
+            ) : null}
+          </div>
+
+          {dueSoon.length > 0 ? (
+            <div className="rounded-2xl border border-destructive/25 bg-destructive-soft px-3.5 py-2.5">
+              <p className="text-caption font-semibold text-destructive">
+                سررسید نزدیک
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {dueSoon.map((l) => {
+                  const days = daysUntilDue(
+                    l.dueDate ? new Date(`${l.dueDate}T12:00:00Z`) : null,
+                  );
+                  return (
+                    <li key={l.id} className="text-caption text-destructive/90">
+                      {l.fromName} → {l.toName} ·{" "}
+                      {formatCurrency(l.remaining, currency)}
+                      {days != null
+                        ? days < 0
+                          ? ` · ${Math.abs(days)} روز گذشته`
+                          : days === 0
+                            ? " · امروز"
+                            : ` · ${days} روز`
+                        : ""}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {error && !createOpen && !payLoan ? (
+            <p
+              className="text-caption text-destructive"
+              role="alert"
+              aria-live="assertive"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          {active.length === 0 ? (
+            <p className="text-pretty px-0.5 text-body-sm text-muted-foreground">
+              وام فعالی نیست.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {active.map((loan) => (
             <li
               key={loan.id}
               className="rounded-2xl border border-border/55 bg-card px-3.5 py-3 [content-visibility:auto] [contain-intrinsic-size:auto_6.5rem]"
@@ -301,9 +334,9 @@ export function InternalLoanPanel({
             </li>
           ))}
         </ul>
-      )}
+          )}
 
-      {settled.length > 0 ? (
+          {settled.length > 0 ? (
         <button
           type="button"
           aria-expanded={showSettled}
@@ -325,6 +358,8 @@ export function InternalLoanPanel({
             </div>
           ))
         : null}
+        </>
+      )}
 
       <Drawer
         open={createOpen}
@@ -542,5 +577,20 @@ export function InternalLoanPanel({
 
       {discardConfirm}
     </div>
+  );
+}
+
+function LoanMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-7" fill="none" aria-hidden="true">
+      <circle cx="16" cy="18" r="5" stroke="currentColor" strokeWidth="2.25" />
+      <circle cx="32" cy="18" r="5" stroke="currentColor" strokeWidth="2.25" />
+      <path
+        d="M10 34c1.2-5 4-8 6-8s4.8 3 6 8M26 34c1.2-5 4-8 6-8s4.8 3 6 8"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

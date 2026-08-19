@@ -47,7 +47,7 @@ export function FamilySavingsLoanPanel({
   showLoans,
 }: FamilySavingsLoanPanelProps) {
   return (
-    <div className="animate-fade-up space-y-6">
+    <div className="animate-fade-up space-y-4">
       {showSavings ? (
         <SavingsPotPanel
           spaceId={spaceId}

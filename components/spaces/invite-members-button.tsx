@@ -164,9 +164,9 @@ export function InviteMembersButton({
         ? "لینک دعوت، نقش و ضریب تسهیم"
         : spaceType === "PARTNER"
           ? "لینک دعوت، نقش و ضریب"
-          : variant === "banner"
-            ? `لینک ادعا یا افزودن دستی — «${spaceName}»`
-            : "لینک دعوت، نقش و عضو دستی";
+          : inviteRolePicker
+            ? "فعال ثبت می‌کند · ناظر فقط می‌بیند"
+            : `لینک ادعا یا افزودن دستی — «${spaceName}»`;
 
   const panel = (
     <MembersList
@@ -177,11 +177,17 @@ export function InviteMembersButton({
       inviteRolePicker={inviteRolePicker && !isBuilding}
       shareCaption={shareCaptionFor(spaceType)}
       maxMembers={maxMembers}
-      showShareControls={!isBuilding}
+      showShareControls={
+        spaceType === "TRIP" || spaceType === "PARTNER" || spaceType === "FUND"
+      }
       editorOnlyRoles={isBuilding}
       fundLayout={isFund || isTripLike}
       fundSheet={isFund}
-      editorRoleLabel={isFund ? "فعال" : "ویرایشگر"}
+      editorRoleLabel={
+        isFund || spaceType === "FAMILY" || spaceType === "PERSONAL"
+          ? "فعال"
+          : "ویرایشگر"
+      }
     />
   );
 
@@ -222,7 +228,6 @@ export function InviteMembersButton({
       title={title}
       description={description}
       compactSheet={compactSheet}
-      isFund={isFund}
     >
       {panel}
     </InviteMembersMobile>

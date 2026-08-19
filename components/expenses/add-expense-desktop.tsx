@@ -72,7 +72,7 @@ export function AddExpenseDesktop({
             className={cn(
               "surface-sheet-canvas flex min-h-0 flex-1 flex-col px-4",
               compact
-                ? "overflow-hidden py-2.5"
+                ? "overflow-hidden py-3"
                 : "min-h-0 overflow-y-auto overscroll-contain py-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]",
             )}
           >

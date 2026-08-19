@@ -5,7 +5,7 @@ import { Calendar, DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
-import { parseExpenseDateInput } from "@/lib/format";
+import { parseExpenseDateInput, todayIsoDateTehran } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import "react-multi-date-picker/styles/colors/teal.css";
 
@@ -49,9 +49,11 @@ export function JalaliDatePicker({
   variant = "inline",
 }: JalaliDatePickerProps) {
   const selected = value ? toPersianDateObject(value) : undefined;
-  const label = selected
+  const formatted = selected
     ? selected.format("D MMMM YYYY")
     : "یک روز انتخاب کنید";
+  const isToday = Boolean(value) && value === todayIsoDateTehran();
+  const label = isToday ? `امروز · ${formatted}` : formatted;
   const [open, setOpen] = useState(variant === "inline");
 
   useEffect(() => {
@@ -79,13 +81,13 @@ export function JalaliDatePicker({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={cn(
-            "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-3 text-start transition-colors",
+            "flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-3 text-start transition-colors",
             open
               ? "border-primary/40 ring-2 ring-primary/20"
               : "hover:bg-muted/40",
           )}
         >
-          <span className="text-body-sm font-semibold text-foreground">
+          <span className="min-w-0 truncate text-body-sm font-medium text-foreground">
             {label}
           </span>
           <span

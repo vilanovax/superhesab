@@ -413,13 +413,11 @@ export function MembersList({
 
   if (fundLayout) {
     const inviteCtaDone = spaceLinkState === "done";
-    const inviteEditorLabel =
-      editorRoleLabel === "فعال" ? "عضو فعال" : editorRoleLabel;
 
     return (
-      <div className={cn("space-y-3", fundSheet && "space-y-2.5")}>
+      <div className={cn("space-y-4", fundSheet && "space-y-3")}>
         {isOwner ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               {inviteRolePicker ? (
                 <Select
@@ -430,15 +428,15 @@ export function MembersList({
                 >
                   <SelectTrigger
                     className={cn(
-                      "h-10 shrink-0 rounded-xl text-caption",
-                      fundSheet ? "w-[5.75rem]" : "w-[6.5rem]",
+                      "h-11 shrink-0 rounded-xl bg-card text-caption",
+                      fundSheet ? "w-[5.75rem]" : "w-[6.25rem]",
                     )}
                     aria-label="نقش لینک دعوت"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="EDITOR">{inviteEditorLabel}</SelectItem>
+                    <SelectItem value="EDITOR">{editorRoleLabel}</SelectItem>
                     <SelectItem value="VIEWER">ناظر</SelectItem>
                   </SelectContent>
                 </Select>
@@ -447,7 +445,7 @@ export function MembersList({
                 type="button"
                 onClick={copySpaceLink}
                 className={cn(
-                  "h-10 min-w-0 flex-1 gap-2 rounded-xl text-caption font-semibold active:scale-[0.98]",
+                  "h-11 min-w-0 flex-1 gap-2 rounded-xl text-body-sm font-semibold active:scale-[0.98]",
                   inviteCtaDone &&
                     "bg-success text-success-foreground hover:bg-success/90",
                 )}
@@ -467,22 +465,17 @@ export function MembersList({
               {inviteCtaDone ? "لینک دعوت کپی شد" : ""}
             </span>
             {maxMembers != null ? (
-              <p
-                className={cn(
-                  "text-[11px] tabular-nums text-muted-foreground",
-                  fundSheet ? "px-0.5 text-start" : "text-center",
-                )}
-              >
-                {members.length.toLocaleString("fa-IR")} /{" "}
+              <p className="px-0.5 text-start text-caption tabular-nums text-muted-foreground">
+                {members.length.toLocaleString("fa-IR")} از{" "}
                 {maxMembers.toLocaleString("fa-IR")} عضو
-                {fundSheet && atCapacity ? " · ظرفیت تکمیل" : ""}
+                {atCapacity ? " · ظرفیت تکمیل" : ""}
               </p>
             ) : null}
           </div>
         ) : null}
 
         <section>
-          <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
+          <div className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
             <h3 className="text-pretty text-caption font-semibold text-muted-foreground">
               اعضا
               <span className="ms-1 tabular-nums font-normal">
@@ -490,7 +483,7 @@ export function MembersList({
               </span>
             </h3>
             {showShareControls ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-caption text-muted-foreground">
                 {fundSheet ? "ضریب" : shareCaption}
               </p>
             ) : null}
@@ -785,15 +778,13 @@ export function MembersList({
         </section>
 
         {isOwner ? (
-          <section
-            className={cn(
-              "border-t border-border/40",
-              fundSheet ? "pt-2.5" : "pt-3",
-            )}
-          >
+          <section className="space-y-2 border-t border-border/40 pt-3">
+            <h3 className="px-0.5 text-pretty text-caption font-semibold text-muted-foreground">
+              افزودن بدون اپ
+            </h3>
             <form
               onSubmit={onAddVirtual}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-2"
             >
               <Label htmlFor="invite-virtual-name-fund" className="sr-only">
                 نام عضو دستی
@@ -805,8 +796,8 @@ export function MembersList({
                 spellCheck={false}
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                placeholder={fundSheet ? "نام عضو دستی…" : "عضو دستی…"}
-                className="h-10 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
+                placeholder="نام عضو…"
+                className="h-11 min-w-0 flex-1 rounded-xl border-border/60 bg-card"
                 maxLength={40}
                 required
                 minLength={2}
@@ -821,10 +812,7 @@ export function MembersList({
                   disabled={atCapacity || pending}
                 >
                   <SelectTrigger
-                    className={cn(
-                      "h-10 shrink-0 rounded-xl text-caption",
-                      fundSheet ? "w-[4.25rem] px-2 text-[11px]" : "w-[5.5rem]",
-                    )}
+                    className="h-11 w-[5.75rem] shrink-0 rounded-xl bg-card text-caption"
                     aria-label="نقش عضو جدید"
                   >
                     <SelectValue />
@@ -837,9 +825,7 @@ export function MembersList({
               ) : null}
               <Button
                 type="submit"
-                size="sm"
-                variant={fundSheet ? "default" : "secondary"}
-                className="h-10 shrink-0 rounded-xl px-3 active:scale-[0.97]"
+                className="h-11 shrink-0 rounded-xl px-3.5 text-body-sm font-semibold active:scale-[0.97]"
                 disabled={atCapacity || pending}
                 aria-busy={pending}
               >
@@ -855,8 +841,8 @@ export function MembersList({
                 {manualError}
               </p>
             ) : null}
-            {atCapacity && !fundSheet ? (
-              <p className="mt-2 text-xs text-muted-foreground">
+            {atCapacity ? (
+              <p className="px-0.5 text-caption text-muted-foreground">
                 ظرفیت اعضا تکمیل است.
               </p>
             ) : null}

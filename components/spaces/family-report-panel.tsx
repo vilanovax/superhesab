@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
+import { FamilyFirstRun } from "@/components/spaces/family-first-run";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ import {
   type CategoryExpenseRow,
 } from "@/lib/reports";
 import type { ExpenseCategory } from "@/lib/categorizer";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
 const PersonalReportChart = dynamic(
@@ -57,6 +60,7 @@ type FamilyReportPanelProps = {
   /** Precomputed full-family chart (server). */
   initialReport: CategoryExpenseRow[];
   categoryBudgets?: Partial<Record<ExpenseCategory, number>>;
+  canMutate?: boolean;
 };
 
 function aggregateRows(
@@ -134,6 +138,7 @@ export function FamilyReportPanel({
   currency,
   initialReport,
   categoryBudgets,
+  canMutate = true,
 }: FamilyReportPanelProps) {
   const memberIds = useMemo(
     () => new Set(members.map((m) => m.userId)),
@@ -169,6 +174,10 @@ export function FamilyReportPanel({
     monthlyBudget > 0 &&
     usedPct != null;
 
+  const openExpenseForm = useUiStore((s) => s.openExpenseForm);
+  const monthEmpty = monthExpenses.length === 0;
+  const showPayerFilter = members.length > 1 && !monthEmpty;
+
   function selectFilter(next: string) {
     startTransition(() => {
       setFilter(next);
@@ -176,32 +185,54 @@ export function FamilyReportPanel({
     });
   }
 
+  if (monthEmpty) {
+    return (
+      <FamilyFirstRun
+        icon={<ReportMark />}
+        title="سهم دسته‌ها اینجا می‌آید"
+        description="با ثبت هزینه، قبض و خرید به‌صورت دایره دیده می‌شود. درآمد در خلاصهٔ بالا می‌ماند."
+      >
+        {canMutate ? (
+          <Button
+            type="button"
+            className="h-11 w-full rounded-xl text-body-sm font-semibold"
+            onClick={() => openExpenseForm({ transactionType: "EXPENSE" })}
+          >
+            ثبت اولین هزینه
+          </Button>
+        ) : null}
+      </FamilyFirstRun>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-border/55 bg-card p-3 shadow-sm">
-        <h2 className="mb-2 text-pretty text-caption font-semibold text-muted-foreground">
-          فیلتر گزارش
-        </h2>
-        <Select value={filter} onValueChange={selectFilter}>
-          <SelectTrigger
-            className="h-11 rounded-xl border-border/70 bg-sheet-muted"
-            aria-label="فیلتر گزارش بر اساس پرداخت‌کننده"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">گزارش کل خانواده</SelectItem>
-            <SelectItem value={currentUserId}>پرداختی‌های من</SelectItem>
-            {members
-              .filter((m) => m.userId !== currentUserId)
-              .map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
-                  پرداختی‌های {m.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {showPayerFilter ? (
+        <div className="rounded-2xl border border-border/55 bg-card p-3 shadow-sm">
+          <h2 className="mb-2 text-pretty text-caption font-semibold text-muted-foreground">
+            فیلتر گزارش
+          </h2>
+          <Select value={filter} onValueChange={selectFilter}>
+            <SelectTrigger
+              className="h-11 rounded-xl border-border/70 bg-sheet-muted"
+              aria-label="فیلتر گزارش بر اساس پرداخت‌کننده"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">گزارش کل خانواده</SelectItem>
+              <SelectItem value={currentUserId}>پرداختی‌های من</SelectItem>
+              {members
+                .filter((m) => m.userId !== currentUserId)
+                .map((m) => (
+                  <SelectItem key={m.userId} value={m.userId}>
+                    پرداختی‌های {m.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
 
       {hasBudget ? (
         <div className="rounded-2xl border border-border/55 bg-card px-4 py-3 shadow-sm">
@@ -240,7 +271,31 @@ export function FamilyReportPanel({
         data={reportData}
         currency={currency}
         categoryBudgets={categoryBudgets}
+        emptyTitle="در این نما هزینه‌ای نیست"
+        emptyHint="فیلتر را عوض کنید یا هزینهٔ جدیدی ثبت کنید."
       />
     </div>
+  );
+}
+
+function ReportMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-7" fill="none" aria-hidden="true">
+      <circle
+        cx="24"
+        cy="24"
+        r="14"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        opacity="0.35"
+      />
+      <path
+        d="M24 10a14 14 0 0 1 12.1 7M24 10a14 14 0 0 0-10 20.5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <circle cx="24" cy="24" r="4" fill="currentColor" opacity="0.18" />
+    </svg>
   );
 }

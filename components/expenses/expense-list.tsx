@@ -54,6 +54,7 @@ import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
+import { syncTabQuery } from "@/components/spaces/use-deferred-space-tabs";
 import {
   formatJalaliYear,
   monthLabelFa,
@@ -302,13 +303,19 @@ function EditSheet({
   const { requestOpenChange, discardConfirm } =
     useUnsavedCloseGuard(formBlocked);
 
-  const denseEdit = spaceType === "TRIP" || spaceType === "PARTNER";
+  const denseEdit =
+    spaceType === "TRIP" ||
+    spaceType === "PARTNER" ||
+    spaceType === "FAMILY" ||
+    spaceType === "PERSONAL";
   const editDescription =
     spaceType === "PARTNER"
       ? "عنوان، مبلغ یا پرداخت‌کننده"
-      : denseEdit
-        ? "عنوان، مبلغ، پرداخت‌کننده یا تسهیم"
-        : "مبلغ، پرداخت‌کننده یا تسهیم را عوض کن";
+      : spaceType === "FAMILY" || spaceType === "PERSONAL"
+        ? "عنوان، مبلغ یا دسته را عوض کن"
+        : denseEdit
+          ? "عنوان، مبلغ، پرداخت‌کننده یا تسهیم"
+          : "مبلغ، پرداخت‌کننده یا تسهیم را عوض کن";
 
   useEffect(() => {
     if (!open) {
@@ -573,6 +580,23 @@ export function ExpenseList({
         <PersonalEmptyState
           canMutate={canMutate}
           household={features.householdLedger}
+          debtsSlot={
+            features.debts && features.householdLedger && canMutate ? (
+              <button
+                type="button"
+                onClick={() => syncTabQuery("debts")}
+                className={cn(
+                  "flex min-h-11 w-full items-center justify-center rounded-xl px-3",
+                  "text-pretty text-caption font-medium text-muted-foreground",
+                  "transition-colors duration-150 hover:bg-muted/60 hover:text-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "touch-manipulation [-webkit-tap-highlight-color:transparent]",
+                )}
+              >
+                قرض به دیگران در تب بدهی ثبت می‌شود
+              </button>
+            ) : undefined
+          }
           inviteSlot={
             features.householdLedger &&
             canMutate &&

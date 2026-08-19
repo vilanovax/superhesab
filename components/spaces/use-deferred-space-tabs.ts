@@ -134,6 +134,8 @@ export function useDeferredSpaceTabs(args: {
   const [deferred, setDeferred] = useState<DeferredTabPayload>(initial);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
 
   useEffect(() => {
     setTab(defaultTab);
@@ -193,6 +195,19 @@ export function useDeferredSpaceTabs(args: {
     syncTabQuery(next);
     ensureTabData(next);
   };
+
+  useEffect(() => {
+    function onSpaceTab(e: Event) {
+      const next = (e as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (!next || next === tabRef.current) return;
+      const tabId = next as SpaceTabId;
+      setTab(tabId);
+      ensureTabData(tabId);
+    }
+    window.addEventListener("superhesab:space-tab", onSpaceTab);
+    return () =>
+      window.removeEventListener("superhesab:space-tab", onSpaceTab);
+  }, [ensureTabData]);
 
   /** Patch charge proofs after paint without blocking first charges paint. */
   const hydrateChargeProofs = useCallback(async () => {

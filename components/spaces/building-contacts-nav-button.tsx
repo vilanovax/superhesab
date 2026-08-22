@@ -35,7 +35,7 @@ export function BuildingContactsNavButton({
       variant="outline"
       size="icon"
       className={cn(
-        "relative size-10 shrink-0 rounded-2xl border-border/55 bg-card shadow-none",
+        "relative size-11 shrink-0 rounded-2xl border-border/55 bg-card shadow-none",
         className,
       )}
       aria-label="شماره‌های ضروری"

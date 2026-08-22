@@ -134,18 +134,23 @@ function SpacePageHeroChrome({
     isPersonalShell || isFamilyShell || isBuildingShell || isFundShell;
 
   return (
-    <div className="mb-4 flex items-center gap-2">
+    <div className="mb-4 flex min-w-0 items-center gap-2">
       <Link
         href="/app"
-        className="inline-flex h-11 min-h-11 cursor-pointer items-center gap-1 rounded-full border border-border/55 bg-card px-3.5 text-caption font-semibold text-foreground shadow-sm transition-colors duration-150 hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex h-11 min-h-11 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border/55 bg-card px-3.5 text-caption font-semibold text-foreground shadow-sm transition-colors duration-150 hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <BackChevron className="size-4 text-muted-foreground" />
         بازگشت
       </Link>
 
       {showTypedPill ? (
-        <div className="ms-auto flex items-center gap-1.5">
-          <span className="rounded-full bg-primary/10 px-2.5 py-1.5 text-caption font-semibold text-primary ring-1 ring-primary/15">
+        <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+          <span
+            className={cn(
+              "rounded-full bg-primary/10 px-2.5 py-1.5 text-caption font-semibold text-primary ring-1 ring-primary/15",
+              isBuildingShell && "max-sm:sr-only",
+            )}
+          >
             {isBuildingShell
               ? "ساختمان"
               : isFundShell

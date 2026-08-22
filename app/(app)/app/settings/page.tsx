@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppSettingsPanel } from "@/components/settings/app-settings-panel";
 import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { parseSettingsTab } from "@/lib/settings-tab";
 import { redirect } from "next/navigation";
 
@@ -33,7 +34,7 @@ export default async function AppSettingsPage({
   const { tab: tabParam } = await searchParams;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { name: true, phone: true, passwordHash: true },
+    select: { name: true, phone: true, passwordHash: true, avatarUrl: true },
   });
 
   if (!user) {
@@ -41,7 +42,6 @@ export default async function AppSettingsPage({
   }
 
   const displayName = user.name?.trim() || user.phone;
-  const initial = (user.name?.trim()?.[0] || "ش").toUpperCase();
   const hasPassword = Boolean(user.passwordHash);
   const initialTab = parseSettingsTab(tabParam);
 
@@ -67,12 +67,15 @@ export default async function AppSettingsPage({
           className="pointer-events-none absolute -inset-s-12 -bottom-10 size-36 rounded-full bg-ink/25 blur-3xl"
         />
         <div className="relative flex items-center gap-3.5">
-          <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-on-hero/15 text-lg font-bold text-on-hero ring-1 ring-on-hero/20"
-            aria-hidden
-          >
-            {initial}
-          </div>
+          <UserAvatar
+            phone={user.phone}
+            name={user.name}
+            avatarUrl={user.avatarUrl}
+            size={48}
+            priority
+            alt=""
+            className="ring-1 ring-on-hero/20"
+          />
           <div className="min-w-0 flex-1">
             <p className="text-caption font-medium text-on-hero/70">حساب شما</p>
             <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-on-hero">
@@ -87,6 +90,7 @@ export default async function AppSettingsPage({
 
       <AppSettingsPanel
         initialName={user.name ?? ""}
+        initialAvatarUrl={user.avatarUrl}
         phone={user.phone}
         hasPassword={hasPassword}
         initialTab={initialTab}

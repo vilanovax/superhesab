@@ -102,7 +102,7 @@ export function ShareSummaryIconButton({
 
       {toast ? (
         <div
-          className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))] z-50 flex justify-center px-4"
           role="status"
           aria-live="polite"
         >

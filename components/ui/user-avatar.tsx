@@ -41,6 +41,7 @@ type UserAvatarProps = {
   size?: number;
   className?: string;
   alt?: string;
+  priority?: boolean;
 };
 
 /**
@@ -56,6 +57,7 @@ export function UserAvatar({
   size = 40,
   className,
   alt = "",
+  priority = false,
 }: UserAvatarProps) {
   const custom = isCustomRemoteAvatar(avatarUrl) ? avatarUrl : null;
 
@@ -66,6 +68,9 @@ export function UserAvatar({
         alt={alt}
         width={size}
         height={size}
+        sizes={`${size}px`}
+        quality={80}
+        priority={priority}
         className={cn("shrink-0 rounded-full object-cover", className)}
         style={{ width: size, height: size }}
       />

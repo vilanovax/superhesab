@@ -23,7 +23,7 @@ export function AppToast() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[60] flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))] z-[60] flex justify-center px-4"
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
       aria-atomic="true"

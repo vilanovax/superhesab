@@ -6,6 +6,7 @@ import { changePassword, updateProfile } from "@/app/actions/settings";
 import { logout } from "@/app/actions/auth";
 import { PASSWORD_MIN_LEN } from "@/lib/password-policy";
 import { BrandLockup } from "@/components/brand/brand-lockup";
+import { AvatarPicker } from "@/components/settings/avatar-picker";
 import { AccountBackupPanel } from "@/components/settings/backup-panels";
 import { PwaInstallCard } from "@/components/pwa/pwa-runtime";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 type AppSettingsPanelProps = {
   initialName: string;
+  initialAvatarUrl?: string | null;
   phone: string;
   hasPassword: boolean;
   initialTab?: SettingsTab;
@@ -80,6 +82,7 @@ function syncSettingsTabQuery(tab: SettingsTab) {
 
 export function AppSettingsPanel({
   initialName,
+  initialAvatarUrl = null,
   phone,
   hasPassword,
   initialTab = "look",
@@ -96,6 +99,7 @@ export function AppSettingsPanel({
 
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [name, setName] = useState(initialName);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currencySaved, setCurrencySaved] = useState(false);
@@ -110,6 +114,10 @@ export function AppSettingsPanel({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    setAvatarUrl(initialAvatarUrl);
+  }, [initialAvatarUrl]);
 
   useEffect(() => {
     setTab(initialTab);
@@ -149,6 +157,23 @@ export function AppSettingsPanel({
         return;
       }
       setMessage("نام نمایشی ذخیره شد.");
+      router.refresh();
+    });
+  }
+
+  function onPickAvatar(next: string | null) {
+    if (next === avatarUrl) return;
+    setError(null);
+    setMessage(null);
+    setAvatarUrl(next);
+    startTransition(async () => {
+      const result = await updateProfile({ name, avatarUrl: next });
+      if (!result.ok) {
+        setAvatarUrl(initialAvatarUrl);
+        setError(result.error);
+        return;
+      }
+      setMessage("آواتار ذخیره شد.");
       router.refresh();
     });
   }
@@ -411,7 +436,14 @@ export function AppSettingsPanel({
             </section>
 
             <section className="rounded-[1.25rem] border border-border/45 bg-card p-4 shadow-sm">
-              <form onSubmit={onSaveProfile} className="space-y-3">
+              <form onSubmit={onSaveProfile} className="space-y-4">
+                <AvatarPicker
+                  phone={phone}
+                  name={name}
+                  value={avatarUrl}
+                  disabled={pending}
+                  onChange={onPickAvatar}
+                />
                 <div>
                   <h2 className="text-body-sm font-semibold text-foreground">
                     پروفایل

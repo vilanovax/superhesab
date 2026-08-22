@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DeferredPwaRuntime } from "@/components/pwa/deferred-pwa-runtime";
+import { ViewportInsets } from "@/components/pwa/viewport-insets";
 import "./globals.css";
 
 /**
@@ -106,11 +107,12 @@ export default function RootLayout({
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var r=localStorage.getItem("superhesab-app-settings");if(!r)return;var j=JSON.parse(r);var s=j&&j.state?j.state:j;if(!s)return;var t=s.theme||"light";var a=s.accent||"ocean";var resolved=t==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;document.documentElement.dataset.theme=resolved;document.documentElement.dataset.accent=a;}catch(e){}})();`,
+            __html: `(function(){try{var r=localStorage.getItem("superhesab-app-settings");if(!r)return;var j=JSON.parse(r);var s=j&&j.state?j.state:j;if(!s)return;var t=s.theme||"light";var a=s.accent||"ocean";var resolved=t==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;document.documentElement.dataset.theme=resolved;document.documentElement.dataset.accent=a;}catch(e){}})();(function(){try{var vv=window.visualViewport;if(!vv)return;var n=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));document.documentElement.style.setProperty("--vv-bottom",n+"px");}catch(e){}})();`,
           }}
         />
       </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <ViewportInsets />
         <div className="app-shell flex min-h-full flex-1 flex-col">
           <ThemeProvider>{children}</ThemeProvider>
         </div>

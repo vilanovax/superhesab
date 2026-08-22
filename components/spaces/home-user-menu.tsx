@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { logout } from "@/app/actions/auth";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 
 function SettingsIcon({ className }: { className?: string }) {
@@ -62,15 +63,17 @@ function ChevronDown({ className }: { className?: string }) {
 export function HomeUserMenu({
   isPlatformAdmin = false,
   displayName,
+  phone,
+  avatarUrl,
 }: {
   isPlatformAdmin?: boolean;
-  /** Used for avatar initial — makes the control read as “account”, not a lone icon. */
   displayName?: string | null;
+  phone: string;
+  avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const initial = (displayName?.trim()?.[0] || "ش").toUpperCase();
 
   useEffect(() => {
     if (!open) return;
@@ -115,17 +118,18 @@ export function HomeUserMenu({
             : "border-border/55 hover:border-primary/30 hover:bg-muted/40",
         )}
       >
-        <span
-          aria-hidden
+        <UserAvatar
+          phone={phone}
+          name={displayName}
+          avatarUrl={avatarUrl}
+          size={32}
+          priority
+          alt=""
           className={cn(
-            "flex size-8 items-center justify-center rounded-full text-caption font-bold",
-            open
-              ? "bg-primary text-primary-foreground"
-              : "bg-primary/12 text-primary",
+            "ring-1",
+            open ? "ring-primary/50" : "ring-border/40",
           )}
-        >
-          {initial}
-        </span>
+        />
         <ChevronDown
           className={cn(
             "size-4 text-muted-foreground transition-transform duration-150",

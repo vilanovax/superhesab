@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/guards";
+import { isPresetAvatarUrl } from "@/lib/preset-avatars";
 import {
   hashPassword,
   PASSWORD_MAX_LEN,
@@ -17,26 +18,37 @@ export type ProfileActionResult =
 
 const profileSchema = z.object({
   name: z.string().trim().max(80),
+  avatarUrl: z
+    .union([
+      z.literal(null),
+      z.string().refine((v) => isPresetAvatarUrl(v), "آواتار نامعتبر است."),
+    ])
+    .optional(),
 });
 
 export async function updateProfile(input: {
   name: string;
+  avatarUrl?: string | null;
 }): Promise<ProfileActionResult> {
   const session = await requireUser();
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "نام نامعتبر است." };
+    return { ok: false, error: "اطلاعات پروفایل نامعتبر است." };
   }
 
   await prisma.user.update({
     where: { id: session.userId },
     data: {
       name: parsed.data.name.length > 0 ? parsed.data.name : null,
+      ...(parsed.data.avatarUrl !== undefined
+        ? { avatarUrl: parsed.data.avatarUrl }
+        : {}),
     },
   });
 
   revalidatePath("/app");
   revalidatePath("/app/settings");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

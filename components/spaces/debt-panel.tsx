@@ -435,7 +435,7 @@ export function DebtPanel({
   }
 
   return (
-    <div className="space-y-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+    <div className="space-y-4 pb-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))]">
       {dueSoon.length > 0 ? (
         <div className="animate-fade-up rounded-2xl border border-destructive/25 bg-destructive-soft px-4 py-3">
           <p className="text-body-sm font-semibold text-destructive">

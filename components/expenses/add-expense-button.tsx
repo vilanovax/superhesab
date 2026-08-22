@@ -60,7 +60,7 @@ function Fab({
     <Button
       {...props}
       className={cn(
-        "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 h-12 min-h-12 -translate-x-1/2 gap-1.5 rounded-2xl px-5 text-sm font-semibold shadow-fab",
+        "fixed bottom-[calc(1rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))] left-1/2 z-40 h-12 min-h-12 -translate-x-1/2 gap-1.5 rounded-2xl px-5 text-sm font-semibold shadow-fab",
         "transition-transform duration-150 ease-out hover:scale-[1.02] active:scale-[0.97]",
         // Hero ink — always light on brand fill (independent of theme fg tokens).
         "bg-primary text-on-hero hover:bg-primary/90 hover:text-on-hero",

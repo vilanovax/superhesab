@@ -435,6 +435,8 @@ export default async function AppHomePage({
         <HomeUserMenu
           isPlatformAdmin={user.platformRole === "ADMIN"}
           displayName={user.name?.trim() || user.phone}
+          phone={user.phone}
+          avatarUrl={user.avatarUrl}
         />
       </header>
 

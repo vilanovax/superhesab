@@ -53,7 +53,7 @@ export function SpacePageContent({
   return (
     <main
       data-template={templateDataset}
-      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5"
+      className="mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-4 pb-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))] pt-4 sm:px-5"
     >
       <SpaceTheme type={membership.space.type} />
       <SpacePageHero

@@ -137,12 +137,14 @@ export function TabsTrigger({
   children,
   onPointerEnter,
   onFocus,
+  "aria-label": ariaLabel,
 }: {
   value: string;
   className?: string;
   children: React.ReactNode;
   onPointerEnter?: React.PointerEventHandler<HTMLButtonElement>;
   onFocus?: React.FocusEventHandler<HTMLButtonElement>;
+  "aria-label"?: string;
 }) {
   const { value: active, setValue, tabId, panelId } = useTabs();
   const selected = active === value;
@@ -154,6 +156,7 @@ export function TabsTrigger({
       data-tabs-value={value}
       aria-controls={panelId(value)}
       aria-selected={selected}
+      aria-label={ariaLabel}
       tabIndex={selected ? 0 : -1}
       onClick={() => setValue(value)}
       onPointerEnter={onPointerEnter}

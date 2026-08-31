@@ -18,6 +18,7 @@ import {
   updateUnit,
   type BuildingUnitRow,
 } from "@/app/actions/building";
+import type { DebtDTO } from "@/app/actions/debt";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,8 @@ type BuildingUnitsPanelProps = {
   baseCharge: number;
   /** Owner can mutate units; editors see read-only. */
   canManage: boolean;
+  /** Active طلب/بدهی linked to units (optional). */
+  debts?: DebtDTO[];
 };
 
 const MULT_PRESETS = [
@@ -604,6 +607,7 @@ export function BuildingUnitsPanel({
   units: initialUnits,
   baseCharge,
   canManage,
+  debts = [],
 }: BuildingUnitsPanelProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
@@ -647,6 +651,22 @@ export function BuildingUnitsPanel({
     () => units.filter((u) => Boolean(u.linkedUserId)).length,
     [units],
   );
+
+  /** Active remaining طلب/بدهی keyed by unitId. */
+  const debtSummaryByUnit = useMemo(() => {
+    const map = new Map<
+      string,
+      { lent: number; borrowed: number }
+    >();
+    for (const d of debts) {
+      if (!d.unitId || d.status !== "ACTIVE" || d.remaining <= 0) continue;
+      const cur = map.get(d.unitId) ?? { lent: 0, borrowed: 0 };
+      if (d.type === "LENT") cur.lent += d.remaining;
+      else cur.borrowed += d.remaining;
+      map.set(d.unitId, cur);
+    }
+    return map;
+  }, [debts]);
 
   function unitInviteUrl(token: string) {
     if (typeof window === "undefined") return `/invite/unit/${token}`;
@@ -964,6 +984,7 @@ export function BuildingUnitsPanel({
               const monthly = chargePreview(u.multiplier);
               const claimed = Boolean(u.linkedUserId);
               const menuOpen = menuUnit?.id === u.id;
+              const unitDebts = debtSummaryByUnit.get(u.id);
               return (
                 <li
                   key={u.id}
@@ -1067,6 +1088,22 @@ export function BuildingUnitsPanel({
                             ? formatCurrency(monthly, currency)
                             : `ضریب ${faDigits(u.multiplier)}`}
                         </span>
+                        {unitDebts &&
+                        (unitDebts.lent > 0 || unitDebts.borrowed > 0) ? (
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {unitDebts.lent > 0 ? (
+                              <span className="rounded-md bg-success-soft px-1.5 py-0.5 text-micro font-semibold text-success">
+                                طلب {formatCurrency(unitDebts.lent, currency)}
+                              </span>
+                            ) : null}
+                            {unitDebts.borrowed > 0 ? (
+                              <span className="rounded-md bg-destructive-soft px-1.5 py-0.5 text-micro font-semibold text-destructive">
+                                بدهی{" "}
+                                {formatCurrency(unitDebts.borrowed, currency)}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : null}
                       </span>
                     </button>
                   </SwipeToEditRow>

@@ -385,6 +385,8 @@ model Debt {
   /// LENT = طلب از دیگران؛ BORROWED = یادم‌باشه / بدهی به دیگران
   type           DebtType
   counterparty   String
+  /// BUILDING: optional link to a unit (IOU with that unit).
+  unitId         String?
   /// Total principal in smallest currency unit
   initialAmount  Int
   /// Short reason / memo (e.g. خرج ماشین مرداد)
@@ -396,6 +398,7 @@ model Debt {
   updatedAt      DateTime   @updatedAt
 
   space     Space         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  unit      Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
   createdBy User          @relation("DebtCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   payments  DebtPayment[]
 
@@ -404,6 +407,7 @@ model Debt {
   @@index([dueDate])
   @@index([spaceId, status])
   @@index([createdById])
+  @@index([unitId])
 }
 
 model DebtPayment {
@@ -540,6 +544,7 @@ model Unit {
   suggestions BuildingSuggestion[]
   categoryScopeUnits BuildingCategoryScopeUnit[]
   expenseParticipations ExpenseUnitParticipation[]
+  debts      Debt[]
 
   @@unique([spaceId, linkedUserId])
   @@index([spaceId])

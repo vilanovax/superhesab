@@ -85,7 +85,12 @@ function mergeDeferred(
       next === "report" ? data.reportExpenseLines : prev.reportExpenseLines,
     categoryBudgets:
       next === "report" ? data.categoryBudgets : prev.categoryBudgets,
-    debts: next === "debts" ? data.debts : prev.debts,
+    debts:
+      next === "debts"
+        ? data.debts
+        : next === "units" && data.debts.length > 0
+          ? data.debts
+          : prev.debts,
     savingsPots: next === "funds" ? data.savingsPots : prev.savingsPots,
     internalLoans:
       next === "funds" ? data.internalLoans : prev.internalLoans,
@@ -103,7 +108,9 @@ function mergeDeferred(
     buildingUnits:
       next === "charges" || next === "units"
         ? data.buildingUnits
-        : prev.buildingUnits,
+        : next === "debts" && data.buildingUnits.length > 0
+          ? data.buildingUnits
+          : prev.buildingUnits,
   };
 }
 

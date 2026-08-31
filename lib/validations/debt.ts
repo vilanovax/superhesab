@@ -6,18 +6,26 @@ const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "تاریخ نامعتبر است.");
 
-export const createDebtSchema = z.object({
-  spaceId: z.string().min(1),
-  type: debtTypeSchema,
-  counterparty: z
-    .string()
-    .trim()
-    .min(2, "نام طرف حساب حداقل ۲ کاراکتر باشد.")
-    .max(80),
-  initialAmount: z.number().int().min(1, "مبلغ باید حداقل ۱ باشد."),
-  note: z.string().trim().max(200).optional().nullable(),
-  dueDate: isoDateSchema.optional().nullable(),
-});
+export const createDebtSchema = z
+  .object({
+    spaceId: z.string().min(1),
+    type: debtTypeSchema,
+    counterparty: z.string().trim().max(80).default(""),
+    unitId: z.string().min(1).optional().nullable(),
+    initialAmount: z.number().int().min(1, "مبلغ باید حداقل ۱ باشد."),
+    note: z.string().trim().max(200).optional().nullable(),
+    dueDate: isoDateSchema.optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    const hasUnit = Boolean(data.unitId?.trim());
+    if (!hasUnit && data.counterparty.trim().length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "نام طرف حساب حداقل ۲ کاراکتر باشد.",
+        path: ["counterparty"],
+      });
+    }
+  });
 
 export const addDebtPaymentSchema = z.object({
   debtId: z.string().min(1),

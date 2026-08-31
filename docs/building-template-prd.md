@@ -33,7 +33,7 @@
 - `invites: true`
 - `settlements: false` — بدون تسویه بین واحدها
 - `manualSplits: false`
-- `debts: true` — طلب/بدهی موردی بین ساختمان و واحدها (جدا از شارژ و هزینه مشاع؛ جداول `Debt` / `DebtPayment`)
+- `debts: true` — طلب/بدهی موردی بین ساختمان و واحدها (جدا از شارژ و هزینه مشاع؛ جداول `Debt` / `DebtPayment`؛ اختیاری `Debt.unitId` برای اتصال به واحد و نمایش روی کارت واحد)
 - `solo: false` · `checklist: true` · `householdLedger: false`
 - `categoryBudgets: false` · `recurring: false`
 

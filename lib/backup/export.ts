@@ -170,6 +170,7 @@ export function serializeSpace(
       originalId: d.id,
       type: d.type,
       counterparty: d.counterparty,
+      originalUnitId: d.unitId ?? null,
       initialAmount: d.initialAmount,
       note: d.note,
       dueDate: iso(d.dueDate),

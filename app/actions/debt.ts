@@ -51,6 +51,8 @@ export type DebtDTO = {
   spaceId: string;
   type: DebtTypeValue;
   counterparty: string;
+  unitId: string | null;
+  unitName: string | null;
   initialAmount: number;
   note: string | null;
   dueDate: string | null;
@@ -94,6 +96,8 @@ function toDebtDTO(row: {
   spaceId: string;
   type: DebtTypeValue;
   counterparty: string;
+  unitId: string | null;
+  unit: { name: string } | null;
   initialAmount: number;
   note: string | null;
   dueDate: Date | null;
@@ -115,6 +119,8 @@ function toDebtDTO(row: {
     spaceId: row.spaceId,
     type: row.type,
     counterparty: row.counterparty,
+    unitId: row.unitId,
+    unitName: row.unit?.name ?? null,
     initialAmount: row.initialAmount,
     note: row.note,
     dueDate: row.dueDate
@@ -146,6 +152,7 @@ export async function listSpaceDebts(spaceId: string): Promise<DebtDTO[]> {
     include: {
       payments: { orderBy: { date: "desc" } },
       createdBy: { select: { name: true } },
+      unit: { select: { name: true } },
     },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
   });
@@ -178,12 +185,29 @@ export async function createDebt(
     return { ok: false, error: "نقش ناظر اجازه ثبت بدهی ندارد." };
   }
 
+  let counterparty = data.counterparty;
+  let unitId: string | null = data.unitId?.trim() || null;
+  if (unitId) {
+    const unit = await prisma.unit.findFirst({
+      where: { id: unitId, spaceId: data.spaceId },
+      select: { id: true, name: true },
+    });
+    if (!unit) {
+      return { ok: false, error: "واحد پیدا نشد." };
+    }
+    unitId = unit.id;
+    if (!counterparty.trim()) {
+      counterparty = unit.name;
+    }
+  }
+
   try {
     const debt = await prisma.debt.create({
       data: {
         spaceId: data.spaceId,
         type: data.type,
-        counterparty: data.counterparty,
+        counterparty,
+        unitId,
         initialAmount: asMoney(data.initialAmount),
         note: data.note?.trim() || null,
         dueDate: data.dueDate ? parseExpenseDateInput(data.dueDate) : null,

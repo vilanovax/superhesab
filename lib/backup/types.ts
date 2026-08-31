@@ -89,6 +89,8 @@ export type BackupDebt = {
   originalId: string;
   type: "LENT" | "BORROWED";
   counterparty: string;
+  /** Optional — BUILDING unit link; absent in older backups. */
+  originalUnitId?: string | null;
   initialAmount: number;
   /** Optional in older backups. */
   note?: string | null;

@@ -126,6 +126,41 @@ export async function loadDeferredTabData(
         out.debts = await listSpaceDebts(spaceId);
       })(),
     );
+    /** Lite unit list for debt↔unit picker without full charge dashboard. */
+    if (features.buildingCharges) {
+      tasks.push(
+        (async () => {
+          const rows = await prisma.unit.findMany({
+            where: { spaceId },
+            orderBy: [{ isActive: "desc" }, { name: "asc" }],
+            include: {
+              linkedUser: { select: { name: true, phone: true } },
+            },
+          });
+          out.buildingUnits = rows.map((u) => ({
+            id: u.id,
+            name: u.name,
+            area: u.area,
+            phone: u.phone,
+            multiplier: u.multiplier,
+            isActive: u.isActive,
+            inviteToken: u.inviteToken,
+            linkedUserId: u.linkedUserId,
+            linkedUserName:
+              u.linkedUser?.name?.trim() || u.linkedUser?.phone || null,
+            linkedAt: u.linkedAt ? u.linkedAt.toISOString() : null,
+          }));
+        })(),
+      );
+    }
+  }
+
+  if (tab === "units" && features.buildingCharges && features.debts) {
+    tasks.push(
+      (async () => {
+        out.debts = await listSpaceDebts(spaceId);
+      })(),
+    );
   }
 
   if (tab === "funds" && (features.savingsPot || features.internalLoans)) {

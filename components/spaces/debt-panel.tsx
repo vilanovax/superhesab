@@ -77,6 +77,8 @@ type DebtPanelProps = {
   sharedHousehold?: boolean;
   /** BUILDING: unit IOUs — copy separate from monthly charges. */
   buildingContext?: boolean;
+  /** BUILDING: pick unit when creating; optional free-text still works. */
+  units?: { id: string; name: string; isActive?: boolean }[];
   /** Refetch deferred tab payload after create / edit / delete. */
   onMutated?: () => void | Promise<void>;
 };
@@ -88,6 +90,7 @@ export function DebtPanel({
   canMutate,
   sharedHousehold = false,
   buildingContext = false,
+  units = [],
   onMutated,
 }: DebtPanelProps) {
   const [pending, startTransition] = useTransition();
@@ -103,6 +106,7 @@ export function DebtPanel({
 
   const [type, setType] = useState<DebtTypeValue>("LENT");
   const [counterparty, setCounterparty] = useState("");
+  const [unitId, setUnitId] = useState<string | null>(null);
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -202,9 +206,15 @@ export function DebtPanel({
     [active],
   );
 
+  const activeUnits = useMemo(
+    () => units.filter((u) => u.isActive !== false),
+    [units],
+  );
+
   const createDirty =
     createOpen &&
     (counterparty.trim().length > 0 ||
+      Boolean(unitId) ||
       amount > 0 ||
       note.trim().length > 0 ||
       hasDueDate ||
@@ -240,11 +250,21 @@ export function DebtPanel({
   function resetCreate() {
     setType("LENT");
     setCounterparty("");
+    setUnitId(null);
     setAmount(0);
     setNote("");
     setDueDate("");
     setHasDueDate(false);
     setError(null);
+  }
+
+  function selectUnit(id: string | null) {
+    setUnitId(id);
+    if (!id) return;
+    const unit = activeUnits.find((u) => u.id === id);
+    if (unit && !counterparty.trim()) {
+      setCounterparty(unit.name);
+    }
   }
 
   function resetPay() {
@@ -341,6 +361,7 @@ export function DebtPanel({
         spaceId,
         type,
         counterparty,
+        unitId,
         initialAmount: amount,
         note: note.trim() || null,
         dueDate: hasDueDate && dueDate ? dueDate : null,
@@ -394,10 +415,13 @@ export function DebtPanel({
         return;
       }
       if (accountMode === "increase") {
+        const linkedUnitId =
+          selectedAccount.debts.find((d) => d.unitId)?.unitId ?? null;
         const result = await createDebt({
           spaceId,
           type: selectedAccount.type,
           counterparty: selectedAccount.counterparty,
+          unitId: linkedUnitId,
           initialAmount: payAmount,
           note: payNote.trim() || null,
           dueDate: hasDueDate && dueDate ? dueDate : null,
@@ -697,6 +721,41 @@ export function DebtPanel({
               })}
             </div>
 
+            {buildingContext && activeUnits.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">واحد (اختیاری)</p>
+                <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => selectUnit(null)}
+                    className={cn(
+                      "inline-flex h-8 shrink-0 items-center rounded-full px-2.5 text-caption font-semibold transition-colors",
+                      unitId == null
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    آزاد
+                  </button>
+                  {activeUnits.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => selectUnit(u.id)}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-full px-2.5 text-caption font-semibold transition-colors",
+                        unitId === u.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      {u.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-[1.35fr_1fr] gap-2">
               <div className="min-w-0 space-y-1">
                 <label
@@ -715,8 +774,8 @@ export function DebtPanel({
                     buildingContext ? "مثلاً واحد ۶…" : "مثلاً علی…"
                   }
                   className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
-                  required
-                  minLength={2}
+                  required={!unitId}
+                  minLength={unitId ? undefined : 2}
                 />
               </div>
               <div className="min-w-0 space-y-1">
@@ -1329,6 +1388,11 @@ function DebtAccountList({
                 </p>
                 <p className="mt-0.5 text-caption text-muted-foreground">
                   {typeLabel(account.type)}
+                  {(() => {
+                    const unitName = account.debts.find((d) => d.unitName)
+                      ?.unitName;
+                    return unitName ? ` · واحد ${unitName}` : "";
+                  })()}
                   {account.itemCount > 1
                     ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`
                     : ""}

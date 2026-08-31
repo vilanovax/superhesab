@@ -215,7 +215,7 @@ export function BuildingSpaceTabs({
     >
       <TabsList
         aria-label="زبانه‌های دفتر"
-        className="grid w-full grid-cols-5"
+        className="grid w-full grid-cols-5 gap-0.5 [&_[role=tab]]:px-0.5 [&_[role=tab]]:text-[11px] sm:[&_[role=tab]]:px-1.5 sm:[&_[role=tab]]:text-body-sm"
       >
         <TabsTrigger
           value="expenses"
@@ -240,10 +240,16 @@ export function BuildingSpaceTabs({
         </TabsTrigger>
         <TabsTrigger
           value="debts"
+          aria-label="طلب و بدهی"
           onPointerEnter={() => prefetchTab("debts")}
           onFocus={() => prefetchTab("debts")}
+          className="leading-tight"
         >
-          طلب/بدهی
+          <span className="flex flex-col items-center sm:hidden">
+            <span>طلب</span>
+            <span className="text-[9px] font-medium opacity-90">بدهی</span>
+          </span>
+          <span className="hidden sm:inline">طلب/بدهی</span>
         </TabsTrigger>
         <TabsTrigger
           value="report"
@@ -306,6 +312,7 @@ export function BuildingSpaceTabs({
             units={liveUnits}
             baseCharge={liveDashboard?.plan?.baseCharge ?? 0}
             canManage={isOwner}
+            debts={deferred.debts}
           />
         )}
       </TabsContent>
@@ -319,7 +326,11 @@ export function BuildingSpaceTabs({
             currency={currency}
             canMutate={canMutate}
             buildingContext
-            onMutated={() => reloadTab("debts")}
+            units={liveUnits}
+            onMutated={() => {
+              void reloadTab("debts");
+              void reloadTab("units");
+            }}
           />
         )}
       </TabsContent>

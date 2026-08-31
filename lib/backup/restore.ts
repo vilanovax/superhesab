@@ -235,30 +235,6 @@ export async function restoreSpaceFromBackup(input: {
         });
       }
 
-      for (const d of input.payload.debts) {
-        await tx.debt.create({
-          data: {
-            spaceId: space.id,
-            type: d.type,
-            counterparty: d.counterparty,
-            initialAmount: d.initialAmount,
-            note: d.note ?? null,
-            dueDate: d.dueDate ? parseDate(d.dueDate) : null,
-            status: d.status,
-            createdById: mapUser(d.createdByOriginalUserId),
-            createdAt: parseDate(d.createdAt),
-            payments: {
-              create: d.payments.map((p) => ({
-                amount: p.amount,
-                date: parseDate(p.date),
-                note: p.note,
-                createdById: mapUser(p.createdByOriginalUserId),
-              })),
-            },
-          },
-        });
-      }
-
       for (const b of input.payload.categoryBudgets) {
         await tx.categoryBudget.create({
           data: {
@@ -312,6 +288,35 @@ export async function restoreSpaceFromBackup(input: {
           select: { id: true },
         });
         unitMap.set(u.originalId, created.id);
+      }
+
+      // After units so optional originalUnitId can resolve.
+      for (const d of input.payload.debts) {
+        const unitId = d.originalUnitId
+          ? (unitMap.get(d.originalUnitId) ?? null)
+          : null;
+        await tx.debt.create({
+          data: {
+            spaceId: space.id,
+            type: d.type,
+            counterparty: d.counterparty,
+            unitId,
+            initialAmount: d.initialAmount,
+            note: d.note ?? null,
+            dueDate: d.dueDate ? parseDate(d.dueDate) : null,
+            status: d.status,
+            createdById: mapUser(d.createdByOriginalUserId),
+            createdAt: parseDate(d.createdAt),
+            payments: {
+              create: d.payments.map((p) => ({
+                amount: p.amount,
+                date: parseDate(p.date),
+                note: p.note,
+                createdById: mapUser(p.createdByOriginalUserId),
+              })),
+            },
+          },
+        });
       }
 
       for (const p of input.payload.chargePlans) {

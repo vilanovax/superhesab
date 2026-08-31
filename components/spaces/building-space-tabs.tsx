@@ -68,6 +68,12 @@ const BuildingReportPeriodFilter = dynamic(
   { loading: () => <div className="h-11 animate-pulse rounded-xl bg-muted/40" /> },
 );
 
+const DebtPanel = dynamic(
+  () =>
+    import("@/components/spaces/debt-panel").then((m) => m.DebtPanel),
+  { loading: () => <SpacePanelFallback rows={3} /> },
+);
+
 /** BUILDING — charge calendar / units / common-cost report. */
 export function BuildingSpaceTabs({
   spaceId,
@@ -88,6 +94,7 @@ export function BuildingSpaceTabs({
   buildingCalendar = null,
   buildingUnits = [],
   chargeProofs: proofsProp = [],
+  debts: debtsProp = [],
   isOwner = false,
   reportPeriodLabel,
   reportEmptyTitle,
@@ -103,7 +110,8 @@ export function BuildingSpaceTabs({
     initialTab === "report" ||
     initialTab === "charges" ||
     initialTab === "units" ||
-    initialTab === "expenses"
+    initialTab === "expenses" ||
+    initialTab === "debts"
       ? (initialTab as SpaceTabId)
       : "charges";
 
@@ -114,6 +122,7 @@ export function BuildingSpaceTabs({
     tabBusy,
     onTabChange,
     prefetchTab,
+    reloadTab,
     hydrateChargeProofs,
   } = useDeferredSpaceTabs({
     spaceId,
@@ -125,7 +134,7 @@ export function BuildingSpaceTabs({
     initial: {
       personalReportData: reportProp,
       reportExpenseLines: reportLinesProp,
-      debts: [],
+      debts: defaultTab === "debts" ? debtsProp : [],
       savingsPots: [],
       internalLoans: [],
       chargeProofs: proofsProp,
@@ -138,13 +147,16 @@ export function BuildingSpaceTabs({
     },
   });
 
-  /** Warm expenses ledger after charges first paint so تب هزینه feels instant. */
+  /** Warm expenses + debts after charges first paint. */
   useEffect(() => {
-    if (defaultTab === "expenses") return;
+    const tabsToWarm: SpaceTabId[] = [];
+    if (defaultTab !== "expenses") tabsToWarm.push("expenses");
+    if (defaultTab !== "debts") tabsToWarm.push("debts");
+    if (tabsToWarm.length === 0) return;
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
-      prefetchTab("expenses");
+      for (const t of tabsToWarm) prefetchTab(t);
     };
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -203,7 +215,7 @@ export function BuildingSpaceTabs({
     >
       <TabsList
         aria-label="زبانه‌های دفتر"
-        className="grid w-full grid-cols-4"
+        className="grid w-full grid-cols-5"
       >
         <TabsTrigger
           value="expenses"
@@ -225,6 +237,13 @@ export function BuildingSpaceTabs({
           onFocus={() => prefetchTab("units")}
         >
           واحد
+        </TabsTrigger>
+        <TabsTrigger
+          value="debts"
+          onPointerEnter={() => prefetchTab("debts")}
+          onFocus={() => prefetchTab("debts")}
+        >
+          طلب/بدهی
         </TabsTrigger>
         <TabsTrigger
           value="report"
@@ -287,6 +306,20 @@ export function BuildingSpaceTabs({
             units={liveUnits}
             baseCharge={liveDashboard?.plan?.baseCharge ?? 0}
             canManage={isOwner}
+          />
+        )}
+      </TabsContent>
+      <TabsContent value="debts" className="mt-3">
+        {tabBusy && tab === "debts" ? (
+          <SpacePanelFallback rows={3} />
+        ) : (
+          <DebtPanel
+            spaceId={spaceId}
+            debts={deferred.debts}
+            currency={currency}
+            canMutate={canMutate}
+            buildingContext
+            onMutated={() => reloadTab("debts")}
           />
         )}
       </TabsContent>

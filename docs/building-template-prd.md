@@ -33,8 +33,8 @@
 - `invites: true`
 - `settlements: false` — بدون تسویه بین واحدها
 - `manualSplits: false`
-- `debts: false` — خاموش بودن ماژول قرض شخصی
-- `solo: false` · `checklist: false` · `householdLedger: false`
+- `debts: true` — طلب/بدهی موردی بین ساختمان و واحدها (جدا از شارژ و هزینه مشاع؛ جداول `Debt` / `DebtPayment`)
+- `solo: false` · `checklist: true` · `householdLedger: false`
 - `categoryBudgets: false` · `recurring: false`
 
 ## ۵. ترتیب پیاده‌سازی

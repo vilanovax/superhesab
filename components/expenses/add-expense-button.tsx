@@ -217,7 +217,7 @@ export function AddExpenseButton({
   );
 
   /** Units/report own their CTAs — don't float expense/collect here. */
-  if (isBuilding && (liveTab === "units" || liveTab === "report")) {
+  if (isBuilding && (liveTab === "units" || liveTab === "report" || liveTab === "debts")) {
     return null;
   }
 

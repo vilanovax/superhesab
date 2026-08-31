@@ -189,7 +189,7 @@ export const templates: Record<SpaceType, TemplateDefinition> = {
       solo: false,
       manualSplits: false,
       householdLedger: false,
-      debts: false,
+      debts: true,
       categoryBudgets: false,
       recurring: false,
       buildingCharges: true,

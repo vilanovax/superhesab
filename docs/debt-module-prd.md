@@ -32,8 +32,9 @@
 
 ## ۳. پیکربندی (Registry Flags)
 
-- فلگ `debts: true` روی `PERSONAL` و `FAMILY`.
+- فلگ `debts: true` روی `PERSONAL`، `FAMILY` و `BUILDING`.
 - `TRIP` و `PARTNER` → `debts: false` (موتور Settlement جداست؛ گیج‌کننده است).
+- روی `BUILDING`: طرف حساب معمولاً نام واحد است؛ جدا از معوق شارژ و هزینه مشاع.
 
 ### RBAC روی FAMILY
 

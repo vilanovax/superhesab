@@ -56,6 +56,14 @@ const JalaliDatePicker = dynamic(
   },
 );
 
+function panelTypeLabel(
+  type: DebtTypeValue,
+  buildingContext: boolean,
+): string {
+  if (type === "LENT") return "طلب";
+  return buildingContext ? "بدهی" : debtTypeLabel(type);
+}
+
 type LedgerEdit =
   | { kind: "open"; debtId: string }
   | { kind: "pay"; debtId: string; paymentId: string };
@@ -67,6 +75,8 @@ type DebtPanelProps = {
   canMutate: boolean;
   /** FAMILY: shared household wording + show who registered each debt. */
   sharedHousehold?: boolean;
+  /** BUILDING: unit IOUs — copy separate from monthly charges. */
+  buildingContext?: boolean;
   /** Refetch deferred tab payload after create / edit / delete. */
   onMutated?: () => void | Promise<void>;
 };
@@ -77,6 +87,7 @@ export function DebtPanel({
   currency,
   canMutate,
   sharedHousehold = false,
+  buildingContext = false,
   onMutated,
 }: DebtPanelProps) {
   const [pending, startTransition] = useTransition();
@@ -480,21 +491,34 @@ export function DebtPanel({
           summary={monthSummary}
           currency={currency}
           sharedHousehold={sharedHousehold}
+          buildingContext={buildingContext}
         />
       ) : null}
 
       {active.length === 0 && settled.length === 0 ? (
         <FamilyFirstRun
           icon={<DebtMark />}
-          title="وام و قسط بیرون از خانه"
-          description="بانک، دوست یا فروشگاه — جدا از خرج ماهانه و بدون تسویه بین اعضا."
+          title={
+            buildingContext
+              ? "طلب و بدهی واحدها"
+              : "وام و قسط بیرون از خانه"
+          }
+          description={
+            buildingContext
+              ? "پیش‌پرداخت، هزینه خاص یا قرض بین ساختمان و واحد — جدا از شارژ ماهانه و هزینه مشاع."
+              : "بانک، دوست یا فروشگاه — جدا از خرج ماهانه و بدون تسویه بین اعضا."
+          }
         >
           {canMutate ? (
             <div className="grid grid-cols-2 gap-2">
               <FamilyFirstRunTile
                 tone="success"
                 label="طلب"
-                hint="کسی به خانه بدهکار است"
+                hint={
+                  buildingContext
+                    ? "واحدی به ساختمان طلبکار است"
+                    : "کسی به خانه بدهکار است"
+                }
                 onClick={() => {
                   resetCreate();
                   setType("LENT");
@@ -503,8 +527,12 @@ export function DebtPanel({
               />
               <FamilyFirstRunTile
                 tone="danger"
-                label="یادم‌باشه"
-                hint="یادداشت مبلغی که باید بپردازید"
+                label={buildingContext ? "بدهی" : "یادم‌باشه"}
+                hint={
+                  buildingContext
+                    ? "واحدی به ساختمان بدهکار است"
+                    : "یادداشت مبلغی که باید بپردازید"
+                }
                 onClick={() => {
                   resetCreate();
                   setType("BORROWED");
@@ -525,11 +553,15 @@ export function DebtPanel({
                 setCreateOpen(true);
               }}
             >
-              ثبت یادم‌باشه / طلب جدید
+              طلب / بدهی
             </Button>
           ) : null}
 
-          {sharedHousehold && !showMonthSummary ? (
+          {buildingContext && !showMonthSummary ? (
+            <p className="text-caption text-muted-foreground">
+              جدا از شارژ ماهانه و هزینه مشاع — فقط حساب‌وکتاب موردی با واحدها.
+            </p>
+          ) : sharedHousehold && !showMonthSummary ? (
             <p className="text-caption text-muted-foreground">
               وام و اقساط بیرون از خانواده — جدا از لجر مشترک و بدون تسویه بین
               اعضا.
@@ -537,18 +569,32 @@ export function DebtPanel({
           ) : null}
 
           <DebtAccountList
-            title={sharedHousehold ? "طلب‌های خانواده" : "من طلبکارم"}
+            title={
+              buildingContext
+                ? "طلب از واحدها"
+                : sharedHousehold
+                  ? "طلب‌های خانواده"
+                  : "من طلبکارم"
+            }
             tone="lent"
             accounts={lentAccounts}
             currency={currency}
+            typeLabel={(t) => panelTypeLabel(t, buildingContext)}
             onOpen={(account) => openAccount(account)}
           />
 
           <DebtAccountList
-            title={sharedHousehold ? "یادم‌باشه‌های خانواده" : "یادم‌باشه"}
+            title={
+              buildingContext
+                ? "بدهی واحدها"
+                : sharedHousehold
+                  ? "یادم‌باشه‌های خانواده"
+                  : "یادم‌باشه"
+            }
             tone="borrowed"
             accounts={borrowedAccounts}
             currency={currency}
+            typeLabel={(t) => panelTypeLabel(t, buildingContext)}
             onOpen={(account) => openAccount(account)}
           />
         </>
@@ -570,6 +616,7 @@ export function DebtPanel({
               tone="settled"
               accounts={settledAccounts}
               currency={currency}
+              typeLabel={(t) => panelTypeLabel(t, buildingContext)}
               onOpen={(account) => openAccount(account)}
             />
           ) : null}
@@ -590,12 +637,18 @@ export function DebtPanel({
           <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
             <DrawerHeader className="relative space-y-0 p-0 text-start">
               <DrawerTitle className="text-body font-bold text-on-hero">
-                {type === "LENT" ? "ثبت طلب" : "ثبت یادم‌باشه"}
+                {type === "LENT"
+                  ? "ثبت طلب"
+                  : buildingContext
+                    ? "ثبت بدهی"
+                    : "ثبت یادم‌باشه"}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
-                {sharedHousehold
-                  ? "جدا از خرج ماه — بدون تسویه بین اعضا"
-                  : "وام یا قسط — جدا از بودجه ماه"}
+                {buildingContext
+                  ? "جدا از شارژ ماهانه و هزینه مشاع"
+                  : sharedHousehold
+                    ? "جدا از خرج ماه — بدون تسویه بین اعضا"
+                    : "وام یا قسط — جدا از بودجه ماه"}
               </DrawerDescription>
             </DrawerHeader>
           </div>
@@ -606,13 +659,18 @@ export function DebtPanel({
           >
             <div
               role="radiogroup"
-              aria-label="نوع طلب یا یادم‌باشه"
+              aria-label={
+                buildingContext ? "نوع طلب یا بدهی" : "نوع طلب یا یادم‌باشه"
+              }
               className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
             >
               {(
                 [
                   { value: "LENT" as const, label: "طلب" },
-                  { value: "BORROWED" as const, label: "یادم‌باشه" },
+                  {
+                    value: "BORROWED" as const,
+                    label: buildingContext ? "بدهی" : "یادم‌باشه",
+                  },
                 ] as const
               ).map((opt) => {
                 const active = type === opt.value;
@@ -653,7 +711,9 @@ export function DebtPanel({
                   autoComplete="off"
                   value={counterparty}
                   onChange={(e) => setCounterparty(e.target.value)}
-                  placeholder="مثلاً علی…"
+                  placeholder={
+                    buildingContext ? "مثلاً واحد ۶…" : "مثلاً علی…"
+                  }
                   className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
                   required
                   minLength={2}
@@ -699,8 +759,9 @@ export function DebtPanel({
 
             {matchingCreate ? (
               <p className="text-caption text-muted-foreground">
-                به {debtTypeLabel(type)} «{matchingCreate.counterparty}» اضافه
-                می‌شود — ردیف جدا ساخته نمی‌شود.
+                به {panelTypeLabel(type, buildingContext)} «
+                {matchingCreate.counterparty}» اضافه می‌شود — ردیف جدا ساخته
+                نمی‌شود.
               </p>
             ) : null}
 
@@ -783,10 +844,12 @@ export function DebtPanel({
               {pending
                 ? "در حال ثبت…"
                 : matchingCreate
-                  ? `افزودن به ${debtTypeLabel(type)} ${matchingCreate.counterparty}`
+                  ? `افزودن به ${panelTypeLabel(type, buildingContext)} ${matchingCreate.counterparty}`
                   : type === "LENT"
                     ? "ثبت طلب"
-                    : "ثبت یادم‌باشه"}
+                    : buildingContext
+                      ? "ثبت بدهی"
+                      : "ثبت یادم‌باشه"}
             </Button>
           </form>
         </DrawerContent>
@@ -809,7 +872,7 @@ export function DebtPanel({
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/75">
                 {selectedAccount
-                  ? `مانده ${formatCurrency(selectedAccount.remaining, currency)} · ${debtTypeLabel(selectedAccount.type)}`
+                  ? `مانده ${formatCurrency(selectedAccount.remaining, currency)} · ${panelTypeLabel(selectedAccount.type, buildingContext)}`
                   : ""}
               </DrawerDescription>
             </DrawerHeader>
@@ -1103,7 +1166,7 @@ export function DebtPanel({
               <AccountLedger
                 account={selectedAccount}
                 currency={currency}
-                sharedHousehold={sharedHousehold}
+                sharedHousehold={sharedHousehold || buildingContext}
                 canMutate={canMutate}
                 editing={editing}
                 onEdit={startLedgerEdit}
@@ -1141,10 +1204,12 @@ function DebtMonthOverview({
   summary,
   currency,
   sharedHousehold,
+  buildingContext = false,
 }: {
   summary: DebtMonthSummary;
   currency: SpaceCurrency;
   sharedHousehold: boolean;
+  buildingContext?: boolean;
 }) {
   const showLent =
     summary.lentRemaining > 0 ||
@@ -1158,9 +1223,11 @@ function DebtMonthOverview({
   return (
     <section className="animate-fade-up rounded-2xl border border-border/55 bg-card px-4 py-3.5 shadow-sm">
       <p className="text-pretty text-caption font-semibold text-muted-foreground">
-        {sharedHousehold
-          ? "خلاصه طلب و یادم‌باشه — داخل خرج ماه نیست"
-          : "خلاصه طلب و یادم‌باشه — داخل بودجه ماه نیست"}
+        {buildingContext
+          ? "خلاصه طلب و بدهی واحدها — داخل شارژ و مشاع نیست"
+          : sharedHousehold
+            ? "خلاصه طلب و یادم‌باشه — داخل خرج ماه نیست"
+            : "خلاصه طلب و یادم‌باشه — داخل بودجه ماه نیست"}
       </p>
       <div
         className={cn(
@@ -1193,7 +1260,7 @@ function DebtMonthOverview({
         {showBorrowed ? (
           <div className="space-y-1.5">
             <p className="text-body-sm font-semibold text-destructive">
-              یادم‌باشه
+              {buildingContext ? "بدهی" : "یادم‌باشه"}
             </p>
             <dl className="space-y-1.5">
               <SummaryRow
@@ -1224,12 +1291,14 @@ function DebtAccountList({
   tone,
   accounts,
   currency,
+  typeLabel = debtTypeLabel,
   onOpen,
 }: {
   title: string;
   tone: "lent" | "borrowed" | "settled";
   accounts: DebtAccount<DebtDTO>[];
   currency: SpaceCurrency;
+  typeLabel?: (type: DebtTypeValue) => string;
   onOpen: (account: DebtAccount<DebtDTO>) => void;
 }) {
   if (accounts.length === 0) return null;
@@ -1259,7 +1328,7 @@ function DebtAccountList({
                   {account.counterparty}
                 </p>
                 <p className="mt-0.5 text-caption text-muted-foreground">
-                  {debtTypeLabel(account.type)}
+                  {typeLabel(account.type)}
                   {account.itemCount > 1
                     ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`
                     : ""}

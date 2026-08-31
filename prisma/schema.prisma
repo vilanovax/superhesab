@@ -118,6 +118,7 @@ model User {
   debtPayments     DebtPayment[]   @relation("DebtPaymentCreatedBy")
   recurringRules   RecurringRule[] @relation("RecurringRuleCreatedBy")
   chargePayments   ChargePayment[] @relation("ChargePaymentCreatedBy")
+  chargeBaseOverridesCreated ChargeBaseOverride[] @relation("ChargeBaseOverrideCreatedBy")
   chargePaymentProofsUploaded ChargePaymentProof[] @relation("ChargePaymentProofUploadedBy")
   chargePaymentProofsReviewed ChargePaymentProof[] @relation("ChargePaymentProofReviewedBy")
   linkedUnits      Unit[]          @relation("UnitLinkedUser")
@@ -205,6 +206,7 @@ model Space {
   recurringRules  RecurringRule[]
   units           Unit[]
   chargePlans     ChargePlan[]
+  chargeBaseOverrides ChargeBaseOverride[]
   buildingSuggestions BuildingSuggestion[]
   buildingAnnouncements BuildingAnnouncement[]
   buildingNotifications BuildingNotification[]
@@ -632,6 +634,28 @@ model ChargePlan {
 
   @@unique([spaceId, year])
   @@index([spaceId])
+}
+
+/// BUILDING: month-range override of ChargePlan.baseCharge within a Jalali year.
+/// Inclusive [fromMonth, toMonth]. Single-month exception ⇒ fromMonth === toMonth.
+/// Forward change ⇒ fromMonth..12 after normalizing overlaps on write.
+model ChargeBaseOverride {
+  id          String   @id @default(cuid())
+  spaceId     String
+  year        Int
+  fromMonth   Int
+  toMonth     Int
+  /// Monthly base in smallest currency unit for this range
+  baseCharge  Int
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space     Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("ChargeBaseOverrideCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([spaceId, year])
+  @@index([createdById])
 }
 
 /// BUILDING: one recorded charge outcome per unit × year × month (no pre-allocation).

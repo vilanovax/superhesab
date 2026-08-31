@@ -193,7 +193,11 @@ export default async function SpaceSettingsPage({
 
   const isPartnerSpace = space.type === "PARTNER";
   const isFundSpace = space.type === "FUND";
-  const slimHeader = showBuilding || showRoundUp || isFundSpace;
+  const isHouseholdSettings =
+    showBudget &&
+    (showCategoryBudgets || showRecurring || categoryPrivacyPossible);
+  const slimHeader =
+    showBuilding || showRoundUp || isFundSpace || isHouseholdSettings;
 
   const roleLabel =
     membership.role === "OWNER"
@@ -211,7 +215,8 @@ export default async function SpaceSettingsPage({
     template.maxMembers != null &&
     tripInviteRows.length >= template.maxMembers;
 
-  const denseSettings = isPartnerSpace || isFundSpace;
+  const denseSettings =
+    isPartnerSpace || isFundSpace || isHouseholdSettings;
 
   return (
     <main
@@ -284,6 +289,18 @@ export default async function SpaceSettingsPage({
             </h1>
             <p className="text-caption text-muted-foreground">
               نام، واحد پول، رند و اعضا
+            </p>
+          </>
+        ) : isHouseholdSettings ? (
+          <>
+            <p className="text-micro font-semibold tracking-[0.06em] text-muted-foreground">
+              تنظیمات خانه
+            </p>
+            <h1 className="text-pretty text-[1.45rem] font-bold leading-tight tracking-tight text-foreground">
+              {space.name}
+            </h1>
+            <p className="text-caption text-muted-foreground">
+              نام، بودجه و تنظیمات پیشرفته
             </p>
           </>
         ) : (
@@ -384,10 +401,13 @@ export default async function SpaceSettingsPage({
             error={error}
           />
         ) : (
-          <form action={updateSpaceSettingsAndRedirect} className="space-y-4">
+          <form
+            action={updateSpaceSettingsAndRedirect}
+            className={isHouseholdSettings ? "space-y-3" : "space-y-4"}
+          >
             <input type="hidden" name="spaceId" value={space.id} />
 
-            <div className="space-y-2">
+            <div className={isHouseholdSettings ? "space-y-1.5" : "space-y-2"}>
               <Label htmlFor="name">نام فضا</Label>
               <Input
                 id="name"
@@ -397,18 +417,22 @@ export default async function SpaceSettingsPage({
                 minLength={2}
                 defaultValue={space.name}
                 disabled={!isOwner}
-                className="rounded-xl"
+                className={isHouseholdSettings ? "h-11 rounded-xl" : "rounded-xl"}
               />
             </div>
 
-            <div className="space-y-2">
+            <div className={isHouseholdSettings ? "space-y-1.5" : "space-y-2"}>
               <Label htmlFor="currency">واحد پول</Label>
               <select
                 id="currency"
                 name="currency"
                 defaultValue={space.currency}
                 disabled={!isOwner}
-                className="flex h-12 w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
+                className={
+                  isHouseholdSettings
+                    ? "flex h-11 w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
+                    : "flex h-12 w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
+                }
               >
                 {(Object.keys(CURRENCY_LABELS) as SpaceCurrency[]).map(
                   (code) => (
@@ -418,13 +442,15 @@ export default async function SpaceSettingsPage({
                   ),
                 )}
               </select>
-              <p className="text-xs text-muted-foreground">
-                کنار مبالغ نمایش داده می‌شود.
-              </p>
+              {!isHouseholdSettings ? (
+                <p className="text-xs text-muted-foreground">
+                  کنار مبالغ نمایش داده می‌شود.
+                </p>
+              ) : null}
             </div>
 
             {showBudget ? (
-              <div className="space-y-2">
+              <div className={isHouseholdSettings ? "space-y-1.5" : "space-y-2"}>
                 <Label htmlFor="monthlyBudget">سقف بودجه ماهانه</Label>
                 <Input
                   id="monthlyBudget"
@@ -437,9 +463,19 @@ export default async function SpaceSettingsPage({
                   defaultValue={space.monthlyBudget ?? ""}
                   placeholder="مثلاً ۵۰۰۰۰۰۰…"
                   disabled={!isOwner}
-                  className="rounded-xl tabular-nums"
+                  className={
+                    isHouseholdSettings
+                      ? "h-11 rounded-xl tabular-nums"
+                      : "rounded-xl tabular-nums"
+                  }
                 />
-                <p className="text-xs text-muted-foreground">
+                <p
+                  className={
+                    isHouseholdSettings
+                      ? "text-[11px] text-muted-foreground"
+                      : "text-xs text-muted-foreground"
+                  }
+                >
                   خالی = بدون نوار بودجه در داشبورد.
                 </p>
               </div>
@@ -455,7 +491,13 @@ export default async function SpaceSettingsPage({
             )}
             <input type="hidden" name="defaultPlanYear" value="" />
 
-            <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground">
+            <div
+              className={
+                isHouseholdSettings
+                  ? "rounded-lg bg-muted/60 px-2.5 py-2 text-[11px] text-muted-foreground"
+                  : "rounded-xl bg-muted/70 px-3 py-2.5 text-xs text-muted-foreground"
+              }
+            >
               قالب:{" "}
               <span className="font-medium text-foreground">
                 {template.label}
@@ -692,51 +734,60 @@ export default async function SpaceSettingsPage({
       ) : null}
 
       {showCategoryPrivacy ? (
-        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+        <div className="animate-fade-up">
           <CategoryPrivacySettings
             spaceId={space.id}
             initial={categoryPolicies}
             currentUserId={session.userId}
             disabled={membership.role === "VIEWER"}
           />
-        </section>
+        </div>
       ) : null}
 
       {showCategoryBudgets ? (
-        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+        <div className="animate-fade-up">
           <CategoryBudgetSettings
             spaceId={space.id}
             initial={categoryBudgets}
             disabled={!isOwner}
           />
-        </section>
+        </div>
       ) : null}
 
       {showRecurring ? (
-        <section className="animate-fade-up space-y-4 rounded-2xl border border-border/70 bg-card/90 p-5 backdrop-blur-sm">
+        <div className="animate-fade-up">
           <RecurringSettings
             spaceId={space.id}
             initial={recurringRules}
             currency={space.currency}
             disabled={!isOwner}
           />
+        </div>
+      ) : null}
+
+      {isOwner ? (
+        <section className="animate-fade-up space-y-2.5 rounded-2xl border border-border/55 bg-card p-3.5 shadow-sm">
+          <div>
+            <h2 className="text-caption font-bold text-foreground">
+              مدیریت دفتر
+            </h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              بک‌آپ JSON یا آرشیو از لیست اصلی
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <SpaceBackupButton
+              spaceId={space.id}
+              spaceName={space.name}
+              variant="compact"
+            />
+            <SpaceArchiveButton
+              spaceId={space.id}
+              spaceName={space.name}
+              variant="compact"
+            />
+          </div>
         </section>
-      ) : null}
-
-      {isOwner ? (
-        <div className="animate-fade-up">
-          <SpaceBackupButton spaceId={space.id} spaceName={space.name} />
-        </div>
-      ) : null}
-
-      {isOwner ? (
-        <div className="animate-fade-up">
-          <SpaceArchiveButton
-            spaceId={space.id}
-            spaceName={space.name}
-            variant="panel"
-          />
-        </div>
       ) : null}
     </main>
   );

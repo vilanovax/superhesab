@@ -1,23 +1,99 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { buildBackupForOwnedSpaces } from "@/lib/backup/export";
 import { restoreSpaceFromBackup } from "@/lib/backup/restore";
 import type { BackupFileV2, RestoreSpaceResult } from "@/lib/backup/types";
 import { parseBackupFile } from "@/lib/backup/validate";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { prisma } from "@/lib/db/prisma";
+import {
+  canonicalizeSpaceType,
+  getTemplate,
+} from "@/lib/templates/registry";
+import type { SpaceType } from "@/types";
 
 export type BackupActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-/** Account-wide JSON backup — OWNER spaces only. */
-export async function exportAccountBackup(): Promise<BackupFileV2> {
+export type OwnedBackupSpaceDTO = {
+  id: string;
+  name: string;
+  type: SpaceType;
+  /** Canonical product label (PERSONAL → خانه). */
+  typeLabel: string;
+  archived: boolean;
+};
+
+const exportAccountSchema = z.object({
+  spaceIds: z.array(z.string().min(1)).max(200).optional(),
+});
+
+/** Owned spaces for the account backup picker (active + archived). */
+export async function listOwnedSpacesForBackup(): Promise<
+  OwnedBackupSpaceDTO[]
+> {
   const session = await requireUser();
-  return buildBackupForOwnedSpaces({
+  const rows = await prisma.spaceMember.findMany({
+    where: { userId: session.userId, role: "OWNER" },
+    orderBy: { createdAt: "asc" },
+    select: {
+      space: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          archivedAt: true,
+        },
+      },
+    },
+  });
+
+  return rows.map((r) => {
+    const type = canonicalizeSpaceType(r.space.type as SpaceType);
+    return {
+      id: r.space.id,
+      name: r.space.name,
+      type,
+      typeLabel: getTemplate(type).label,
+      archived: r.space.archivedAt != null,
+    };
+  });
+}
+
+/**
+ * Account JSON backup — OWNER spaces only.
+ * Omit `spaceIds` (or pass all) for full account export; pass a subset to filter.
+ */
+export async function exportAccountBackup(
+  input?: { spaceIds?: string[] },
+): Promise<BackupActionResult<BackupFileV2>> {
+  const parsed = exportAccountSchema.safeParse(input ?? {});
+  if (!parsed.success) {
+    return { ok: false, error: "انتخاب دفاتر نامعتبر است." };
+  }
+
+  const session = await requireUser();
+  const data = await buildBackupForOwnedSpaces({
     userId: session.userId,
     scope: "account",
+    spaceIds: parsed.data.spaceIds,
   });
+
+  if (
+    parsed.data.spaceIds &&
+    parsed.data.spaceIds.length > 0 &&
+    data.spaces.length === 0
+  ) {
+    return {
+      ok: false,
+      error: "هیچ دفتر مالک انتخاب‌شده‌ای برای بک‌آپ پیدا نشد.",
+    };
+  }
+
+  return { ok: true, data };
 }
 
 /** Single-space JSON backup — OWNER only. */
@@ -101,6 +177,8 @@ export async function restoreBackupFile(
 }
 
 /** @deprecated Use exportAccountBackup — kept for older imports */
-export async function exportUserBackup(): Promise<BackupFileV2> {
+export async function exportUserBackup(): Promise<
+  BackupActionResult<BackupFileV2>
+> {
   return exportAccountBackup();
 }

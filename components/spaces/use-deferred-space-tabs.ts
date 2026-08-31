@@ -73,6 +73,18 @@ export function syncTabQuery(tab: string) {
   );
 }
 
+/** After add/edit/delete expense — deferred tab caches must refetch. */
+export function notifyExpensesMutated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("superhesab:expenses-mutated"));
+}
+
+/** After charge payment / plan / override mutations — refresh deferred charges. */
+export function notifyChargesMutated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("superhesab:charges-mutated"));
+}
+
 function mergeDeferred(
   prev: DeferredTabPayload,
   next: SpaceTabId,
@@ -248,6 +260,38 @@ export function useDeferredSpaceTabs(args: {
     return () =>
       window.removeEventListener("superhesab:space-tab", onSpaceTab);
   }, [ensureTabData]);
+
+  /** Ledger mutations — refresh deferred expenses (+ report if already loaded). */
+  useEffect(() => {
+    function onExpensesMutated() {
+      void reloadTab("expenses");
+      if (loadedRef.current.has("report")) {
+        void reloadTab("report");
+      }
+    }
+    window.addEventListener("superhesab:expenses-mutated", onExpensesMutated);
+    return () =>
+      window.removeEventListener(
+        "superhesab:expenses-mutated",
+        onExpensesMutated,
+      );
+  }, [reloadTab]);
+
+  /** Charge mutations — refresh deferred charges (+ units if warmed). */
+  useEffect(() => {
+    function onChargesMutated() {
+      void reloadTab("charges");
+      if (loadedRef.current.has("units")) {
+        void reloadTab("units");
+      }
+    }
+    window.addEventListener("superhesab:charges-mutated", onChargesMutated);
+    return () =>
+      window.removeEventListener(
+        "superhesab:charges-mutated",
+        onChargesMutated,
+      );
+  }, [reloadTab]);
 
   /** Patch charge proofs after paint without blocking first charges paint. */
   const hydrateChargeProofs = useCallback(async () => {

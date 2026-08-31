@@ -338,7 +338,13 @@ export function BuildingSpaceTabs({
             spaceId={spaceId}
             currency={currency}
             units={liveUnits}
-            baseCharge={liveDashboard?.plan?.baseCharge ?? 0}
+            baseCharge={
+              liveDashboard?.basesByMonth?.[
+                Math.max(1, liveDashboard.throughMonth || 1)
+              ] ??
+              liveDashboard?.plan?.baseCharge ??
+              0
+            }
             canManage={isOwner}
             debts={deferred.debts}
             onOpenUnitDebts={openUnitDebts}

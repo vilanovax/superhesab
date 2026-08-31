@@ -7,10 +7,13 @@ import "server-only";
 
 import type { SpaceCurrency } from "@/lib/format";
 import {
+  buildBasesByMonth,
+  effectiveBaseForMonth,
   tehranCivilMonth,
   tehranCivilYear,
   unitArrears,
   unitCollected,
+  unitExpectedYtd,
   unitMonthlyCharge,
   type ChargeStatusValue,
   type PaymentSlice,
@@ -24,6 +27,7 @@ import {
 import type { CategoryExpenseRow, ReportExpenseLine } from "@/lib/reports";
 import {
   getCachedBuildingUnits,
+  getCachedChargeBaseOverrides,
   getCachedChargePlan,
 } from "@/lib/spaces/building-cache";
 import { getTemplate } from "@/lib/templates/registry";
@@ -147,8 +151,9 @@ async function loadChargeSlice(spaceId: string, year: number) {
         ? 12
         : 0;
 
-  const [plan, units, payments] = await Promise.all([
+  const [plan, overrides, units, payments] = await Promise.all([
     getCachedChargePlan(spaceId, year),
+    getCachedChargeBaseOverrides(spaceId, year),
     getCachedBuildingUnits(spaceId),
     prisma.chargePayment.findMany({
       where: { year, unit: { spaceId } },
@@ -161,7 +166,11 @@ async function loadChargeSlice(spaceId: string, year: number) {
     }),
   ]);
 
-  const baseCharge = plan?.baseCharge ?? 0;
+  const basesByMonth = buildBasesByMonth(plan?.baseCharge ?? 0, overrides);
+  const baseCharge = effectiveBaseForMonth(
+    basesByMonth,
+    Math.max(1, throughMonth || 1),
+  );
   const paymentsByUnit = new Map<string, PaymentSlice[]>();
   for (const p of payments) {
     const list = paymentsByUnit.get(p.unitId) ?? [];
@@ -179,7 +188,7 @@ async function loadChargeSlice(spaceId: string, year: number) {
     const monthlyCharge = unitMonthlyCharge(baseCharge, u.multiplier);
     const arrears = plan
       ? unitArrears({
-          baseCharge,
+          basesByMonth,
           multiplier: u.multiplier,
           throughMonth,
           payments: slices,
@@ -187,7 +196,7 @@ async function loadChargeSlice(spaceId: string, year: number) {
       : 0;
     const collected = plan
       ? unitCollected({
-          baseCharge,
+          basesByMonth,
           multiplier: u.multiplier,
           payments: slices,
         })
@@ -197,15 +206,31 @@ async function loadChargeSlice(spaceId: string, year: number) {
       monthlyCharge,
       arrears,
       collected,
+      multiplier: u.multiplier,
     };
   });
 
   const expectedYtd = rows.reduce(
-    (s, u) => s + u.monthlyCharge * throughMonth,
+    (s, u) =>
+      s +
+      unitExpectedYtd({
+        basesByMonth,
+        multiplier: u.multiplier,
+        throughMonth,
+      }),
     0,
   );
   const collectedYtd = rows.reduce((s, u) => s + u.collected, 0);
   const arrearsTotal = rows.reduce((s, u) => s + u.arrears, 0);
+
+  const publicUnits: BuildingShareUnitRow[] = rows
+    .map(({ name, monthlyCharge, arrears, collected }) => ({
+      name,
+      monthlyCharge,
+      arrears,
+      collected,
+    }))
+    .sort((a, b) => b.arrears - a.arrears || a.name.localeCompare(b.name, "fa"));
 
   return {
     year,
@@ -219,7 +244,7 @@ async function loadChargeSlice(spaceId: string, year: number) {
       expectedYtd > 0
         ? Math.min(100, Math.round((collectedYtd * 100) / expectedYtd))
         : 0,
-    units: rows.sort((a, b) => b.arrears - a.arrears || a.name.localeCompare(b.name, "fa")),
+    units: publicUnits,
   };
 }
 

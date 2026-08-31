@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
+  applyChargeBaseOverride,
+  deleteChargePayment,
   upsertChargePayment,
   type AnnualChargeCalendarDTO,
   type BuildingDashboardDTO,
@@ -21,6 +23,7 @@ import {
   type UnitDetailModel,
 } from "@/components/spaces/building-unit-detail-drawer";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import {
@@ -31,11 +34,13 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
+import { notifyChargesMutated } from "@/components/spaces/use-deferred-space-tabs";
 import {
   CHARGE_STATUS_LABELS,
   defaultChargePaymentIso,
   formatJalaliYear,
   monthLabelFa,
+  unitMonthlyCharge,
   type ChargeStatusValue,
 } from "@/lib/building";
 import {
@@ -171,7 +176,38 @@ export function BuildingChargesPanel({
   const [detailUnit, setDetailUnit] = useState<UnitDetailModel | null>(null);
   const payBaseline = useRef<PayDraftBaseline | null>(null);
 
+  const [rateOpen, setRateOpen] = useState(false);
+  const [rateAmount, setRateAmount] = useState(0);
+  const [rateMode, setRateMode] = useState<"single" | "forward">("single");
+  const [rateError, setRateError] = useState<string | null>(null);
+  const [ratePending, startRateTransition] = useTransition();
+  const [deleteTarget, setDeleteTarget] = useState<{
+    unitId: string;
+    unitName: string;
+    paymentId: string;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePending, startDeleteTransition] = useTransition();
+
   const unitLabel = currencyLabel(currency);
+
+  const monthBase = useMemo(() => {
+    const bases = dashboard.basesByMonth;
+    if (bases && bases.length > month) return bases[month] ?? 0;
+    return dashboard.plan?.baseCharge ?? 0;
+  }, [dashboard.basesByMonth, dashboard.plan?.baseCharge, month]);
+
+  const planBase = dashboard.plan?.baseCharge ?? 0;
+  const monthBaseDiffers = planBase > 0 && monthBase > 0 && monthBase !== planBase;
+
+  function chargeForUnit(unit: Pick<UnitDTO, "multiplier">, forMonth = month) {
+    const bases = dashboard.basesByMonth;
+    const base =
+      bases && bases.length > forMonth
+        ? (bases[forMonth] ?? 0)
+        : (dashboard.plan?.baseCharge ?? 0);
+    return unitMonthlyCharge(base, unit.multiplier);
+  }
 
   const payDirty = Boolean(
     payUnit &&
@@ -240,7 +276,7 @@ export function BuildingChargesPanel({
     let expected = 0;
     let collected = 0;
     for (const u of activeUnits) {
-      expected += u.monthlyCharge;
+      expected += chargeForUnit(u);
       const p = paymentByUnit.get(u.id);
       if (p && (p.status === "PAID" || p.status === "PARTIAL" || p.status === "WAIVED")) {
         collected += p.amount;
@@ -248,7 +284,7 @@ export function BuildingChargesPanel({
     }
     const unsettled = activeUnits.length - paidThisMonth;
     return { expected, collected, unsettled };
-  }, [activeUnits, paymentByUnit, paidThisMonth]);
+  }, [activeUnits, paymentByUnit, paidThisMonth, month, dashboard.basesByMonth, dashboard.plan?.baseCharge]);
 
   /** Unsettled first, then by name — action queue for managers. */
   const monthUnits = useMemo(() => {
@@ -284,12 +320,13 @@ export function BuildingChargesPanel({
 
   function openPay(unit: UnitDTO) {
     const existing = paymentByUnit.get(unit.id);
-    const nextAmount = existing?.amount ?? unit.monthlyCharge ?? 0;
+    const due = chargeForUnit(unit);
+    const nextAmount = existing?.amount ?? due;
     const nextStatus = existing?.status ?? "PAID";
     const nextNote = existing?.note ?? "";
     const nextDate = existing?.date ?? defaultPayDate();
     clearPayClearTimer();
-    setPayUnit(unit);
+    setPayUnit({ ...unit, monthlyCharge: due });
     setPayOpen(true);
     setAmount(nextAmount);
     setStatus(nextStatus);
@@ -303,6 +340,72 @@ export function BuildingChargesPanel({
       note: nextNote,
       date: nextDate,
     };
+  }
+
+  function openRateDrawer() {
+    setRateAmount(monthBase > 0 ? monthBase : planBase);
+    setRateMode("single");
+    setRateError(null);
+    setRateOpen(true);
+  }
+
+  function submitRateChange() {
+    setRateError(null);
+    startRateTransition(async () => {
+      const result = await applyChargeBaseOverride({
+        spaceId,
+        year: dashboard.year,
+        month,
+        baseCharge: Math.trunc(rateAmount) || 0,
+        mode: rateMode,
+      });
+      if (!result.ok) {
+        setRateError(result.error);
+        return;
+      }
+      setRateOpen(false);
+      showToast(
+        rateMode === "single"
+          ? `مبلغ پایه ${monthLabelFa(month)} به‌روز شد`
+          : `مبلغ پایه از ${monthLabelFa(month)} به بعد به‌روز شد`,
+        "success",
+      );
+      notifyChargesMutated();
+      router.refresh();
+    });
+  }
+
+  function requestDeletePayment(unit: UnitDTO) {
+    const payment = paymentByUnit.get(unit.id);
+    if (!payment) return;
+    setDeleteError(null);
+    setDeleteTarget({
+      unitId: unit.id,
+      unitName: unit.name,
+      paymentId: payment.id,
+    });
+  }
+
+  function confirmDeletePayment() {
+    if (!deleteTarget || deletePending) return;
+    const unitName = deleteTarget.unitName;
+    startDeleteTransition(async () => {
+      const result = await deleteChargePayment({
+        spaceId,
+        unitId: deleteTarget.unitId,
+        year: dashboard.year,
+        month,
+      });
+      if (!result.ok) {
+        setDeleteError(result.error);
+        return;
+      }
+      setDeleteTarget(null);
+      setDeleteError(null);
+      showToast(`وصول واحد ${unitName} حذف شد`, "success");
+      notifyChargesMutated();
+      router.refresh();
+    });
   }
 
   /** FAB «ثبت وصول» on the charges tab. */
@@ -384,8 +487,9 @@ export function BuildingChargesPanel({
       area: dash?.area ?? meta?.area ?? null,
       multiplier: dash?.multiplier ?? meta?.multiplier ?? 1000,
       isActive: dash?.isActive ?? meta?.isActive ?? true,
-      monthlyCharge:
-        dash?.monthlyCharge ?? calUnit?.monthlyCharge ?? 0,
+      monthlyCharge: chargeForUnit({
+        multiplier: dash?.multiplier ?? meta?.multiplier ?? 1000,
+      }),
       arrears: dash?.arrears ?? 0,
       collected: dash?.collected ?? 0,
       linkedUserName: meta?.linkedUserName ?? null,
@@ -405,12 +509,12 @@ export function BuildingChargesPanel({
         (p) => p.unitId === unitId && p.month === monthNum,
       ) ??
       null;
+    const mult = dash?.multiplier ?? calUnit?.multiplier ?? 1000;
     openPayFromCalendar({
       unitId,
       unitName: dash?.name ?? calUnit?.name ?? "—",
       month: monthNum,
-      monthlyCharge:
-        dash?.monthlyCharge ?? calUnit?.monthlyCharge ?? 0,
+      monthlyCharge: chargeForUnit({ multiplier: mult }, monthNum),
       payment,
     });
   }
@@ -431,9 +535,6 @@ export function BuildingChargesPanel({
       date,
     };
 
-    const savedUnitId = payUnit.id;
-    const savedStatus = status;
-
     startTransition(async () => {
       const result = await upsertChargePayment(payload);
       if (!result.ok) {
@@ -444,27 +545,8 @@ export function BuildingChargesPanel({
       }
       showToast("ثبت شد");
       payBaseline.current = null;
-
-      const settledOk = savedStatus === "PAID" || savedStatus === "WAIVED";
-      if (settledOk) {
-        const next = monthUnits.find((u) => {
-          if (u.id === savedUnitId) return false;
-          const s = paymentByUnit.get(u.id)?.status;
-          return s !== "PAID" && s !== "WAIVED";
-        });
-        if (next) {
-          openPay(next);
-          router.refresh();
-          return;
-        }
-      }
-
-      setPayOpen(false);
-      clearPayClearTimer();
-      payClearTimer.current = setTimeout(() => {
-        setPayUnit(null);
-        payClearTimer.current = null;
-      }, 450);
+      finishClosePayDrawer();
+      notifyChargesMutated();
       router.refresh();
     });
   }
@@ -653,6 +735,34 @@ export function BuildingChargesPanel({
             />
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/40 bg-card/80 px-3 py-2 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground">
+                پایه {monthLabelFa(month)}
+                {monthBaseDiffers ? (
+                  <span className="ms-1 text-amber-700 dark:text-amber-300">
+                    (متفاوت از پایه سال)
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-caption font-bold tabular-nums text-foreground">
+                {monthBase > 0
+                  ? formatCurrency(monthBase, currency)
+                  : "—"}
+              </p>
+            </div>
+            {isOwner ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 shrink-0 rounded-xl text-caption"
+                onClick={openRateDrawer}
+              >
+                تغییر مبلغ شارژ
+              </Button>
+            ) : null}
+          </div>
+
           <div
             className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-card px-3 py-2 shadow-sm"
             aria-label="پیشرفت وصول این ماه"
@@ -766,6 +876,7 @@ export function BuildingChargesPanel({
                   <ChargeUnitRow
                     key={unit.id}
                     unit={unit}
+                    monthCharge={chargeForUnit(unit)}
                     payment={paymentByUnit.get(unit.id)}
                     canMutate={canMutate}
                     onDetail={() => openUnitDetail(unit.id)}
@@ -800,11 +911,17 @@ export function BuildingChargesPanel({
                     <ChargeUnitRow
                       key={unit.id}
                       unit={unit}
+                      monthCharge={chargeForUnit(unit)}
                       payment={paymentByUnit.get(unit.id)}
                       canMutate={canMutate}
                       dimmed
                       onDetail={() => openUnitDetail(unit.id)}
                       onPay={() => openPay(unit)}
+                      onDelete={
+                        canMutate && paymentByUnit.has(unit.id)
+                          ? () => requestDeletePayment(unit)
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -1010,6 +1127,131 @@ export function BuildingChargesPanel({
         </DrawerContent>
       </Drawer>
 
+      <Drawer
+        open={rateOpen}
+        onOpenChange={(open) => {
+          if (!open && !ratePending) {
+            setRateOpen(false);
+            setRateError(null);
+          }
+        }}
+        repositionInputs={false}
+      >
+        <DrawerContent className="mt-0! flex max-h-[85dvh] flex-col gap-0 overflow-hidden border-border/50 bg-background p-0">
+          <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
+            <DrawerHeader className="space-y-0 p-0 text-start">
+              <DrawerTitle className="text-body font-bold text-on-hero">
+                تغییر مبلغ شارژ
+              </DrawerTitle>
+              <DrawerDescription asChild>
+                <p className="mt-1 text-caption text-on-hero/70">
+                  {monthLabelFa(month)} {formatJalaliYear(dashboard.year)} · پایه
+                  فعلی{" "}
+                  {monthBase > 0
+                    ? formatCurrency(monthBase, currency)
+                    : "—"}
+                </p>
+              </DrawerDescription>
+            </DrawerHeader>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-muted-foreground">
+                مبلغ پایه جدید ({unitLabel})
+              </label>
+              <MoneyInput
+                value={rateAmount}
+                onValueChange={setRateAmount}
+                disabled={ratePending}
+              />
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-label="دامنه اعمال"
+              className="grid grid-cols-1 gap-2"
+            >
+              {(
+                [
+                  {
+                    value: "single" as const,
+                    title: "فقط همین ماه",
+                    hint: `فقط ${monthLabelFa(month)}؛ ماه‌های دیگر عوض نمی‌شود`,
+                  },
+                  {
+                    value: "forward" as const,
+                    title: "از این ماه به بعد",
+                    hint: `از ${monthLabelFa(month)} تا پایان سال`,
+                  },
+                ] as const
+              ).map((opt) => {
+                const on = rateMode === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={ratePending}
+                    onClick={() => setRateMode(opt.value)}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-start transition-colors",
+                      on
+                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                        : "border-border/50 bg-card hover:bg-muted/40",
+                    )}
+                  >
+                    <p className="text-caption font-semibold text-foreground">
+                      {opt.title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {opt.hint}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              وصول‌های ثبت‌شده و تاریخچه پرداخت‌ها حفظ می‌شوند؛ فقط مبلغ مقرر
+              ماه‌های انتخابی عوض می‌شود.
+            </p>
+
+            {rateError ? (
+              <p
+                className="rounded-lg bg-destructive-soft px-2.5 py-1.5 text-caption text-destructive"
+                role="alert"
+              >
+                {rateError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 space-y-2 border-t border-border/45 bg-card px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                className="h-11 flex-[1.4] rounded-xl"
+                disabled={ratePending || rateAmount <= 0}
+                onClick={submitRateChange}
+              >
+                {ratePending ? "در حال ذخیره…" : "اعمال تغییر"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl"
+                disabled={ratePending}
+                onClick={() => setRateOpen(false)}
+              >
+                انصراف
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
       <BuildingUnitDetailDrawer
         open={Boolean(detailUnit)}
         onOpenChange={(open) => {
@@ -1019,6 +1261,27 @@ export function BuildingChargesPanel({
         currency={currency}
         canMutate={canMutate}
         onRecordPayment={canMutate ? recordPaymentFromDetail : undefined}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletePending) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        title="حذف وصول این ماه؟"
+        description={
+          deleteTarget
+            ? `وصول «${monthLabelFa(month)}» برای واحد ${deleteTarget.unitName} حذف می‌شود و دوباره بدهکار می‌شود.`
+            : "این وصول حذف می‌شود."
+        }
+        confirmLabel="حذف وصول"
+        pending={deletePending}
+        error={deleteError}
+        destructive
+        onConfirm={confirmDeletePayment}
       />
 
       {discardConfirm}
@@ -1047,25 +1310,29 @@ function StatusPill({ status }: { status: ChargeStatusValue }) {
 
 function ChargeUnitRow({
   unit,
+  monthCharge,
   payment,
   canMutate,
   dimmed,
   onDetail,
   onPay,
+  onDelete,
 }: {
   unit: UnitDTO;
+  monthCharge: number;
   payment?: ChargePaymentDTO;
   canMutate: boolean;
   dimmed?: boolean;
   onDetail: () => void;
   onPay: () => void;
+  onDelete?: () => void;
 }) {
   const payStatus = payment?.status;
   const isSettled = payStatus === "PAID" || payStatus === "WAIVED";
   const hasArrears = unit.arrears > 0;
   const monthAmount = isSettled
-    ? (payment?.amount ?? unit.monthlyCharge)
-    : unit.monthlyCharge;
+    ? (payment?.amount ?? monthCharge)
+    : monthCharge;
 
   return (
     <li
@@ -1128,20 +1395,69 @@ function ChargeUnitRow({
         </p>
       </button>
       {canMutate ? (
-        <Button
-          type="button"
-          variant={isSettled ? "outline" : "default"}
-          size="sm"
-          className={cn(
-            "h-9 shrink-0 rounded-xl px-3 text-[11px] font-semibold",
-            !isSettled && "text-primary-foreground",
-          )}
-          onClick={onPay}
-        >
-          {isSettled ? "ویرایش" : payment ? "ادامه" : "ثبت"}
-        </Button>
+        isSettled ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label={`ویرایش وصول واحد ${unit.name}`}
+              title="ویرایش"
+              onClick={onPay}
+              className="flex size-9 items-center justify-center rounded-xl border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground active:scale-95"
+            >
+              <PencilIcon className="size-3.5" />
+            </button>
+            {onDelete ? (
+              <button
+                type="button"
+                aria-label={`حذف وصول واحد ${unit.name}`}
+                title="حذف"
+                onClick={onDelete}
+                className="flex size-9 items-center justify-center rounded-xl border border-destructive/25 bg-card text-destructive transition-colors hover:bg-destructive-soft active:scale-95"
+              >
+                <TrashIcon className="size-3.5" />
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 shrink-0 rounded-xl px-3 text-[11px] font-semibold text-primary-foreground"
+            onClick={onPay}
+          >
+            {payment ? "ادامه" : "ثبت"}
+          </Button>
+        )
       ) : null}
     </li>
+  );
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M12.5 6.5 4 15v3.5H7.5L16 10.5M12.5 6.5l2.1-2.1a1.5 1.5 0 0 1 2.1 0l1.9 1.9a1.5 1.5 0 0 1 0 2.1L16 10.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l.8 12a1 1 0 0 0 1 .9h7.4a1 1 0 0 0 1-.9l.8-12"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

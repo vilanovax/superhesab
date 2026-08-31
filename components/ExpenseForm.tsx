@@ -80,6 +80,7 @@ import {
 } from "@/lib/building-bill-tags";
 
 const DEFAULT_BILL_TAGS_SET = new Set<string>(DEFAULT_BILL_TAGS);
+import { notifyExpensesMutated } from "@/components/spaces/use-deferred-space-tabs";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
 
@@ -861,6 +862,7 @@ export function ExpenseForm({
       }
       // Close only after a successful server write.
       onSuccess?.();
+      notifyExpensesMutated();
       router.refresh();
     });
   }

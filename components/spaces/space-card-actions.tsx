@@ -33,8 +33,8 @@ export function SpaceArchiveButton({
 }: {
   spaceId: string;
   spaceName: string;
-  /** icon = compact (legacy); panel = settings row */
-  variant?: "icon" | "panel";
+  /** icon = compact (legacy); panel = settings row; compact = button in shared card */
+  variant?: "icon" | "panel" | "compact";
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -86,6 +86,16 @@ export function SpaceArchiveButton({
             آرشیو این دفتر
           </Button>
         </section>
+      ) : variant === "compact" ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-full rounded-xl border-destructive/30 text-caption text-destructive hover:bg-destructive-soft hover:text-destructive"
+          onClick={openConfirm}
+        >
+          <ArchiveIcon className="size-3.5" />
+          آرشیو دفتر
+        </Button>
       ) : (
         <button
           type="button"

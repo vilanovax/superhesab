@@ -128,6 +128,42 @@ export function unitMonthlyCharge(
   return Math.round((baseCharge * m) / 1000);
 }
 
+export type ChargeBaseOverrideSlice = {
+  fromMonth: number;
+  toMonth: number;
+  baseCharge: number;
+};
+
+/**
+ * Build effective monthly bases [1..12] for a plan year.
+ * Later overrides in the array win on overlap (writer should keep ranges disjoint).
+ */
+export function buildBasesByMonth(
+  planBase: number,
+  overrides: ChargeBaseOverrideSlice[] = [],
+): number[] {
+  const bases = Array.from({ length: 13 }, () =>
+    planBase > 0 ? Math.trunc(planBase) : 0,
+  );
+  for (const o of overrides) {
+    const from = Math.min(12, Math.max(1, Math.trunc(o.fromMonth)));
+    const to = Math.min(12, Math.max(from, Math.trunc(o.toMonth)));
+    const base = o.baseCharge > 0 ? Math.trunc(o.baseCharge) : 0;
+    for (let m = from; m <= to; m++) {
+      bases[m] = base;
+    }
+  }
+  return bases;
+}
+
+export function effectiveBaseForMonth(
+  basesByMonth: number[],
+  month: number,
+): number {
+  if (month < 1 || month > 12) return 0;
+  return basesByMonth[month] ?? 0;
+}
+
 export type PaymentSlice = {
   month: number;
   amount: number;
@@ -137,15 +173,20 @@ export type PaymentSlice = {
 /**
  * Dynamic arrears for months 1..throughMonth in a plan year.
  * No pre-allocated rows: missing month = full charge owed.
+ * `basesByMonth` index 1..12 = effective base that month (after overrides).
  */
 export function unitArrears(input: {
-  baseCharge: number;
+  /** @deprecated Prefer basesByMonth — flat base for all months. */
+  baseCharge?: number;
+  basesByMonth?: number[];
   multiplier: number;
   throughMonth: number;
   payments: PaymentSlice[];
 }): number {
-  const charge = unitMonthlyCharge(input.baseCharge, input.multiplier);
-  if (charge <= 0 || input.throughMonth < 1) return 0;
+  const bases =
+    input.basesByMonth ??
+    buildBasesByMonth(input.baseCharge ?? 0, []);
+  if (input.throughMonth < 1) return 0;
 
   const byMonth = new Map(
     input.payments.map((p) => [p.month, p] as const),
@@ -154,6 +195,8 @@ export function unitArrears(input: {
   const last = Math.min(12, Math.max(1, input.throughMonth));
 
   for (let month = 1; month <= last; month++) {
+    const charge = unitMonthlyCharge(bases[month] ?? 0, input.multiplier);
+    if (charge <= 0) continue;
     const p = byMonth.get(month);
     if (!p) {
       debt += charge;
@@ -171,20 +214,42 @@ export function unitArrears(input: {
   return debt;
 }
 
-/** Collected amount credited toward the year (PAID + PARTIAL + WAIVED as full charge). */
+/** Collected amount credited toward the year (PAID + PARTIAL + WAIVED as full month charge). */
 export function unitCollected(input: {
-  baseCharge: number;
+  /** @deprecated Prefer basesByMonth. */
+  baseCharge?: number;
+  basesByMonth?: number[];
   multiplier: number;
   payments: PaymentSlice[];
 }): number {
-  const charge = unitMonthlyCharge(input.baseCharge, input.multiplier);
+  const bases =
+    input.basesByMonth ??
+    buildBasesByMonth(input.baseCharge ?? 0, []);
   let total = 0;
   for (const p of input.payments) {
+    const charge = unitMonthlyCharge(bases[p.month] ?? 0, input.multiplier);
     if (p.status === "WAIVED") {
       total += charge;
     } else if (p.status === "PAID" || p.status === "PARTIAL") {
       total += p.amount;
     }
+  }
+  return total;
+}
+
+/** Expected YTD: sum of monthly charges for months 1..throughMonth. */
+export function unitExpectedYtd(input: {
+  basesByMonth: number[];
+  multiplier: number;
+  throughMonth: number;
+}): number {
+  const last = Math.min(12, Math.max(0, input.throughMonth));
+  let total = 0;
+  for (let month = 1; month <= last; month++) {
+    total += unitMonthlyCharge(
+      input.basesByMonth[month] ?? 0,
+      input.multiplier,
+    );
   }
   return total;
 }

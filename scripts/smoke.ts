@@ -7,10 +7,12 @@ import { randomBytes } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import {
+  buildBasesByMonth,
   tehranCivilMonth,
   tehranCivilYear,
   unitArrears,
   unitCollected,
+  unitExpectedYtd,
   unitMonthlyCharge,
 } from "../lib/building";
 import { simplifyDebts } from "../lib/debtSimplification";
@@ -309,6 +311,43 @@ async function main() {
       pass("building math: PARTIAL arrears = remaining");
     } else {
       fail("building math: PARTIAL arrears", `got ${arrearsPartial}`);
+    }
+
+    {
+      const bases = buildBasesByMonth(500_000, [
+        { fromMonth: 6, toMonth: 6, baseCharge: 800_000 },
+        { fromMonth: 7, toMonth: 12, baseCharge: 900_000 },
+      ]);
+      if (bases[5] === 500_000 && bases[6] === 800_000 && bases[7] === 900_000) {
+        pass("building math: charge base overrides by month");
+      } else {
+        fail(
+          "building math: charge base overrides",
+          `5=${bases[5]} 6=${bases[6]} 7=${bases[7]}`,
+        );
+      }
+      const arrearsOverride = unitArrears({
+        basesByMonth: bases,
+        multiplier: 1000,
+        throughMonth: 6,
+        payments: [{ month: 6, amount: 0, status: "DUE" }],
+      });
+      // months 1-5 unpaid @500k + month 6 unpaid @800k = 3_300_000
+      if (arrearsOverride === 3_300_000) {
+        pass("building math: arrears use per-month override bases");
+      } else {
+        fail("building math: override arrears", `got ${arrearsOverride}`);
+      }
+      const ytd = unitExpectedYtd({
+        basesByMonth: bases,
+        multiplier: 1000,
+        throughMonth: 6,
+      });
+      if (ytd === 3_300_000) {
+        pass("building math: expected YTD with overrides");
+      } else {
+        fail("building math: expected YTD overrides", `got ${ytd}`);
+      }
     }
 
     const arrearsMissing = unitArrears({

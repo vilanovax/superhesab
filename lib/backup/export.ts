@@ -312,6 +312,8 @@ export async function buildBackupForOwnedSpaces(input: {
   userId: string;
   scope: BackupScope;
   spaceId?: string;
+  /** Subset of owned spaces (account export with picker). Ignored when spaceId set. */
+  spaceIds?: string[];
 }): Promise<BackupFileV2> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: input.userId },
@@ -328,7 +330,12 @@ export async function buildBackupForOwnedSpaces(input: {
     orderBy: { createdAt: "asc" },
   });
 
-  const spaceIds = ownedMemberships.map((m) => m.spaceId);
+  let spaceIds = ownedMemberships.map((m) => m.spaceId);
+  if (!input.spaceId && input.spaceIds !== undefined) {
+    const allowed = new Set(spaceIds);
+    spaceIds = input.spaceIds.filter((id) => allowed.has(id));
+  }
+
   if (spaceIds.length === 0) {
     return {
       version: BACKUP_VERSION,

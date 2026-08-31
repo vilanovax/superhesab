@@ -31,6 +31,14 @@ export type CachedChargePlan = {
   baseCharge: number;
 };
 
+export type CachedChargeBaseOverride = {
+  id: string;
+  year: number;
+  fromMonth: number;
+  toMonth: number;
+  baseCharge: number;
+};
+
 /** Units change on create/update/link/invite — not on every payment. */
 export function getCachedBuildingUnits(
   spaceId: string,
@@ -73,6 +81,32 @@ export function getCachedChargePlan(
         select: { id: true, year: true, baseCharge: true },
       }),
     ["building-charge-plan", spaceId, String(year)],
+    {
+      tags: [spaceChargePlanTag(spaceId, year)],
+      revalidate: 3600,
+    },
+  )();
+}
+
+/** Month-range base overrides for a Jalali year — invalidated with the plan tag. */
+export function getCachedChargeBaseOverrides(
+  spaceId: string,
+  year: number,
+): Promise<CachedChargeBaseOverride[]> {
+  return unstable_cache(
+    async () =>
+      prisma.chargeBaseOverride.findMany({
+        where: { spaceId, year },
+        orderBy: [{ fromMonth: "asc" }, { toMonth: "asc" }],
+        select: {
+          id: true,
+          year: true,
+          fromMonth: true,
+          toMonth: true,
+          baseCharge: true,
+        },
+      }),
+    ["building-charge-overrides", spaceId, String(year)],
     {
       tags: [spaceChargePlanTag(spaceId, year)],
       revalidate: 3600,

@@ -46,6 +46,23 @@ export const upsertChargePlanSchema = z.object({
     .positive({ error: "مبلغ پایه باید بیشتر از صفر باشد." }),
 });
 
+/** Change building base charge for one month or from that month through year-end. */
+export const applyChargeBaseOverrideSchema = z.object({
+  spaceId: z.string().min(1),
+  year: jalaliPlanYear,
+  month: z
+    .number()
+    .int()
+    .min(1, { error: "ماه نامعتبر است." })
+    .max(12, { error: "ماه نامعتبر است." }),
+  baseCharge: z
+    .number({ error: "مبلغ پایه نامعتبر است." })
+    .int()
+    .positive({ error: "مبلغ پایه باید بیشتر از صفر باشد." }),
+  /** single = فقط همین ماه؛ forward = از این ماه تا پایان سال */
+  mode: z.enum(["single", "forward"]),
+});
+
 export const upsertChargePaymentSchema = z.object({
   spaceId: z.string().min(1),
   unitId: z.string().min(1),
@@ -97,6 +114,9 @@ export const updateBuildingSuggestionStatusSchema = z.object({
 export type CreateUnitInput = z.infer<typeof createUnitSchema>;
 export type UpdateUnitInput = z.infer<typeof updateUnitSchema>;
 export type UpsertChargePlanInput = z.infer<typeof upsertChargePlanSchema>;
+export type ApplyChargeBaseOverrideInput = z.infer<
+  typeof applyChargeBaseOverrideSchema
+>;
 export type UpsertChargePaymentInput = z.infer<
   typeof upsertChargePaymentSchema
 >;

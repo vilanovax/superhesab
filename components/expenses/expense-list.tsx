@@ -54,7 +54,7 @@ import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
-import { syncTabQuery } from "@/components/spaces/use-deferred-space-tabs";
+import { syncTabQuery, notifyExpensesMutated } from "@/components/spaces/use-deferred-space-tabs";
 import {
   formatJalaliYear,
   monthLabelFa,
@@ -284,6 +284,7 @@ function EditSheet({
   members,
   currency,
   spaceType = "TRIP",
+  onDeleted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -293,6 +294,7 @@ function EditSheet({
   members: ExpenseMember[];
   currency: SpaceCurrency;
   spaceType?: SpaceType;
+  onDeleted?: (expenseId: string) => void;
 }) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -341,6 +343,8 @@ function EditSheet({
         return;
       }
       onOpenChange(false);
+      onDeleted?.(expense.expenseId);
+      notifyExpensesMutated();
       router.refresh();
     });
   }
@@ -516,11 +520,19 @@ export function ExpenseList({
     setItems(expensesProp.map(normalizeExpenseDates));
     setHasMore(expensesHasMoreProp);
     setLoadError(null);
+  }, [expensesProp, expensesHasMoreProp]);
+
+  useEffect(() => {
     setCategoryFilter("all");
     setPayerFilter("all");
     setSearchQuery("");
     setCatsExpanded(false);
-  }, [expensesProp, expensesHasMoreProp, expenseYear]);
+  }, [expenseYear]);
+
+  /** Instant remove while deferred tab / RSC refresh catch up. */
+  function removeItemLocally(expenseId: string) {
+    setItems((prev) => prev.filter((e) => e.id !== expenseId));
+  }
 
   function canEditExpense(expense: ExpenseListItem): boolean {
     if (!canMutate) return false;
@@ -1212,6 +1224,7 @@ export function ExpenseList({
           members={members}
           currency={currency}
           spaceType={spaceType}
+          onDeleted={removeItemLocally}
         />
       ) : null}
     </>

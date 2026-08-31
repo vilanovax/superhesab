@@ -12,17 +12,21 @@ import {
 } from "@/lib/auth/guards";
 import {
   getCachedBuildingUnits,
+  getCachedChargeBaseOverrides,
   getCachedChargePlan,
   invalidateSpaceChargePlan,
   invalidateSpaceUnits,
 } from "@/lib/spaces/building-cache";
 import {
+  buildBasesByMonth,
   CHARGE_STATUS_LABELS,
+  effectiveBaseForMonth,
   monthLabelFa,
   tehranCivilMonth,
   tehranCivilYear,
   unitArrears,
   unitCollected,
+  unitExpectedYtd,
   unitMonthlyCharge,
   type ChargeStatusValue,
   type PaymentSlice,
@@ -41,6 +45,7 @@ import {
   updateUnitSchema,
   upsertChargePaymentSchema,
   upsertChargePlanSchema,
+  applyChargeBaseOverrideSchema,
   createBuildingSuggestionSchema,
   updateBuildingSuggestionStatusSchema,
   createBuildingAnnouncementSchema,
@@ -52,6 +57,7 @@ import {
   type UpdateUnitInput,
   type UpsertChargePaymentInput,
   type UpsertChargePlanInput,
+  type ApplyChargeBaseOverrideInput,
   type CreateBuildingSuggestionInput,
   type UpdateBuildingSuggestionStatusInput,
   type CreateBuildingAnnouncementInput,
@@ -89,6 +95,14 @@ export type ChargePlanDTO = {
   baseCharge: number;
 };
 
+export type ChargeBaseOverrideDTO = {
+  id: string;
+  year: number;
+  fromMonth: number;
+  toMonth: number;
+  baseCharge: number;
+};
+
 export type ChargePaymentDTO = {
   id: string;
   unitId: string;
@@ -104,6 +118,10 @@ export type BuildingDashboardDTO = {
   year: number;
   throughMonth: number;
   plan: ChargePlanDTO | null;
+  /** Inclusive month-range overrides for this year (disjoint after writes). */
+  overrides: ChargeBaseOverrideDTO[];
+  /** Effective base charge per month index 1..12 (plan + overrides). */
+  basesByMonth: number[];
   units: UnitDTO[];
   payments: ChargePaymentDTO[];
   /** Active units with arrears > 0, sorted desc */
@@ -168,6 +186,13 @@ type BuildingChargeBundle = {
   year: number;
   throughMonth: number;
   plan: { id: string; year: number; baseCharge: number } | null;
+  overrides: {
+    id: string;
+    year: number;
+    fromMonth: number;
+    toMonth: number;
+    baseCharge: number;
+  }[];
   units: {
     id: string;
     name: string;
@@ -204,8 +229,9 @@ const loadBuildingChargeData = cache(
           ? 12
           : 0;
 
-    const [plan, units, payments] = await Promise.all([
+    const [plan, overrides, units, payments] = await Promise.all([
       getCachedChargePlan(spaceId, year),
+      getCachedChargeBaseOverrides(spaceId, year),
       getCachedBuildingUnits(spaceId),
       prisma.chargePayment.findMany({
         where: {
@@ -226,13 +252,26 @@ const loadBuildingChargeData = cache(
       }),
     ]);
 
-    return { spaceId, year, throughMonth, plan, units, payments };
+    return {
+      spaceId,
+      year,
+      throughMonth,
+      plan,
+      overrides,
+      units,
+      payments,
+    };
   },
 );
 
 function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
-  const { year, throughMonth, plan, units, payments } = bundle;
-  const baseCharge = plan?.baseCharge ?? 0;
+  const { year, throughMonth, plan, overrides, units, payments } = bundle;
+  const planBase = plan?.baseCharge ?? 0;
+  const basesByMonth = buildBasesByMonth(planBase, overrides);
+  const currentBase = effectiveBaseForMonth(
+    basesByMonth,
+    Math.max(1, throughMonth || 1),
+  );
   const paymentsByUnit = new Map<string, PaymentSlice[]>();
   for (const p of payments) {
     const list = paymentsByUnit.get(p.unitId) ?? [];
@@ -246,10 +285,10 @@ function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
 
   const unitDtos: UnitDTO[] = units.map((u) => {
     const slices = paymentsByUnit.get(u.id) ?? [];
-    const monthlyCharge = unitMonthlyCharge(baseCharge, u.multiplier);
+    const monthlyCharge = unitMonthlyCharge(currentBase, u.multiplier);
     const arrears = plan
       ? unitArrears({
-          baseCharge,
+          basesByMonth,
           multiplier: u.multiplier,
           throughMonth,
           payments: slices,
@@ -257,7 +296,7 @@ function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
       : 0;
     const collected = plan
       ? unitCollected({
-          baseCharge,
+          basesByMonth,
           multiplier: u.multiplier,
           payments: slices,
         })
@@ -276,7 +315,13 @@ function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
 
   const active = unitDtos.filter((u) => u.isActive);
   const expectedYtd = active.reduce(
-    (s, u) => s + u.monthlyCharge * Math.max(0, throughMonth),
+    (s, u) =>
+      s +
+      unitExpectedYtd({
+        basesByMonth,
+        multiplier: u.multiplier,
+        throughMonth,
+      }),
     0,
   );
   const collectedYtd = active.reduce((s, u) => s + u.collected, 0);
@@ -291,6 +336,14 @@ function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
     plan: plan
       ? { id: plan.id, year: plan.year, baseCharge: plan.baseCharge }
       : null,
+    overrides: overrides.map((o) => ({
+      id: o.id,
+      year: o.year,
+      fromMonth: o.fromMonth,
+      toMonth: o.toMonth,
+      baseCharge: o.baseCharge,
+    })),
+    basesByMonth,
     units: unitDtos,
     payments: payments.map(toPaymentDTO),
     debtors,
@@ -304,8 +357,13 @@ function mapDashboard(bundle: BuildingChargeBundle): BuildingDashboardDTO {
 }
 
 function mapCalendar(bundle: BuildingChargeBundle): AnnualChargeCalendarDTO {
-  const { spaceId, year, throughMonth, plan, units, payments } = bundle;
-  const baseCharge = plan?.baseCharge ?? 0;
+  const { spaceId, year, throughMonth, plan, overrides, units, payments } =
+    bundle;
+  const basesByMonth = buildBasesByMonth(plan?.baseCharge ?? 0, overrides);
+  const currentBase = effectiveBaseForMonth(
+    basesByMonth,
+    Math.max(1, throughMonth || 1),
+  );
   const activeUnits = units.filter((u) => u.isActive);
   const activeIds = new Set(activeUnits.map((u) => u.id));
   const byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"] = {};
@@ -322,10 +380,12 @@ function mapCalendar(bundle: BuildingChargeBundle): AnnualChargeCalendarDTO {
     spaceId,
     year,
     throughMonth,
+    basesByMonth,
     units: activeUnits.map((u) => ({
       id: u.id,
       name: u.name,
-      monthlyCharge: unitMonthlyCharge(baseCharge, u.multiplier),
+      multiplier: u.multiplier,
+      monthlyCharge: unitMonthlyCharge(currentBase, u.multiplier),
     })),
     byUnitMonth,
   };
@@ -385,6 +445,8 @@ export async function getBuildingDashboard(
 export type AnnualCalendarUnit = {
   id: string;
   name: string;
+  multiplier: number;
+  /** Charge for throughMonth / current view — prefer basesByMonth × multiplier. */
   monthlyCharge: number;
 };
 
@@ -393,6 +455,8 @@ export type AnnualChargeCalendarDTO = {
   year: number;
   /** Months 1..throughMonth are "due if missing"; later months are future. */
   throughMonth: number;
+  /** Effective base per month index 1..12. */
+  basesByMonth: number[];
   units: AnnualCalendarUnit[];
   /** unitId → month (1–12) → payment (only months with a record). */
   byUnitMonth: Record<string, Partial<Record<number, ChargePaymentDTO>>>;
@@ -588,6 +652,129 @@ export async function upsertChargePlan(
   }
 }
 
+/**
+ * Change monthly base for one month only, or from that month through year-end.
+ * Keeps ranges disjoint by splitting/truncating existing overrides.
+ */
+export async function applyChargeBaseOverride(
+  input: ApplyChargeBaseOverrideInput,
+): Promise<BuildingActionResult> {
+  const parsed = applyChargeBaseOverrideSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "داده نامعتبر است.",
+    };
+  }
+  const session = await requireUser();
+  const access = await assertBuilding(parsed.data.spaceId, session.userId, {
+    needOwner: true,
+  });
+  if (!access.ok) return access;
+
+  const { spaceId, year, month, mode } = parsed.data;
+  const baseCharge = asMoney(parsed.data.baseCharge);
+
+  const plan = await prisma.chargePlan.findUnique({
+    where: { spaceId_year: { spaceId, year } },
+    select: { id: true },
+  });
+  if (!plan) {
+    return {
+      ok: false,
+      error: "ابتدا پلن شارژ این سال را در تنظیمات تعریف کنید.",
+    };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.chargeBaseOverride.findMany({
+        where: { spaceId, year },
+        orderBy: [{ fromMonth: "asc" }, { toMonth: "asc" }],
+      });
+
+      if (mode === "single") {
+        for (const o of existing) {
+          if (o.fromMonth === month && o.toMonth === month) {
+            await tx.chargeBaseOverride.delete({ where: { id: o.id } });
+            continue;
+          }
+          if (o.fromMonth <= month && o.toMonth >= month) {
+            await tx.chargeBaseOverride.delete({ where: { id: o.id } });
+            if (o.fromMonth < month) {
+              await tx.chargeBaseOverride.create({
+                data: {
+                  spaceId,
+                  year,
+                  fromMonth: o.fromMonth,
+                  toMonth: month - 1,
+                  baseCharge: o.baseCharge,
+                  createdById: o.createdById,
+                },
+              });
+            }
+            if (o.toMonth > month) {
+              await tx.chargeBaseOverride.create({
+                data: {
+                  spaceId,
+                  year,
+                  fromMonth: month + 1,
+                  toMonth: o.toMonth,
+                  baseCharge: o.baseCharge,
+                  createdById: o.createdById,
+                },
+              });
+            }
+          }
+        }
+        await tx.chargeBaseOverride.create({
+          data: {
+            spaceId,
+            year,
+            fromMonth: month,
+            toMonth: month,
+            baseCharge,
+            createdById: session.userId,
+          },
+        });
+        return;
+      }
+
+      // forward: month..12
+      for (const o of existing) {
+        if (o.fromMonth >= month) {
+          await tx.chargeBaseOverride.delete({ where: { id: o.id } });
+          continue;
+        }
+        if (o.toMonth >= month) {
+          await tx.chargeBaseOverride.update({
+            where: { id: o.id },
+            data: { toMonth: month - 1 },
+          });
+        }
+      }
+      await tx.chargeBaseOverride.create({
+        data: {
+          spaceId,
+          year,
+          fromMonth: month,
+          toMonth: 12,
+          baseCharge,
+          createdById: session.userId,
+        },
+      });
+    });
+
+    invalidateSpaceChargePlan(spaceId, year);
+    revalidatePath(`/spaces/${spaceId}`);
+    revalidatePath(`/spaces/${spaceId}/settings`);
+    revalidatePath(`/spaces/${spaceId}/resident`);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "ذخیره تغییر مبلغ شارژ ناموفق بود." };
+  }
+}
+
 export async function upsertChargePayment(
   input: UpsertChargePaymentInput,
 ): Promise<BuildingActionResult> {
@@ -686,6 +873,61 @@ export async function upsertChargePayment(
     return { ok: true, id: row.id };
   } catch {
     return { ok: false, error: "ثبت وصول ناموفق بود." };
+  }
+}
+
+/** Remove a charge payment row for a unit×year×month (proofs cascade). */
+export async function deleteChargePayment(input: {
+  spaceId: string;
+  unitId: string;
+  year: number;
+  month: number;
+}): Promise<BuildingActionResult> {
+  const spaceId = input.spaceId?.trim();
+  const unitId = input.unitId?.trim();
+  const year = Math.trunc(input.year);
+  const month = Math.trunc(input.month);
+  if (
+    !spaceId ||
+    !unitId ||
+    year < 1390 ||
+    year > 1500 ||
+    month < 1 ||
+    month > 12
+  ) {
+    return { ok: false, error: "داده نامعتبر است." };
+  }
+
+  const session = await requireUser();
+  const access = await assertBuilding(spaceId, session.userId, {
+    needMutate: true,
+  });
+  if (!access.ok) return access;
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: unitId, spaceId },
+    select: { id: true },
+  });
+  if (!unit) return { ok: false, error: "واحد پیدا نشد." };
+
+  try {
+    const existing = await prisma.chargePayment.findUnique({
+      where: { unitId_year_month: { unitId, year, month } },
+      select: { id: true },
+    });
+    if (!existing) {
+      return { ok: false, error: "وصولی برای این ماه ثبت نشده است." };
+    }
+
+    await prisma.chargePayment.delete({
+      where: { id: existing.id },
+    });
+
+    revalidatePath(`/spaces/${spaceId}`);
+    revalidatePath(`/spaces/${spaceId}/resident`);
+    return { ok: true, id: existing.id };
+  } catch {
+    return { ok: false, error: "حذف وصول ناموفق بود." };
   }
 }
 
@@ -954,82 +1196,94 @@ export async function getResidentPortalData(
   const throughMonth = tehranCivilMonth();
   const bounds = jalaliYearBounds(year);
 
-  const [plan, payments, expenses, activeUnits, categoryScopes, unitDebts] =
-    await Promise.all([
-      prisma.chargePlan.findUnique({
-        where: { spaceId_year: { spaceId, year } },
-      }),
-      prisma.chargePayment.findMany({
-        where: { unitId: unit.id, year },
-        orderBy: [{ month: "desc" }],
-      }),
-      prisma.expense.findMany({
-        where: {
-          spaceId,
-          transactionType: "EXPENSE",
-          date: { gte: bounds.start, lte: bounds.end },
-        },
-        select: {
-          id: true,
-          title: true,
-          totalAmount: true,
-          date: true,
-          category: true,
-          categoryLabel: true,
-          unitParticipations: { select: { unitId: true } },
-        },
-        orderBy: { date: "desc" },
-        take: 120,
-      }),
-      prisma.unit.findMany({
-        where: { spaceId, isActive: true },
-        select: { id: true },
-      }),
-      prisma.buildingCategoryScope.findMany({
-        where: { spaceId },
-        select: {
-          category: true,
-          mode: true,
-          unitRule: true,
-          units: { select: { unitId: true } },
-        },
-      }),
-      features.debts
-        ? prisma.debt.findMany({
-            where: {
-              spaceId,
-              unitId: unit.id,
-              status: "ACTIVE",
-            },
-            select: {
-              id: true,
-              type: true,
-              counterparty: true,
-              initialAmount: true,
-              note: true,
-              dueDate: true,
-              payments: { select: { amount: true } },
-            },
-            orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
-          })
-        : Promise.resolve([]),
-    ]);
+  const [
+    plan,
+    overrides,
+    payments,
+    expenses,
+    activeUnits,
+    categoryScopes,
+    unitDebts,
+  ] = await Promise.all([
+    prisma.chargePlan.findUnique({
+      where: { spaceId_year: { spaceId, year } },
+    }),
+    getCachedChargeBaseOverrides(spaceId, year),
+    prisma.chargePayment.findMany({
+      where: { unitId: unit.id, year },
+      orderBy: [{ month: "desc" }],
+    }),
+    prisma.expense.findMany({
+      where: {
+        spaceId,
+        transactionType: "EXPENSE",
+        date: { gte: bounds.start, lte: bounds.end },
+      },
+      select: {
+        id: true,
+        title: true,
+        totalAmount: true,
+        date: true,
+        category: true,
+        categoryLabel: true,
+        unitParticipations: { select: { unitId: true } },
+      },
+      orderBy: { date: "desc" },
+      take: 120,
+    }),
+    prisma.unit.findMany({
+      where: { spaceId, isActive: true },
+      select: { id: true },
+    }),
+    prisma.buildingCategoryScope.findMany({
+      where: { spaceId },
+      select: {
+        category: true,
+        mode: true,
+        unitRule: true,
+        units: { select: { unitId: true } },
+      },
+    }),
+    features.debts
+      ? prisma.debt.findMany({
+          where: {
+            spaceId,
+            unitId: unit.id,
+            status: "ACTIVE",
+          },
+          select: {
+            id: true,
+            type: true,
+            counterparty: true,
+            initialAmount: true,
+            note: true,
+            dueDate: true,
+            payments: { select: { amount: true } },
+          },
+          orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        })
+      : Promise.resolve([]),
+  ]);
 
-  const baseCharge = plan?.baseCharge ?? 0;
-  const monthlyCharge = unitMonthlyCharge(baseCharge, unit.multiplier);
+  const basesByMonth = buildBasesByMonth(plan?.baseCharge ?? 0, overrides);
+  const currentBase = effectiveBaseForMonth(
+    basesByMonth,
+    Math.max(1, throughMonth || 1),
+  );
+  const monthlyCharge = unitMonthlyCharge(currentBase, unit.multiplier);
   const slices: PaymentSlice[] = payments.map((p) => ({
     month: p.month,
     amount: p.amount,
     status: p.status as ChargeStatusValue,
   }));
   const arrears = unitArrears({
-    baseCharge,
+    basesByMonth,
     multiplier: unit.multiplier,
     throughMonth,
     payments: slices,
   });
   const collected = unitCollected({
-    baseCharge,
+    basesByMonth,
     multiplier: unit.multiplier,
     payments: slices,
   });
@@ -1725,10 +1979,17 @@ export async function createChargeProofUploadIntent(
     return { ok: false, error: "برای ماه آینده نمی‌توان رسید فرستاد." };
   }
 
-  const plan = await prisma.chargePlan.findUnique({
-    where: { spaceId_year: { spaceId, year } },
-  });
-  const monthly = unitMonthlyCharge(plan?.baseCharge ?? 0, unit.multiplier);
+  const [plan, overrides] = await Promise.all([
+    prisma.chargePlan.findUnique({
+      where: { spaceId_year: { spaceId, year } },
+    }),
+    getCachedChargeBaseOverrides(spaceId, year),
+  ]);
+  const monthBase = effectiveBaseForMonth(
+    buildBasesByMonth(plan?.baseCharge ?? 0, overrides),
+    month,
+  );
+  const monthly = unitMonthlyCharge(monthBase, unit.multiplier);
   const payAmount =
     amount != null && amount > 0
       ? asMoney(amount)

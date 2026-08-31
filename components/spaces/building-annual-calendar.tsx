@@ -11,6 +11,7 @@ import {
   MONTH_LABELS_FA,
   formatJalaliYear,
   jalaliMonth,
+  unitMonthlyCharge,
   type ChargeStatusValue,
 } from "@/lib/building";
 import { formatMoney } from "@/lib/format";
@@ -338,6 +339,7 @@ export function BuildingAnnualCalendar({
           setMonth={setMonth}
           allMonths={allMonths}
           throughMonth={throughMonth}
+          basesByMonth={calendar.basesByMonth ?? []}
           units={units}
           byUnitMonth={byUnitMonth}
           canMutate={canMutate}
@@ -348,6 +350,7 @@ export function BuildingAnnualCalendar({
         <YearGridView
           months={allMonths}
           throughMonth={throughMonth}
+          basesByMonth={calendar.basesByMonth ?? []}
           units={units}
           byUnitMonth={byUnitMonth}
           canMutate={canMutate}
@@ -397,6 +400,7 @@ function MonthPagerView({
   setMonth,
   allMonths,
   throughMonth,
+  basesByMonth,
   units,
   byUnitMonth,
   canMutate,
@@ -407,6 +411,7 @@ function MonthPagerView({
   setMonth: (m: number) => void;
   allMonths: number[];
   throughMonth: number;
+  basesByMonth: number[];
   units: AnnualChargeCalendarDTO["units"];
   byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"];
   canMutate: boolean;
@@ -453,11 +458,13 @@ function MonthPagerView({
           const interactive =
             canMutate && kind !== "FUTURE" && Boolean(onCellClick);
           const title = cellTitle(kind, unit.name, month);
+          const monthCharge = unitMonthlyCharge(
+            basesByMonth[month] ?? 0,
+            unit.multiplier ?? 1000,
+          );
           const amount =
             payment?.amount ??
-            (kind === "MISSING_DUE" || kind === "DUE"
-              ? unit.monthlyCharge
-              : 0);
+            (kind === "MISSING_DUE" || kind === "DUE" ? monthCharge : 0);
 
           return (
             <li key={unit.id}>
@@ -495,7 +502,7 @@ function MonthPagerView({
                         unitId: unit.id,
                         unitName: unit.name,
                         month,
-                        monthlyCharge: unit.monthlyCharge,
+                        monthlyCharge: monthCharge,
                         payment: payment ?? null,
                       })
                     }
@@ -569,6 +576,7 @@ function MonthPagerView({
 function YearGridView({
   months,
   throughMonth,
+  basesByMonth,
   units,
   byUnitMonth,
   canMutate,
@@ -578,6 +586,7 @@ function YearGridView({
 }: {
   months: number[];
   throughMonth: number;
+  basesByMonth: number[];
   units: AnnualChargeCalendarDTO["units"];
   byUnitMonth: AnnualChargeCalendarDTO["byUnitMonth"];
   canMutate: boolean;
@@ -673,7 +682,10 @@ function YearGridView({
                               unitId: unit.id,
                               unitName: unit.name,
                               month: m,
-                              monthlyCharge: unit.monthlyCharge,
+                              monthlyCharge: unitMonthlyCharge(
+                                basesByMonth[m] ?? 0,
+                                unit.multiplier ?? 1000,
+                              ),
                               payment: payment ?? null,
                             })
                           }

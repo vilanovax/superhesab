@@ -242,6 +242,7 @@ export async function restoreSpaceFromBackup(input: {
             type: d.type,
             counterparty: d.counterparty,
             initialAmount: d.initialAmount,
+            note: d.note ?? null,
             dueDate: d.dueDate ? parseDate(d.dueDate) : null,
             status: d.status,
             createdById: mapUser(d.createdByOriginalUserId),

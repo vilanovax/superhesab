@@ -171,6 +171,7 @@ export function serializeSpace(
       type: d.type,
       counterparty: d.counterparty,
       initialAmount: d.initialAmount,
+      note: d.note,
       dueDate: iso(d.dueDate),
       status: d.status,
       createdByOriginalUserId: d.createdById,

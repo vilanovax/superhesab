@@ -52,6 +52,7 @@ export type DebtDTO = {
   type: DebtTypeValue;
   counterparty: string;
   initialAmount: number;
+  note: string | null;
   dueDate: string | null;
   status: DebtStatusValue;
   createdById: string;
@@ -94,6 +95,7 @@ function toDebtDTO(row: {
   type: DebtTypeValue;
   counterparty: string;
   initialAmount: number;
+  note: string | null;
   dueDate: Date | null;
   status: DebtStatusValue;
   createdById: string;
@@ -114,6 +116,7 @@ function toDebtDTO(row: {
     type: row.type,
     counterparty: row.counterparty,
     initialAmount: row.initialAmount,
+    note: row.note,
     dueDate: row.dueDate
       ? row.dueDate.toISOString().slice(0, 10)
       : null,
@@ -182,6 +185,7 @@ export async function createDebt(
         type: data.type,
         counterparty: data.counterparty,
         initialAmount: asMoney(data.initialAmount),
+        note: data.note?.trim() || null,
         dueDate: data.dueDate ? parseExpenseDateInput(data.dueDate) : null,
         createdById: session.userId,
         status: "ACTIVE",
@@ -402,6 +406,8 @@ export async function updateDebt(
       where: { id: debt.id },
       data: {
         initialAmount,
+        note:
+          data.note !== undefined ? data.note?.trim() || null : debt.note,
         dueDate: data.dueDate ? parseExpenseDateInput(data.dueDate) : null,
         status: debtStatusAfter(initialAmount, debt.payments),
         ...(data.occurredOn

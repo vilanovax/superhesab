@@ -68,7 +68,7 @@ export function isDueSoon(
 }
 
 export function debtTypeLabel(type: DebtTypeValue): string {
-  return type === "LENT" ? "طلب" : "بدهی";
+  return type === "LENT" ? "طلب" : "یادم‌باشه";
 }
 
 /** Group key — trim, collapse spaces. Persian has no case; keep stable. */

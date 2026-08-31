@@ -15,6 +15,7 @@ export const createDebtSchema = z.object({
     .min(2, "نام طرف حساب حداقل ۲ کاراکتر باشد.")
     .max(80),
   initialAmount: z.number().int().min(1, "مبلغ باید حداقل ۱ باشد."),
+  note: z.string().trim().max(200).optional().nullable(),
   dueDate: isoDateSchema.optional().nullable(),
 });
 
@@ -39,6 +40,7 @@ export const updateDebtSchema = z.object({
   spaceId: z.string().min(1),
   debtId: z.string().min(1),
   initialAmount: z.number().int().min(1, "مبلغ باید حداقل ۱ باشد."),
+  note: z.string().trim().max(200).optional().nullable(),
   dueDate: isoDateSchema.optional().nullable(),
   occurredOn: isoDateSchema.optional(),
 });

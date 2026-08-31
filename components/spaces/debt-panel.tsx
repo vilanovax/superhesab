@@ -93,6 +93,7 @@ export function DebtPanel({
   const [type, setType] = useState<DebtTypeValue>("LENT");
   const [counterparty, setCounterparty] = useState("");
   const [amount, setAmount] = useState(0);
+  const [note, setNote] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [hasDueDate, setHasDueDate] = useState(false);
 
@@ -136,7 +137,7 @@ export function DebtPanel({
         amount: debt.initialAmount,
         date: debt.createdAt.slice(0, 10),
         dueDate: debt.dueDate,
-        note: null as string | null,
+        note: debt.note,
         paymentCount: debt.payments.length,
       };
     }
@@ -194,6 +195,7 @@ export function DebtPanel({
     createOpen &&
     (counterparty.trim().length > 0 ||
       amount > 0 ||
+      note.trim().length > 0 ||
       hasDueDate ||
       type !== "LENT");
   const editDirty =
@@ -228,6 +230,7 @@ export function DebtPanel({
     setType("LENT");
     setCounterparty("");
     setAmount(0);
+    setNote("");
     setDueDate("");
     setHasDueDate(false);
     setError(null);
@@ -284,7 +287,7 @@ export function DebtPanel({
       setError(null);
       setPayAmount(debt.initialAmount);
       setPayDate(debt.createdAt.slice(0, 10));
-      setPayNote("");
+      setPayNote(debt.note ?? "");
       setHasDueDate(Boolean(debt.dueDate));
       setDueDate(debt.dueDate ?? "");
       accountFormRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -328,6 +331,7 @@ export function DebtPanel({
         type,
         counterparty,
         initialAmount: amount,
+        note: note.trim() || null,
         dueDate: hasDueDate && dueDate ? dueDate : null,
       });
       if (!result.ok) {
@@ -350,6 +354,7 @@ export function DebtPanel({
           spaceId,
           debtId: editing.debtId,
           initialAmount: payAmount,
+          note: payNote.trim() || null,
           dueDate: hasDueDate && dueDate ? dueDate : null,
           occurredOn: payDate || undefined,
         });
@@ -383,6 +388,7 @@ export function DebtPanel({
           type: selectedAccount.type,
           counterparty: selectedAccount.counterparty,
           initialAmount: payAmount,
+          note: payNote.trim() || null,
           dueDate: hasDueDate && dueDate ? dueDate : null,
         });
         if (!result.ok) {
@@ -391,6 +397,7 @@ export function DebtPanel({
         }
         await onMutated?.();
         setPayAmount(0);
+        setPayNote("");
         setHasDueDate(false);
         setDueDate("");
         return;
@@ -496,8 +503,8 @@ export function DebtPanel({
               />
               <FamilyFirstRunTile
                 tone="danger"
-                label="بدهی"
-                hint="خانه به کسی بدهکار است"
+                label="یادم‌باشه"
+                hint="یادداشت مبلغی که باید بپردازید"
                 onClick={() => {
                   resetCreate();
                   setType("BORROWED");
@@ -518,7 +525,7 @@ export function DebtPanel({
                 setCreateOpen(true);
               }}
             >
-              ثبت بدهی / طلب جدید
+              ثبت یادم‌باشه / طلب جدید
             </Button>
           ) : null}
 
@@ -538,7 +545,7 @@ export function DebtPanel({
           />
 
           <DebtAccountList
-            title={sharedHousehold ? "بدهی‌های خانواده" : "من بدهکارم"}
+            title={sharedHousehold ? "یادم‌باشه‌های خانواده" : "یادم‌باشه"}
             tone="borrowed"
             accounts={borrowedAccounts}
             currency={currency}
@@ -583,7 +590,7 @@ export function DebtPanel({
           <div className="surface-hero relative shrink-0 overflow-hidden px-4 pb-2.5 pt-1">
             <DrawerHeader className="relative space-y-0 p-0 text-start">
               <DrawerTitle className="text-body font-bold text-on-hero">
-                {type === "LENT" ? "ثبت طلب" : "ثبت بدهی"}
+                {type === "LENT" ? "ثبت طلب" : "ثبت یادم‌باشه"}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
                 {sharedHousehold
@@ -599,13 +606,13 @@ export function DebtPanel({
           >
             <div
               role="radiogroup"
-              aria-label="نوع بدهی یا طلب"
+              aria-label="نوع طلب یا یادم‌باشه"
               className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
             >
               {(
                 [
                   { value: "LENT" as const, label: "طلب" },
-                  { value: "BORROWED" as const, label: "بدهی" },
+                  { value: "BORROWED" as const, label: "یادم‌باشه" },
                 ] as const
               ).map((opt) => {
                 const active = type === opt.value;
@@ -698,6 +705,25 @@ export function DebtPanel({
             ) : null}
 
             <div className="space-y-1">
+              <label
+                htmlFor="debt-note"
+                className="text-[11px] text-muted-foreground"
+              >
+                توضیح
+              </label>
+              <Input
+                id="debt-note"
+                name="note"
+                autoComplete="off"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="مثلاً خرج ماشین مرداد…"
+                maxLength={200}
+                className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">سررسید</p>
                 {hasDueDate ? (
@@ -760,7 +786,7 @@ export function DebtPanel({
                   ? `افزودن به ${debtTypeLabel(type)} ${matchingCreate.counterparty}`
                   : type === "LENT"
                     ? "ثبت طلب"
-                    : "ثبت بدهی"}
+                    : "ثبت یادم‌باشه"}
             </Button>
           </form>
         </DrawerContent>
@@ -905,6 +931,24 @@ export function DebtPanel({
                         />
                       </div>
                     ) : null}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="debt-open-note"
+                        className="text-label text-muted-foreground"
+                      >
+                        توضیح
+                      </label>
+                      <Input
+                        id="debt-open-note"
+                        name="openNote"
+                        autoComplete="off"
+                        value={payNote}
+                        onChange={(e) => setPayNote(e.target.value)}
+                        placeholder="مثلاً خرج ماشین مرداد…"
+                        className="h-12 rounded-xl border-border/60 bg-card"
+                        maxLength={200}
+                      />
+                    </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-label text-muted-foreground">
@@ -1115,8 +1159,8 @@ function DebtMonthOverview({
     <section className="animate-fade-up rounded-2xl border border-border/55 bg-card px-4 py-3.5 shadow-sm">
       <p className="text-pretty text-caption font-semibold text-muted-foreground">
         {sharedHousehold
-          ? "خلاصه طلب و بدهی — داخل خرج ماه نیست"
-          : "خلاصه طلب و بدهی — داخل بودجه ماه نیست"}
+          ? "خلاصه طلب و یادم‌باشه — داخل خرج ماه نیست"
+          : "خلاصه طلب و یادم‌باشه — داخل بودجه ماه نیست"}
       </p>
       <div
         className={cn(
@@ -1148,7 +1192,9 @@ function DebtMonthOverview({
         ) : null}
         {showBorrowed ? (
           <div className="space-y-1.5">
-            <p className="text-body-sm font-semibold text-destructive">بدهی</p>
+            <p className="text-body-sm font-semibold text-destructive">
+              یادم‌باشه
+            </p>
             <dl className="space-y-1.5">
               <SummaryRow
                 label="مانده"
@@ -1268,7 +1314,12 @@ function AccountLedger({
           date: debt.createdAt.slice(0, 10),
           amount: debt.initialAmount,
           kind: "open" as const,
-          note: sharedHousehold ? `ثبت توسط ${debt.createdByName}` : null,
+          note: [
+            debt.note,
+            sharedHousehold ? `ثبت توسط ${debt.createdByName}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
         },
       ];
       const pays = debt.payments.map((p) => ({

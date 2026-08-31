@@ -593,7 +593,7 @@ export function ExpenseList({
                   "touch-manipulation [-webkit-tap-highlight-color:transparent]",
                 )}
               >
-                قرض به دیگران در تب بدهی ثبت می‌شود
+                قرض به دیگران در تب یادم‌باشه ثبت می‌شود
               </button>
             ) : undefined
           }

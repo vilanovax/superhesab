@@ -382,11 +382,13 @@ enum DebtStatus {
 model Debt {
   id             String     @id @default(cuid())
   spaceId        String
-  /// LENT = طلب از دیگران؛ BORROWED = بدهی به دیگران
+  /// LENT = طلب از دیگران؛ BORROWED = یادم‌باشه / بدهی به دیگران
   type           DebtType
   counterparty   String
   /// Total principal in smallest currency unit
   initialAmount  Int
+  /// Short reason / memo (e.g. خرج ماشین مرداد)
+  note           String?
   dueDate        DateTime?
   status         DebtStatus @default(ACTIVE)
   createdById    String

@@ -90,6 +90,8 @@ export type BackupDebt = {
   type: "LENT" | "BORROWED";
   counterparty: string;
   initialAmount: number;
+  /** Optional in older backups. */
+  note?: string | null;
   dueDate: string | null;
   status: "ACTIVE" | "SETTLED";
   createdByOriginalUserId: string;

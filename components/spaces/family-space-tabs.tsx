@@ -199,7 +199,7 @@ export function FamilySpaceTabs({
             onPointerEnter={() => prefetchTab("debts")}
             onFocus={() => prefetchTab("debts")}
           >
-            بدهی
+            یادم‌باشه
           </TabsTrigger>
         ) : null}
         {showFamilyFunds ? (

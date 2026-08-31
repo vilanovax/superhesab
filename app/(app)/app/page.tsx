@@ -301,7 +301,7 @@ function DueSoonBlock({
   return (
     <div className="animate-fade-up mb-5 rounded-[1.25rem] border border-destructive/20 bg-destructive-soft/80 px-4 py-3.5">
       <p className="text-body-sm font-semibold text-destructive">
-        سررسید بدهی / طلب
+        سررسید یادم‌باشه / طلب
       </p>
       <ul className="mt-2.5 space-y-2">
         {dueSoonDebts.slice(0, 4).map((d) => (

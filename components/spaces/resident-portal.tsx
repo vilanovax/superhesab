@@ -218,6 +218,57 @@ export function ResidentPortal({
         </TabsContent>
 
         <TabsContent value="payments" className="mt-3 space-y-3">
+          {data.debts.length > 0 ? (
+            <section className="space-y-2">
+              <div className="px-0.5">
+                <h2 className="text-caption font-semibold text-foreground">
+                  طلب / بدهی واحد
+                </h2>
+                <p className="mt-0.5 text-micro text-muted-foreground">
+                  جدا از شارژ ماهانه — فقط مشاهده
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {data.debts.map((d) => {
+                  const isLent = d.type === "LENT";
+                  return (
+                    <li
+                      key={d.id}
+                      className={cn(
+                        "rounded-2xl border bg-card px-3.5 py-3",
+                        isLent
+                          ? "border-success/25"
+                          : "border-destructive/25",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-semibold text-foreground">
+                            {isLent ? "طلب ساختمان از شما" : "طلب شما از ساختمان"}
+                          </p>
+                          <p className="mt-0.5 truncate text-caption text-muted-foreground">
+                            {d.note?.trim() || d.counterparty}
+                            {d.dueDate
+                              ? ` · سررسید ${formatDateFaShort(`${d.dueDate}T12:00:00Z`)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <p
+                          className={cn(
+                            "shrink-0 tabular-nums text-body-sm font-bold",
+                            isLent ? "text-success" : "text-destructive",
+                          )}
+                        >
+                          {formatCurrency(d.remaining, data.currency)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+
           <ResidentPaymentProof
             spaceId={data.spaceId}
             unitId={data.unit.id}

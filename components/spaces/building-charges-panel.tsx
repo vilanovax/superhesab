@@ -156,6 +156,9 @@ export function BuildingChargesPanel({
     syncChargesQuery(view, next);
   }
   const [payUnit, setPayUnit] = useState<UnitDTO | null>(null);
+  /** Separate from payUnit so the title stays during the close animation. */
+  const [payOpen, setPayOpen] = useState(false);
+  const payClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [amount, setAmount] = useState(0);
   const [status, setStatus] = useState<ChargeStatusValue>("PAID");
   const [note, setNote] = useState("");
@@ -191,13 +194,31 @@ export function BuildingChargesPanel({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [payDirty, pending]);
 
+  function clearPayClearTimer() {
+    if (payClearTimer.current) {
+      clearTimeout(payClearTimer.current);
+      payClearTimer.current = null;
+    }
+  }
+
+  useEffect(() => () => clearPayClearTimer(), []);
+
+  function finishClosePayDrawer() {
+    setPayOpen(false);
+    payBaseline.current = null;
+    setError(null);
+    setNoteOpen(false);
+    clearPayClearTimer();
+    // Keep payUnit until exit animation ends so title doesn't flash empty.
+    payClearTimer.current = setTimeout(() => {
+      setPayUnit(null);
+      payClearTimer.current = null;
+    }, 450);
+  }
+
   function closePayDrawer() {
     requestOpenChange(false, (next) => {
-      if (!next) {
-        payBaseline.current = null;
-        setPayUnit(null);
-        setError(null);
-      }
+      if (!next) finishClosePayDrawer();
     });
   }
 
@@ -267,7 +288,9 @@ export function BuildingChargesPanel({
     const nextStatus = existing?.status ?? "PAID";
     const nextNote = existing?.note ?? "";
     const nextDate = existing?.date ?? defaultPayDate();
+    clearPayClearTimer();
     setPayUnit(unit);
+    setPayOpen(true);
     setAmount(nextAmount);
     setStatus(nextStatus);
     setNote(nextNote);
@@ -314,6 +337,7 @@ export function BuildingChargesPanel({
     setMonth(args.month);
     syncChargesQuery(view, args.month);
     const dash = dashboard.units.find((u) => u.id === args.unitId);
+    clearPayClearTimer();
     setPayUnit({
       id: args.unitId,
       name: args.unitName,
@@ -324,6 +348,7 @@ export function BuildingChargesPanel({
       arrears: dash?.arrears ?? 0,
       collected: dash?.collected ?? 0,
     });
+    setPayOpen(true);
     const nextAmount = args.payment?.amount ?? args.monthlyCharge ?? 0;
     const nextStatus = args.payment?.status ?? "PAID";
     const nextNote = args.payment?.note ?? "";
@@ -434,7 +459,12 @@ export function BuildingChargesPanel({
         }
       }
 
-      setPayUnit(null);
+      setPayOpen(false);
+      clearPayClearTimer();
+      payClearTimer.current = setTimeout(() => {
+        setPayUnit(null);
+        payClearTimer.current = null;
+      }, 450);
       router.refresh();
     });
   }
@@ -785,7 +815,7 @@ export function BuildingChargesPanel({
       )}
 
       <Drawer
-        open={Boolean(payUnit)}
+        open={payOpen}
         onOpenChange={(open) => {
           if (open) return;
           closePayDrawer();

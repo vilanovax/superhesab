@@ -336,7 +336,11 @@ async function SpacePageHeroCard({
     features.fundRotating
       ? loadCachedFundDashboard(id, fundPeriod)
       : Promise.resolve(null),
-    loadExpenseHeroStats(id, hiddenCategoriesKey),
+    loadExpenseHeroStats(
+      id,
+      hiddenCategoriesKey,
+      features.buildingCharges ? planYear : undefined,
+    ),
   ]);
 
   if (!space) notFound();

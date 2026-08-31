@@ -3,7 +3,12 @@ import type { ReactNode } from "react";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
 import { BuildingYearNav } from "@/components/spaces/building-year-nav";
 import { formatJalaliYear } from "@/lib/building";
-import { currencyLabel, formatMoney, type SpaceCurrency } from "@/lib/format";
+import {
+  currencyLabel,
+  formatFaDigits,
+  formatMoney,
+  type SpaceCurrency,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type BuildingMonthHeroProps = {
@@ -65,10 +70,14 @@ export function BuildingMonthHero({
             {spaceName}
           </h1>
           <p className="mt-1.5 text-caption text-on-hero/65">
-            {activeUnits > 0 ? `${activeUnits} واحد` : "بدون واحد"}
+            {activeUnits > 0
+              ? `${formatFaDigits(activeUnits)} واحد`
+              : "بدون واحد"}
             {" · "}
-            {memberCount} مدیر
-            {expenseCount > 0 ? ` · ${expenseCount} هزینه` : ""}
+            {formatFaDigits(memberCount)} مدیر
+            {expenseCount > 0
+              ? ` · ${formatFaDigits(expenseCount)} هزینه`
+              : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -121,7 +130,7 @@ export function BuildingMonthHero({
             aria-valuenow={collectPct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuetext={`${collectPct}٪ پیشرفت وصول سال`}
+            aria-valuetext={`${formatFaDigits(collectPct)}٪ پیشرفت وصول سال`}
           >
             <div
               className={cn(
@@ -132,7 +141,7 @@ export function BuildingMonthHero({
             />
           </div>
           <p className="shrink-0 text-micro font-bold tabular-nums text-on-hero">
-            {collectPct}٪ وصول
+            {formatFaDigits(collectPct)}٪ وصول
           </p>
           {arrears > 0 ? (
             <p className="shrink-0 text-micro tabular-nums text-amber-100/95">
@@ -147,7 +156,7 @@ export function BuildingMonthHero({
               پیشرفت وصول سال
             </p>
             <p className="text-caption font-bold tabular-nums text-on-hero">
-              {collectPct}٪
+              {formatFaDigits(collectPct)}٪
             </p>
           </div>
           <div
@@ -156,7 +165,7 @@ export function BuildingMonthHero({
             aria-valuenow={collectPct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuetext={`${collectPct}٪ پیشرفت وصول سال`}
+            aria-valuetext={`${formatFaDigits(collectPct)}٪ پیشرفت وصول سال`}
             aria-label="پیشرفت وصول سال"
           >
             <div

@@ -48,6 +48,8 @@ type BuildingUnitsPanelProps = {
   canManage: boolean;
   /** Active طلب/بدهی linked to units (optional). */
   debts?: DebtDTO[];
+  /** Open debts tab filtered to this unit. */
+  onOpenUnitDebts?: (unitId: string) => void;
 };
 
 const MULT_PRESETS = [
@@ -608,6 +610,7 @@ export function BuildingUnitsPanel({
   baseCharge,
   canManage,
   debts = [],
+  onOpenUnitDebts,
 }: BuildingUnitsPanelProps) {
   const router = useRouter();
   const showToast = useUiStore((s) => s.showToast);
@@ -1026,6 +1029,7 @@ export function BuildingUnitsPanel({
                       ) : null
                     }
                   >
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -1088,24 +1092,33 @@ export function BuildingUnitsPanel({
                             ? formatCurrency(monthly, currency)
                             : `ضریب ${faDigits(u.multiplier)}`}
                         </span>
+                      </span>
+                    </button>
                         {unitDebts &&
                         (unitDebts.lent > 0 || unitDebts.borrowed > 0) ? (
-                          <span className="mt-1 flex flex-wrap gap-1.5">
+                          <span className="ms-12 flex flex-wrap gap-1.5 px-0.5 pb-0.5">
                             {unitDebts.lent > 0 ? (
-                              <span className="rounded-md bg-success-soft px-1.5 py-0.5 text-micro font-semibold text-success">
+                              <button
+                                type="button"
+                                onClick={() => onOpenUnitDebts?.(u.id)}
+                                className="rounded-md bg-success-soft px-1.5 py-0.5 text-micro font-semibold text-success transition-colors hover:ring-1 hover:ring-success/30"
+                              >
                                 طلب {formatCurrency(unitDebts.lent, currency)}
-                              </span>
+                              </button>
                             ) : null}
                             {unitDebts.borrowed > 0 ? (
-                              <span className="rounded-md bg-destructive-soft px-1.5 py-0.5 text-micro font-semibold text-destructive">
+                              <button
+                                type="button"
+                                onClick={() => onOpenUnitDebts?.(u.id)}
+                                className="rounded-md bg-destructive-soft px-1.5 py-0.5 text-micro font-semibold text-destructive transition-colors hover:ring-1 hover:ring-destructive/30"
+                              >
                                 بدهی{" "}
                                 {formatCurrency(unitDebts.borrowed, currency)}
-                              </span>
+                              </button>
                             ) : null}
                           </span>
                         ) : null}
-                      </span>
-                    </button>
+                    </div>
                   </SwipeToEditRow>
                 </li>
               );

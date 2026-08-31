@@ -207,14 +207,26 @@ export const loadSpaceExpensesPage = cache(
 
 /** Cheap counts for hero subtitle without loading full expense rows. */
 export const loadExpenseHeroStats = cache(
-  async (spaceId: string, hiddenCategoriesKey: string) => {
+  async (
+    spaceId: string,
+    hiddenCategoriesKey: string,
+    /** Jalali year bound (BUILDING hero — match expenses tab / report). */
+    year?: number,
+  ) => {
     const hidden = hiddenCategoriesKey
       ? (hiddenCategoriesKey.split(",") as ExpenseCategory[])
       : [];
+    const bounds =
+      year != null && year >= 1390 && year <= 1500
+        ? jalaliYearBounds(year)
+        : null;
     const where = {
       spaceId,
       transactionType: "EXPENSE" as const,
       ...categoryPrivacyFilter(hidden),
+      ...(bounds
+        ? { date: { gte: bounds.start, lte: bounds.end } }
+        : {}),
     };
     const [agg, count] = await Promise.all([
       prisma.expense.aggregate({

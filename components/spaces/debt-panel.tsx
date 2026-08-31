@@ -79,20 +79,39 @@ type DebtPanelProps = {
   buildingContext?: boolean;
   /** BUILDING: pick unit when creating; optional free-text still works. */
   units?: { id: string; name: string; isActive?: boolean }[];
+  /** When set, only show accounts that include this unit. */
+  filterUnitId?: string | null;
+  onClearUnitFilter?: () => void;
   /** Refetch deferred tab payload after create / edit / delete. */
   onMutated?: () => void | Promise<void>;
 };
 
 export function DebtPanel({
   spaceId,
-  debts,
+  debts: debtsProp,
   currency,
   canMutate,
   sharedHousehold = false,
   buildingContext = false,
   units = [],
+  filterUnitId = null,
+  onClearUnitFilter,
   onMutated,
 }: DebtPanelProps) {
+  const debts = useMemo(() => {
+    if (!filterUnitId) return debtsProp;
+    return debtsProp.filter((d) => d.unitId === filterUnitId);
+  }, [debtsProp, filterUnitId]);
+
+  const filterUnitName = useMemo(() => {
+    if (!filterUnitId) return null;
+    return (
+      units.find((u) => u.id === filterUnitId)?.name ??
+      debtsProp.find((d) => d.unitId === filterUnitId)?.unitName ??
+      null
+    );
+  }, [debtsProp, filterUnitId, units]);
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showArchive, setShowArchive] = useState(false);
@@ -478,6 +497,24 @@ export function DebtPanel({
 
   return (
     <div className="space-y-4 pb-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))]">
+      {filterUnitId && filterUnitName ? (
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-primary/20 bg-primary/6 px-3.5 py-2.5">
+          <p className="min-w-0 truncate text-caption font-semibold text-foreground">
+            فیلتر واحد {filterUnitName}
+            {debts.length === 0 ? " — موردی نیست" : ""}
+          </p>
+          {onClearUnitFilter ? (
+            <button
+              type="button"
+              onClick={onClearUnitFilter}
+              className="shrink-0 text-caption font-semibold text-primary transition-colors hover:text-foreground"
+            >
+              همه
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {dueSoon.length > 0 ? (
         <div className="animate-fade-up rounded-2xl border border-destructive/25 bg-destructive-soft px-4 py-3">
           <p className="text-body-sm font-semibold text-destructive">
@@ -577,7 +614,7 @@ export function DebtPanel({
                 setCreateOpen(true);
               }}
             >
-              طلب / بدهی
+              {buildingContext ? "ثبت طلب یا بدهی" : "ثبت طلب"}
             </Button>
           ) : null}
 

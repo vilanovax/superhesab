@@ -8,6 +8,7 @@ import { CATEGORY_EMOJI, CATEGORY_LABELS } from "@/lib/categorizer";
 import {
   currencyLabel,
   formatDateFaShort,
+  formatFaDigits,
   formatMoney,
   type SpaceCurrency,
 } from "@/lib/format";
@@ -97,11 +98,13 @@ export function BuildingReportInsights({
               {periodLabel ? (
                 <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                   {periodLabel}
-                  {stats.count > 0 ? ` · ${stats.count} هزینه` : ""}
+                  {stats.count > 0
+                    ? ` · ${formatFaDigits(stats.count)} هزینه`
+                    : ""}
                 </p>
               ) : stats.count > 0 ? (
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                  {stats.count} هزینه
+                  {formatFaDigits(stats.count)} هزینه
                 </p>
               ) : null}
             </div>
@@ -134,7 +137,7 @@ export function BuildingReportInsights({
                   {stats.topCategory.label}
                 </p>
                 <p className="text-[10px] font-bold tabular-nums text-primary">
-                  {stats.topCategoryPct}٪
+                  {formatFaDigits(stats.topCategoryPct)}٪
                 </p>
               </div>
             ) : null}
@@ -173,7 +176,7 @@ export function BuildingReportInsights({
                   بیشترین هزینه‌ها
                 </h2>
                 <p className="text-[10px] text-muted-foreground">
-                  تا {TOP_MAX} مورد برتر این بازه
+                  تا {formatFaDigits(TOP_MAX)} مورد برتر این بازه
                 </p>
               </div>
               <button
@@ -182,7 +185,7 @@ export function BuildingReportInsights({
                 aria-haspopup="dialog"
                 className="shrink-0 rounded-xl bg-primary/10 px-2.5 py-1.5 text-micro font-bold text-primary transition-colors hover:bg-primary/15 active:scale-[0.98]"
               >
-                همه ({expenseLines.length})
+                همه ({formatFaDigits(expenseLines.length)})
               </button>
             </div>
             <ol className="divide-y divide-border/30">
@@ -209,7 +212,7 @@ export function BuildingReportInsights({
                           : "bg-muted/70 text-muted-foreground",
                       )}
                     >
-                      {index + 1}
+                      {formatFaDigits(index + 1)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-caption font-semibold text-foreground">
@@ -236,7 +239,7 @@ export function BuildingReportInsights({
                 >
                   {topsOpen
                     ? "کمتر"
-                    : `+${stats.topExpenses.length - TOP_PREVIEW} برتر`}
+                    : `+${formatFaDigits(stats.topExpenses.length - TOP_PREVIEW)} برتر`}
                 </button>
               ) : null}
               <button

@@ -40,7 +40,7 @@ type HomeMembership = {
     type: SpaceType;
     currency: SpaceCurrency;
     ownerId: string;
-    _count: { members: number };
+    _count: { members: number; units: number };
   };
 };
 
@@ -220,7 +220,9 @@ async function HomeSpaceListBlock({
           const meta = [
             getTemplate(space.type).label,
             role !== "OWNER" ? roleLabel(role) : null,
-            `${formatFaDigits(space._count.members)} عضو`,
+            space.type === "BUILDING"
+              ? `${formatFaDigits(space._count.units)} واحد`
+              : `${formatFaDigits(space._count.members)} عضو`,
           ]
             .filter(Boolean)
             .join(" · ");
@@ -365,7 +367,12 @@ export default async function AppHomePage({
               type: true,
               currency: true,
               ownerId: true,
-              _count: { select: { members: true } },
+              _count: {
+                select: {
+                  members: true,
+                  units: { where: { isActive: true } },
+                },
+              },
             },
           },
         },

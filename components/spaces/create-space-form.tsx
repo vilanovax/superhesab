@@ -158,13 +158,7 @@ function TemplateTile({
   );
 }
 
-function CreateSpaceSubmit({
-  label,
-  currencyLabel,
-}: {
-  label: string;
-  currencyLabel: string;
-}) {
+function CreateSpaceSubmit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   const actionLabel = `ساخت «${label}»`;
   return (
@@ -172,21 +166,9 @@ function CreateSpaceSubmit({
       type="submit"
       disabled={pending}
       aria-label={pending ? "در حال ساخت…" : actionLabel}
-      className="h-12 w-full flex-col gap-0.5 rounded-2xl py-1.5 text-sm font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
+      className="h-12 w-full rounded-2xl text-sm font-semibold shadow-[0_10px_24px_-14px_hsl(var(--primary)/0.7)] transition-transform active:scale-[0.985]"
     >
-      {pending ? (
-        "در حال ساخت…"
-      ) : (
-        <>
-          <span className="leading-none">{actionLabel}</span>
-          <span
-            className="text-[10px] font-medium leading-none text-primary-foreground/70"
-            aria-hidden
-          >
-            {currencyLabel}
-          </span>
-        </>
-      )}
+      {pending ? "در حال ساخت…" : actionLabel}
     </Button>
   );
 }
@@ -275,7 +257,7 @@ export function CreateSpaceForm({
             نوع دفتر
           </p>
           <p className="text-micro text-muted-foreground/85">
-            بعداً عوض نمی‌شود
+            بعداً عوض نمی‌شود · {currencyLabel}
           </p>
         </div>
 
@@ -310,10 +292,7 @@ export function CreateSpaceForm({
 
       <div className="shrink-0 pt-0.5">
         <input type="hidden" name="currency" value={preferredCurrency} />
-        <CreateSpaceSubmit
-          label={submitLabel}
-          currencyLabel={currencyLabel}
-        />
+        <CreateSpaceSubmit label={submitLabel} />
       </div>
     </form>
   );

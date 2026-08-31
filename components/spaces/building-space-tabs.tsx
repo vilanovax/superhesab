@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { SpaceTabId } from "@/lib/spaces/space-tab-data";
 import { ExpenseList } from "@/components/expenses/expense-list";
 import { ReportExportButtons } from "@/components/spaces/report-export-buttons";
@@ -14,6 +14,19 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+
+function readDebtUnitFilter(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URL(window.location.href).searchParams.get("unit");
+}
+
+function syncDebtUnitQuery(unitId: string | null) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (unitId) url.searchParams.set("unit", unitId);
+  else url.searchParams.delete("unit");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
 
 const PersonalReportChart = dynamic(
   () =>
@@ -147,6 +160,21 @@ export function BuildingSpaceTabs({
     },
   });
 
+  const [debtUnitFilter, setDebtUnitFilter] = useState<string | null>(
+    readDebtUnitFilter,
+  );
+
+  function openUnitDebts(unitId: string) {
+    setDebtUnitFilter(unitId);
+    syncDebtUnitQuery(unitId);
+    onTabChange("debts");
+  }
+
+  function clearDebtUnitFilter() {
+    setDebtUnitFilter(null);
+    syncDebtUnitQuery(null);
+  }
+
   /** Warm expenses + debts after charges first paint. */
   useEffect(() => {
     const tabsToWarm: SpaceTabId[] = [];
@@ -243,13 +271,13 @@ export function BuildingSpaceTabs({
           aria-label="طلب و بدهی"
           onPointerEnter={() => prefetchTab("debts")}
           onFocus={() => prefetchTab("debts")}
-          className="leading-tight"
         >
-          <span className="flex flex-col items-center sm:hidden">
-            <span>طلب</span>
-            <span className="text-[9px] font-medium opacity-90">بدهی</span>
+          <span className="sm:hidden" aria-hidden>
+            طلب
           </span>
-          <span className="hidden sm:inline">طلب/بدهی</span>
+          <span className="hidden sm:inline" aria-hidden>
+            طلب/بدهی
+          </span>
         </TabsTrigger>
         <TabsTrigger
           value="report"
@@ -313,6 +341,7 @@ export function BuildingSpaceTabs({
             baseCharge={liveDashboard?.plan?.baseCharge ?? 0}
             canManage={isOwner}
             debts={deferred.debts}
+            onOpenUnitDebts={openUnitDebts}
           />
         )}
       </TabsContent>
@@ -327,6 +356,8 @@ export function BuildingSpaceTabs({
             canMutate={canMutate}
             buildingContext
             units={liveUnits}
+            filterUnitId={debtUnitFilter}
+            onClearUnitFilter={clearDebtUnitFilter}
             onMutated={() => {
               void reloadTab("debts");
               void reloadTab("units");

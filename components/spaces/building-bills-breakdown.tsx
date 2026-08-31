@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatMoney, type SpaceCurrency } from "@/lib/format";
+import { formatFaDigits, formatMoney, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import type { ReportExpenseLine } from "@/lib/reports";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,7 @@ export function BuildingBillsBreakdown({
             قبوض
           </h2>
           <p className="text-[10px] text-muted-foreground">
-            تفکیک تگ‌ها · {billsCount} مورد
+            تفکیک تگ‌ها · {formatFaDigits(billsCount)} مورد
           </p>
         </div>
         <p className="shrink-0 text-caption font-semibold tabular-nums text-foreground">
@@ -110,13 +110,13 @@ export function BuildingBillsBreakdown({
                     <p className="truncate text-caption font-medium text-foreground">
                       {row.tag}
                       <span className="ms-1 font-normal text-muted-foreground">
-                        · {row.count}
+                        · {formatFaDigits(row.count)}
                       </span>
                     </p>
                     <p className="shrink-0 text-caption font-semibold tabular-nums text-foreground">
                       {formatCurrency(row.amount, currency)}
                       <span className="ms-1 text-[10px] font-medium text-muted-foreground">
-                        {pct}٪
+                        {formatFaDigits(pct)}٪
                       </span>
                     </p>
                   </div>

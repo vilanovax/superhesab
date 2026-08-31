@@ -136,8 +136,8 @@
 مدیریت شارژ و هزینه مشاع آپارتمان. جزئیات: [`docs/building-template-prd.md`](./building-template-prd.md).
 
 - `Space.type = BUILDING` — واحدها، پلن شارژ سالانه، وصول شارژ (جداول additive)
-- `settlements: false` · `debts: false` · هزینه مشاع روی `Expense`
-- بدهی واحد پویا محاسبه می‌شود؛ ماه‌ها pre-allocate نمی‌شوند
+- `settlements: false` · `debts: true` (طلب/بدهی موردی با `Debt.unitId` اختیاری؛ جدا از شارژ) · هزینه مشاع روی `Expense`
+- بدهی شارژ واحد پویا محاسبه می‌شود؛ ماه‌ها pre-allocate نمی‌شوند
 
 ---
 

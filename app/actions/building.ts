@@ -914,6 +914,16 @@ export type ResidentPortalDTO = {
     category: string;
     categoryLabel: string | null;
   }[];
+  /** Active unit-linked IOUs (read-only; separate from monthly charges). */
+  debts: {
+    id: string;
+    type: "LENT" | "BORROWED";
+    counterparty: string;
+    initialAmount: number;
+    remaining: number;
+    note: string | null;
+    dueDate: string | null;
+  }[];
 };
 
 /** Resident (VIEWER linked to a unit) read-only portal data. */
@@ -925,7 +935,8 @@ export async function getResidentPortalData(
   if (!membership) return null;
 
   const space = membership.space;
-  if (!getTemplate(space.type).features.buildingCharges) {
+  const features = getTemplate(space.type).features;
+  if (!features.buildingCharges) {
     return null;
   }
 
@@ -943,7 +954,7 @@ export async function getResidentPortalData(
   const throughMonth = tehranCivilMonth();
   const bounds = jalaliYearBounds(year);
 
-  const [plan, payments, expenses, activeUnits, categoryScopes] =
+  const [plan, payments, expenses, activeUnits, categoryScopes, unitDebts] =
     await Promise.all([
       prisma.chargePlan.findUnique({
         where: { spaceId_year: { spaceId, year } },
@@ -983,6 +994,25 @@ export async function getResidentPortalData(
           units: { select: { unitId: true } },
         },
       }),
+      features.debts
+        ? prisma.debt.findMany({
+            where: {
+              spaceId,
+              unitId: unit.id,
+              status: "ACTIVE",
+            },
+            select: {
+              id: true,
+              type: true,
+              counterparty: true,
+              initialAmount: true,
+              note: true,
+              dueDate: true,
+              payments: { select: { amount: true } },
+            },
+            orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+          })
+        : Promise.resolve([]),
     ]);
 
   const baseCharge = plan?.baseCharge ?? 0;
@@ -1053,6 +1083,23 @@ export async function getResidentPortalData(
       category: e.category,
       categoryLabel: e.categoryLabel,
     })),
+    debts: unitDebts
+      .map((d) => {
+        const paid = d.payments.reduce((s, p) => s + p.amount, 0);
+        const remaining = Math.max(0, d.initialAmount - paid);
+        return {
+          id: d.id,
+          type: d.type as "LENT" | "BORROWED",
+          counterparty: d.counterparty,
+          initialAmount: d.initialAmount,
+          remaining,
+          note: d.note,
+          dueDate: d.dueDate
+            ? d.dueDate.toISOString().slice(0, 10)
+            : null,
+        };
+      })
+      .filter((d) => d.remaining > 0),
   };
 }
 

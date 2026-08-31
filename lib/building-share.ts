@@ -249,6 +249,44 @@ async function loadChargeSlice(spaceId: string, year: number) {
 }
 
 /**
+ * Slim stats for the home “followed reports” cards — month spend total +
+ * charge collectPct only. Avoids year categories, expense lines, units list,
+ * and announcements that `loadBuildingShareReport` pulls for the full page.
+ */
+export async function loadBuildingShareHomeCardStats(input: {
+  spaceId: string;
+  defaultPlanYear: number | null;
+  includeExpensesSummary: boolean;
+  includeChargesSummary: boolean;
+}): Promise<{ collectPct: number | null; monthSpend: number | null }> {
+  const nowYear = tehranCivilYear();
+  const nowMonth = tehranCivilMonth();
+  const chargeYear = input.defaultPlanYear ?? nowYear;
+  const monthBounds = jalaliMonthBounds(nowYear, nowMonth);
+
+  const [monthAgg, chargeSlice] = await Promise.all([
+    input.includeExpensesSummary
+      ? prisma.expense.aggregate({
+          where: {
+            spaceId: input.spaceId,
+            transactionType: "EXPENSE",
+            date: { gte: monthBounds.start, lte: monthBounds.end },
+          },
+          _sum: { totalAmount: true },
+        })
+      : Promise.resolve(null),
+    input.includeChargesSummary
+      ? loadChargeSlice(input.spaceId, chargeYear)
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    monthSpend: monthAgg ? (monthAgg._sum.totalAmount ?? 0) : null,
+    collectPct: chargeSlice ? chargeSlice.collectPct : null,
+  };
+}
+
+/**
  * Public read by token. Returns null when missing, revoked, expired,
  * archived, or not a building space.
  */

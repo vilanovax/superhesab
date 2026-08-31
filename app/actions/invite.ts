@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/guards";
+import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import {
+  inviteRoleForToken,
+  signSpaceInviteToken,
+  verifySpaceInviteToken,
+} from "@/lib/invite-token";
+import { canMutateMoney } from "@/lib/rbac";
 import { assertCanAddSpaceMember } from "@/lib/spaces/membership-guards";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
@@ -12,19 +18,19 @@ export type JoinSpaceResult =
   | { ok: true; alreadyMember: boolean }
   | { ok: false; error: string };
 
-function resolveInviteRole(
+export type MintInviteLinkResult =
+  | { ok: true; path: string; urlPath: string }
+  | { ok: false; error: string };
+
+function resolveInviteRoleForSpace(
   spaceType: Parameters<typeof getTemplate>[0],
-  requested?: string | null,
+  tokenRole: "EDITOR" | "VIEWER",
 ): SpaceRole {
-  const template = getTemplate(spaceType);
   // Building public invite = co-manager. Residents join only via unit claim.
   if (spaceType === "BUILDING") {
     return "EDITOR";
   }
-  if (requested === "VIEWER" || requested === "EDITOR") {
-    return requested;
-  }
-  return template.defaultInviteRole;
+  return tokenRole;
 }
 
 export async function getInviteSpace(spaceId: string) {
@@ -41,11 +47,67 @@ export async function getInviteSpace(spaceId: string) {
   });
 }
 
+/**
+ * Mint a signed invite URL path. Role is embedded in the token — clients
+ * cannot escalate by changing query params.
+ */
+export async function mintSpaceInviteLink(
+  spaceId: string,
+  requestedRole?: string | null,
+): Promise<MintInviteLinkResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canMutateMoney(membership.role)) {
+    return { ok: false, error: "نقش شما اجازه ساخت لینک دعوت ندارد." };
+  }
+
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true, archivedAt: true },
+  });
+  if (!space) {
+    return { ok: false, error: "فضا پیدا نشد." };
+  }
+  if (space.archivedAt) {
+    return { ok: false, error: "این دفتر آرشیو شده و دعوت‌پذیر نیست." };
+  }
+
+  const template = getTemplate(space.type);
+  if (!template.features.invites) {
+    return { ok: false, error: "این فضا دعوت‌پذیر نیست." };
+  }
+
+  const fallback = inviteRoleForToken(template.defaultInviteRole);
+  const role =
+    space.type === "BUILDING"
+      ? ("EDITOR" as const)
+      : template.features.householdLedger && requestedRole === "VIEWER"
+        ? ("VIEWER" as const)
+        : requestedRole === "EDITOR"
+          ? ("EDITOR" as const)
+          : fallback;
+
+  const token = await signSpaceInviteToken({ spaceId, role });
+  const urlPath = `/invite/${spaceId}?t=${encodeURIComponent(token)}`;
+  return { ok: true, path: urlPath, urlPath };
+}
+
 export async function joinSpace(
   spaceId: string,
-  inviteRole?: string | null,
+  inviteToken: string,
 ): Promise<JoinSpaceResult> {
   const session = await requireUser();
+
+  const verified = await verifySpaceInviteToken(inviteToken);
+  if (!verified || verified.spaceId !== spaceId) {
+    return {
+      ok: false,
+      error: "لینک دعوت نامعتبر یا منقضی است. لینک جدید بخواهید.",
+    };
+  }
 
   const space = await prisma.space.findUnique({
     where: { id: spaceId },
@@ -80,7 +142,7 @@ export async function joinSpace(
     return canAdd;
   }
 
-  const role = resolveInviteRole(space.type, inviteRole);
+  const role = resolveInviteRoleForSpace(space.type, verified.role);
 
   await prisma.spaceMember.create({
     data: {
@@ -99,9 +161,9 @@ export async function joinSpace(
 
 export async function joinSpaceAndRedirect(
   spaceId: string,
-  inviteRole?: string | null,
+  inviteToken: string,
 ) {
-  const result = await joinSpace(spaceId, inviteRole);
+  const result = await joinSpace(spaceId, inviteToken);
   if (!result.ok) {
     redirect(`/invite/${spaceId}?error=${encodeURIComponent(result.error)}`);
   }

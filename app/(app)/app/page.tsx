@@ -335,6 +335,33 @@ function DueSoonBlock({
   );
 }
 
+async function DueSoonDeferred({
+  dueSoonPromise,
+  currencyBySpace,
+}: {
+  dueSoonPromise: Promise<DueSoonDebtSummary[]>;
+  currencyBySpace: Record<string, SpaceCurrency>;
+}) {
+  const dueSoonDebts = await dueSoonPromise;
+  return (
+    <DueSoonBlock
+      dueSoonDebts={dueSoonDebts}
+      currencyBySpace={currencyBySpace}
+    />
+  );
+}
+
+async function FollowedReportsDeferred({
+  followedPromise,
+}: {
+  followedPromise: Promise<
+    Awaited<ReturnType<typeof listMyFollowedBuildingShares>>
+  >;
+}) {
+  const cards = await followedPromise;
+  return <HomeFollowedReports cards={cards} />;
+}
+
 export default async function AppHomePage({
   searchParams,
 }: {
@@ -348,46 +375,44 @@ export default async function AppHomePage({
   const { error } = sp;
 
   /**
-   * Wave 1 — everything that only needs userId (or is independent).
-   * Profile comes from requireCurrentUser (same cached getSessionUser as auth).
-   * Summary / lastExpense depend on memberships and start after this settles.
+   * Kick every independent fetch immediately. Memberships gate the money
+   * summary; debts / followed shares stream in via Suspense so they never
+   * delay the shell or the summary wave.
    */
-  const [memberships, archivedCount, dueSoonDebts, disabledSpaceTypes, followedShares] =
-    await Promise.all([
-      prisma.spaceMember.findMany({
-        where: {
-          userId: session.userId,
-          space: { archivedAt: null },
-        },
-        include: {
-          space: {
+  const membershipsPromise = prisma.spaceMember.findMany({
+    where: {
+      userId: session.userId,
+      space: { archivedAt: null },
+    },
+    include: {
+      space: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          currency: true,
+          ownerId: true,
+          _count: {
             select: {
-              id: true,
-              name: true,
-              type: true,
-              currency: true,
-              ownerId: true,
-              _count: {
-                select: {
-                  members: true,
-                  units: { where: { isActive: true } },
-                },
-              },
+              members: true,
+              units: { where: { isActive: true } },
             },
           },
         },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.spaceMember.count({
-        where: {
-          userId: session.userId,
-          space: { archivedAt: { not: null } },
-        },
-      }),
-      listDueSoonDebtsForUser(),
-      listDisabledSpaceTypes(),
-      listMyFollowedBuildingShares(),
-    ]);
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const archivedCountPromise = prisma.spaceMember.count({
+    where: {
+      userId: session.userId,
+      space: { archivedAt: { not: null } },
+    },
+  });
+  const disabledSpaceTypesPromise = listDisabledSpaceTypes();
+  const followedSharesPromise = listMyFollowedBuildingShares();
+
+  const memberships = await membershipsPromise;
 
   const spaceCount = memberships.length;
   const isEmpty = spaceCount === 0;
@@ -405,7 +430,7 @@ export default async function AppHomePage({
   }));
   const spaceIds = memberships.map((m) => m.space.id);
 
-  /** Started once; shared across Suspense children (no duplicate work). */
+  /** Starts as soon as memberships resolve — not after debts/followed. */
   const summaryPromise = getHomeSummary(session.userId, homeSpaces);
   const lastExpensePromise =
     spaceIds.length > 0
@@ -415,6 +440,18 @@ export default async function AppHomePage({
           select: { spaceId: true },
         })
       : Promise.resolve(null);
+
+  const hasDebtSpaces = memberships.some(
+    (m) => m.space.type === "FAMILY" || m.space.type === "PERSONAL",
+  );
+  const dueSoonPromise = hasDebtSpaces
+    ? listDueSoonDebtsForUser()
+    : Promise.resolve([] as DueSoonDebtSummary[]);
+
+  const [archivedCount, disabledSpaceTypes] = await Promise.all([
+    archivedCountPromise,
+    disabledSpaceTypesPromise,
+  ]);
 
   return (
     <main
@@ -453,10 +490,12 @@ export default async function AppHomePage({
         </Suspense>
       ) : null}
 
-      <DueSoonBlock
-        dueSoonDebts={dueSoonDebts}
-        currencyBySpace={currencyBySpace}
-      />
+      <Suspense fallback={null}>
+        <DueSoonDeferred
+          dueSoonPromise={dueSoonPromise}
+          currencyBySpace={currencyBySpace}
+        />
+      </Suspense>
 
       {!isEmpty ? (
         <Suspense fallback={<HomeCardSkeleton className="h-14 mb-5" />}>
@@ -501,7 +540,11 @@ export default async function AppHomePage({
               error={error}
               disabledTypes={disabledSpaceTypes}
             />
-            <HomeFollowedReports cards={followedShares} />
+            <Suspense fallback={null}>
+              <FollowedReportsDeferred
+                followedPromise={followedSharesPromise}
+              />
+            </Suspense>
           </div>
         ) : (
           <Suspense fallback={<HomeListSkeleton />}>
@@ -511,7 +554,13 @@ export default async function AppHomePage({
             />
           </Suspense>
         )}
-        {!isEmpty ? <HomeFollowedReports cards={followedShares} /> : null}
+        {!isEmpty ? (
+          <Suspense fallback={null}>
+            <FollowedReportsDeferred
+              followedPromise={followedSharesPromise}
+            />
+          </Suspense>
+        ) : null}
       </section>
     </main>
   );

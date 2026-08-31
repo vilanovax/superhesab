@@ -19,8 +19,8 @@ android {
         applicationId = "ir.superhesab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 363
-        versionName = "3.63"
+        versionCode = 401
+        versionName = "4.01"
         buildConfigField(
             "String",
             "WEB_URL",

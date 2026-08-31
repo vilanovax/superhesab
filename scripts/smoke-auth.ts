@@ -1,6 +1,6 @@
 /**
  * Auth smoke notes (manual / browser):
- *   OTP mock = 111111
+ *   OTP mock = 111111 by default (set ALLOW_MOCK_OTP=false to disable)
  *   Register: /register → name + phone → OTP → /app
  *   Login:    /login → phone → OTP → /app
  *

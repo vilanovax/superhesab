@@ -9,16 +9,17 @@ import { Button } from "@/components/ui/button";
 export function JoinSpaceButton({
   spaceId,
   alreadyMember,
-  claimVirtualUserId,
+  claimToken,
   claimLabel,
-  inviteRole,
+  inviteToken,
 }: {
   spaceId: string;
   alreadyMember: boolean;
-  /** When set, join merges this virtual profile instead of generic EDITOR join */
-  claimVirtualUserId?: string | null;
+  /** Signed claim JWT — when set, join merges the virtual profile */
+  claimToken?: string | null;
   claimLabel?: string | null;
-  inviteRole?: string | null;
+  /** Signed space-invite JWT required for generic join */
+  inviteToken?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -27,25 +28,28 @@ export function JoinSpaceButton({
   function onJoin() {
     startTransition(async () => {
       setError(null);
-      if (claimVirtualUserId) {
-        const result = await claimVirtualProfile(spaceId, claimVirtualUserId);
+      if (claimToken) {
+        const result = await claimVirtualProfile(spaceId, claimToken);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+      } else if (inviteToken) {
+        const result = await joinSpace(spaceId, inviteToken);
         if (!result.ok) {
           setError(result.error);
           return;
         }
       } else {
-        const result = await joinSpace(spaceId, inviteRole);
-        if (!result.ok) {
-          setError(result.error);
-          return;
-        }
+        setError("لینک دعوت نامعتبر است. از مالک لینک جدید بگیرید.");
+        return;
       }
       router.replace(`/spaces/${spaceId}`);
       router.refresh();
     });
   }
 
-  if (alreadyMember && !claimVirtualUserId) {
+  if (alreadyMember && !claimToken) {
     return (
       <Button
         type="button"
@@ -57,7 +61,7 @@ export function JoinSpaceButton({
     );
   }
 
-  const label = claimVirtualUserId
+  const label = claimToken
     ? claimLabel
       ? `ادعا و مدیریت حساب ${claimLabel}`
       : "ادعا و پیوستن"
@@ -68,7 +72,7 @@ export function JoinSpaceButton({
       <Button
         type="button"
         className="h-14 w-full rounded-2xl text-base font-semibold shadow-fab"
-        disabled={pending}
+        disabled={pending || (!claimToken && !inviteToken)}
         aria-busy={pending}
         onClick={onJoin}
       >

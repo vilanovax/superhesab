@@ -11,18 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { normalizeDigits, toAsciiDigits } from "@/lib/format";
+import { safeCallbackUrl } from "@/lib/safe-callback-url";
 
 function phoneFromInput(raw: string): string {
   return toAsciiDigits(raw).replace(/[^\d+]/g, "");
 }
 
 type Step = "details" | "otp";
-
-function safeCallbackUrl(raw: string | undefined | null): string {
-  if (!raw) return "/app";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/app";
-  return raw;
-}
 
 function focusEl(el: HTMLInputElement | null) {
   queueMicrotask(() => el?.focus());
@@ -240,7 +235,7 @@ export function RegisterForm({
                 required
               />
               <p className="text-center text-caption text-muted-foreground">
-                کد نمونه:{" "}
+                کد تست:{" "}
                 <span className="font-semibold tabular-nums text-foreground">
                   111111
                 </span>

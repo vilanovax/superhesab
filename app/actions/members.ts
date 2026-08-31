@@ -3,12 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import {
+  signVirtualClaimToken,
+  verifyVirtualClaimToken,
+} from "@/lib/invite-token";
 import { clampShare, MAX_SHARE } from "@/lib/money";
+import { canManageMembers } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
 
 export type MemberActionResult =
   | { ok: true }
+  | { ok: false; error: string };
+
+export type MintClaimLinkResult =
+  | { ok: true; path: string; urlPath: string }
   | { ok: false; error: string };
 
 export async function changeMemberRole(
@@ -96,13 +105,23 @@ export async function updateMemberDefaultShare(
 /**
  * Claim a virtual member's identity: reassign money rows to the real user,
  * inherit membership role, remove virtual membership (and User if unused).
+ * Requires a signed claim token (possession of the claim invite link).
  */
 export async function claimVirtualProfile(
   spaceId: string,
-  virtualUserId: string,
+  claimToken: string,
 ): Promise<MemberActionResult> {
   const session = await requireUser();
   const realUserId = session.userId;
+
+  const verified = await verifyVirtualClaimToken(claimToken);
+  if (!verified || verified.spaceId !== spaceId) {
+    return {
+      ok: false,
+      error: "لینک ادعا نامعتبر یا منقضی است. لینک جدید بخواهید.",
+    };
+  }
+  const virtualUserId = verified.virtualUserId;
 
   if (virtualUserId === realUserId) {
     return { ok: false, error: "این پروفایل متعلق به خودتان است." };
@@ -264,10 +283,41 @@ export async function claimVirtualProfile(
   return { ok: true };
 }
 
-export async function getClaimPreview(spaceId: string, virtualUserId: string) {
-  const user = await prisma.user.findFirst({
+/** OWNER mints a signed claim link for a virtual member. */
+export async function mintClaimInviteLink(
+  spaceId: string,
+  virtualUserId: string,
+): Promise<MintClaimLinkResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership || !canManageMembers(membership.role)) {
+    return { ok: false, error: "فقط مالک می‌تواند لینک ادعا بسازد." };
+  }
+
+  const virtual = await prisma.user.findFirst({
     where: {
       id: virtualUserId,
+      isVirtual: true,
+      memberships: { some: { spaceId } },
+    },
+    select: { id: true },
+  });
+  if (!virtual) {
+    return { ok: false, error: "عضو مجازی پیدا نشد." };
+  }
+
+  const token = await signVirtualClaimToken({ spaceId, virtualUserId });
+  const urlPath = `/invite/${spaceId}?claim=${encodeURIComponent(token)}`;
+  return { ok: true, path: urlPath, urlPath };
+}
+
+export async function getClaimPreview(spaceId: string, claimToken: string) {
+  const verified = await verifyVirtualClaimToken(claimToken);
+  if (!verified || verified.spaceId !== spaceId) return null;
+
+  const user = await prisma.user.findFirst({
+    where: {
+      id: verified.virtualUserId,
       isVirtual: true,
       memberships: { some: { spaceId } },
     },
@@ -286,5 +336,6 @@ export async function getClaimPreview(spaceId: string, virtualUserId: string) {
     id: user.id,
     name: user.name?.trim() || "همسفر",
     role: user.memberships[0]?.role ?? "EDITOR",
+    claimToken,
   };
 }

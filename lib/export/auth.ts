@@ -30,6 +30,14 @@ export async function authorizeSpaceExport(
   const session = await verifySessionToken(token);
   if (!session) return { ok: false, status: 401, error: "unauthorized" };
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, disabledAt: true, isVirtual: true },
+  });
+  if (!user || user.isVirtual || user.disabledAt) {
+    return { ok: false, status: 401, error: "unauthorized" };
+  }
+
   const membership = await prisma.spaceMember.findUnique({
     where: {
       spaceId_userId: { spaceId, userId: session.userId },

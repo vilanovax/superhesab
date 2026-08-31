@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         val deepLink = intent?.data?.toString()
-        loadApp(url = deepLink ?: startUrl)
+        loadApp(url = sanitizeLoadUrl(deepLink))
     }
 
     override fun onPause() {
@@ -103,7 +103,63 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.data?.toString()?.let { loadApp(url = it, force = true) }
+        intent.data?.toString()?.let { loadApp(url = sanitizeLoadUrl(it), force = true) }
+    }
+
+    /** Hosts allowed to render inside the trusted SuperHesab WebView shell. */
+    private fun isAllowedAppHost(host: String?): Boolean {
+        val h = host?.lowercase()?.trim('.').orEmpty()
+        if (h.isEmpty()) return false
+        val configured = Uri.parse(startUrl).host?.lowercase().orEmpty()
+        if (configured.isNotEmpty() && (h == configured || h.endsWith(".$configured"))) {
+            return true
+        }
+        if (h == "superhesab.ir" || h.endsWith(".superhesab.ir")) {
+            return true
+        }
+        // Emulator / local debug only when WEB_URL itself points there
+        if (h == "localhost" || h == "127.0.0.1" || h == "10.0.2.2") {
+            return configured == h
+        }
+        return false
+    }
+
+    private fun isAllowedInAppUrl(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        val uri =
+            try {
+                Uri.parse(url)
+            } catch (_: Exception) {
+                return false
+            }
+        val scheme = uri.scheme?.lowercase().orEmpty()
+        if (scheme != "https" && scheme != "http") return false
+        // Production APK uses cleartext=false; still allow http only for local WEB_URL hosts.
+        if (scheme == "http") {
+            val host = uri.host?.lowercase().orEmpty()
+            if (host != "localhost" && host != "127.0.0.1" && host != "10.0.2.2") {
+                return false
+            }
+        }
+        return isAllowedAppHost(uri.host)
+    }
+
+    /** Deep links / intents outside the allowlist fall back to the official start URL. */
+    private fun sanitizeLoadUrl(url: String?): String {
+        val candidate = url?.takeIf { isAllowedInAppUrl(it) }
+        return candidate ?: startUrl
+    }
+
+    private fun openExternalUri(uri: Uri) {
+        val scheme = uri.scheme?.lowercase().orEmpty()
+        if (scheme != "https" && scheme != "http" && scheme != "mailto" && scheme != "tel") {
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: Exception) {
+            // No handler — ignore
+        }
     }
 
     private fun configureWebView() {
@@ -159,11 +215,15 @@ class MainActivity : AppCompatActivity() {
                     request: WebResourceRequest,
                 ): Boolean {
                     val uri = request.url
-                    val host = uri.host.orEmpty()
-                    return if (host == "app.superhesab.ir" || host.endsWith(".superhesab.ir")) {
+                    val scheme = uri.scheme?.lowercase().orEmpty()
+                    if (scheme != "http" && scheme != "https") {
+                        openExternalUri(uri)
+                        return true
+                    }
+                    return if (isAllowedAppHost(uri.host)) {
                         false
                     } else {
-                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        openExternalUri(uri)
                         true
                     }
                 }
@@ -210,6 +270,10 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.download_unsupported, Toast.LENGTH_LONG).show()
             return
         }
+        if (!isAllowedInAppUrl(url)) {
+            Toast.makeText(this, R.string.download_unsupported, Toast.LENGTH_LONG).show()
+            return
+        }
         ensureNotificationPermission()
         val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
         val request =
@@ -245,9 +309,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         offline.visibility = View.GONE
+        val safeUrl = sanitizeLoadUrl(url)
         if (force || webView.url.isNullOrBlank()) {
             loading.visibility = View.VISIBLE
-            webView.loadUrl(url)
+            webView.loadUrl(safeUrl)
         } else {
             webView.reload()
         }

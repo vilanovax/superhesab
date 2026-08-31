@@ -175,10 +175,11 @@ export function BuildingSpaceTabs({
     syncDebtUnitQuery(null);
   }
 
-  /** Warm expenses + debts after charges first paint. */
+  /** Warm sibling tabs after first paint so switches feel instant. */
   useEffect(() => {
     const tabsToWarm: SpaceTabId[] = [];
     if (defaultTab !== "expenses") tabsToWarm.push("expenses");
+    if (defaultTab !== "charges") tabsToWarm.push("charges");
     if (defaultTab !== "debts") tabsToWarm.push("debts");
     if (tabsToWarm.length === 0) return;
     let cancelled = false;

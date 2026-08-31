@@ -10,12 +10,12 @@ import { listSavingsPots } from "@/app/actions/savingsPot";
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { prisma } from "@/lib/db/prisma";
 import {
-  getExpensesByCategory,
-  getExpensesByCategoryInRange,
+  categoryRowsFromExpenseLines,
   getExpenseLinesForMonth,
   getExpenseLinesInRange,
 } from "@/lib/reports-server";
 import { jalaliYearBounds } from "@/lib/jalali";
+import { getCachedBuildingUnits } from "@/lib/spaces/building-cache";
 import { queryExpenseLedgerPage } from "@/lib/spaces/expense-ledger";
 import type { TemplateFeatures } from "@/lib/templates/registry";
 import type { SpaceRole } from "@/types";
@@ -49,6 +49,10 @@ export type LoadDeferredTabArgs = {
    * only fetch charge proofs (if requested), not the full view again.
    */
   skipBuildingView?: boolean;
+  /**
+   * Charges need the annual calendar; units only need dashboard + unit rows.
+   */
+  includeCalendar?: boolean;
 };
 
 /** Heavy per-tab reads — used by the space page and by loadSpaceTabData. */
@@ -66,6 +70,7 @@ export async function loadDeferredTabData(
     includeChargeProofs = true,
     skipExpenses = false,
     skipBuildingView = false,
+    includeCalendar = tab === "charges",
   } = args;
 
   const out: DeferredTabPayload = { ...EMPTY_DEFERRED_TAB };
@@ -75,21 +80,8 @@ export async function loadDeferredTabData(
   if (tab === "report" && features.incomeExpense) {
     tasks.push(
       (async () => {
-        const [byCat, lines, budgets] = await Promise.all([
-          reportRange
-            ? getExpensesByCategoryInRange(
-                spaceId,
-                reportRange.start,
-                reportRange.end,
-                null,
-                hiddenCategories,
-              )
-            : getExpensesByCategory(
-                spaceId,
-                new Date(),
-                null,
-                hiddenCategories,
-              ),
+        /** One expense scan — derive category totals from the same rows. */
+        const [lines, budgets] = await Promise.all([
           reportRange
             ? getExpenseLinesInRange(
                 spaceId,
@@ -111,8 +103,8 @@ export async function loadDeferredTabData(
               })
             : Promise.resolve([] as { category: string; amount: number }[]),
         ]);
-        out.personalReportData = byCat;
         out.reportExpenseLines = lines;
+        out.personalReportData = categoryRowsFromExpenseLines(lines);
         out.categoryBudgets = Object.fromEntries(
           budgets.map((r) => [r.category as ExpenseCategory, r.amount]),
         );
@@ -126,17 +118,11 @@ export async function loadDeferredTabData(
         out.debts = await listSpaceDebts(spaceId);
       })(),
     );
-    /** Lite unit list for debt↔unit picker without full charge dashboard. */
+    /** Lite unit list for debt↔unit picker — reuse building units cache. */
     if (features.buildingCharges) {
       tasks.push(
         (async () => {
-          const rows = await prisma.unit.findMany({
-            where: { spaceId },
-            orderBy: [{ isActive: "desc" }, { name: "asc" }],
-            include: {
-              linkedUser: { select: { name: true, phone: true } },
-            },
-          });
+          const rows = await getCachedBuildingUnits(spaceId);
           out.buildingUnits = rows.map((u) => ({
             id: u.id,
             name: u.name,
@@ -218,7 +204,9 @@ export async function loadDeferredTabData(
       tasks.push(
         (async () => {
           const [view, proofs] = await Promise.all([
-            getBuildingManagerView(spaceId, planYear),
+            getBuildingManagerView(spaceId, planYear, {
+              includeCalendar: includeCalendar || tab === "charges",
+            }),
             needProofs
               ? listChargeProofsForManager(spaceId, planYear)
               : Promise.resolve(null),

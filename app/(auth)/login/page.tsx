@@ -2,13 +2,8 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import { prisma } from "@/lib/db/prisma";
+import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { getSession } from "@/lib/session";
-
-function safeCallbackUrl(raw: string | undefined): string {
-  if (!raw) return "/app";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/app";
-  return raw;
-}
 
 /**
  * Login stays fully SSR — a large dynamic() skeleton was winning LCP and

@@ -53,6 +53,7 @@ export async function SpacePageBody({
   const needBuildingView =
     isBuildingShell &&
     (activeTab === "charges" || activeTab === "units");
+  const needBuildingCalendar = isBuildingShell && activeTab === "charges";
   const needMonthRows =
     !isBuildingShell &&
     (features.incomeExpense || features.budget) &&
@@ -91,7 +92,7 @@ export async function SpacePageBody({
         )
       : Promise.resolve([]),
     needBuildingView
-      ? loadCachedBuildingView(id, planYear)
+      ? loadCachedBuildingView(id, planYear, needBuildingCalendar)
       : Promise.resolve(null),
     features.fundRotating
       ? loadCachedFundDashboard(id, fundPeriod)
@@ -112,6 +113,7 @@ export async function SpacePageBody({
       includeChargeProofs: !skipChargeProofsOnRsc,
       skipExpenses: needExpenses,
       skipBuildingView: needBuildingView,
+      includeCalendar: needBuildingCalendar,
     }),
   ]);
 

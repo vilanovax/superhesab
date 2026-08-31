@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookieSecure } from "@/lib/cookie-secure";
+import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { SESSION_COOKIE } from "@/lib/session-token";
 
 /**
@@ -8,8 +9,7 @@ import { SESSION_COOKIE } from "@/lib/session-token";
  */
 export async function GET(request: NextRequest) {
   const next = request.nextUrl.searchParams.get("next") ?? "/login";
-  const safeNext =
-    next.startsWith("/") && !next.startsWith("//") ? next : "/login";
+  const safeNext = safeCallbackUrl(next, "/login");
 
   const response = NextResponse.redirect(new URL(safeNext, request.url));
   response.cookies.set(SESSION_COOKIE, "", {

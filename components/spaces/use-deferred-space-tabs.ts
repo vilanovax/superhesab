@@ -44,13 +44,14 @@ function loadSpaceTabDataDeduped(input: {
   tab: SpaceTabId;
   year?: number;
   reportMonth?: number | null;
+  skipBuildingView?: boolean;
 }) {
-  const key = tabFetchKey(
+  const key = `${tabFetchKey(
     input.spaceId,
     input.tab,
     input.year,
     input.reportMonth,
-  );
+  )}|sb=${input.skipBuildingView ? 1 : 0}`;
   const existing = tabInflight.get(key);
   if (existing) return existing;
 
@@ -107,19 +108,27 @@ function mergeDeferred(
     internalLoans:
       next === "funds" ? data.internalLoans : prev.internalLoans,
     chargeProofs:
-      next === "charges" ? data.chargeProofs : prev.chargeProofs,
+      next === "charges"
+        ? data.chargeProofs.length > 0
+          ? data.chargeProofs
+          : prev.chargeProofs
+        : prev.chargeProofs,
     expenses: next === "expenses" ? data.expenses : prev.expenses,
     expensesHasMore:
       next === "expenses" ? data.expensesHasMore : prev.expensesHasMore,
     buildingDashboard:
       next === "charges" || next === "units"
-        ? data.buildingDashboard
+        ? (data.buildingDashboard ?? prev.buildingDashboard)
         : prev.buildingDashboard,
     buildingCalendar:
-      next === "charges" ? data.buildingCalendar : prev.buildingCalendar,
+      next === "charges"
+        ? (data.buildingCalendar ?? prev.buildingCalendar)
+        : prev.buildingCalendar,
     buildingUnits:
       next === "charges" || next === "units"
-        ? data.buildingUnits
+        ? data.buildingUnits.length > 0
+          ? data.buildingUnits
+          : prev.buildingUnits
         : next === "debts" && data.buildingUnits.length > 0
           ? data.buildingUnits
           : prev.buildingUnits,
@@ -153,6 +162,8 @@ export function useDeferredSpaceTabs(args: {
   const [deferred, setDeferred] = useState<DeferredTabPayload>(initial);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
+  const deferredRef = useRef(deferred);
+  deferredRef.current = deferred;
   const tabRef = useRef(tab);
   tabRef.current = tab;
 
@@ -176,6 +187,14 @@ export function useDeferredSpaceTabs(args: {
       if (!DEFERRED_TABS.has(next) || loadedRef.current.has(next)) return;
       // Silent warm (idle/hover) must not flip tabBusy — only real switches do.
       if (!opts?.silent) setPendingTab(next);
+      /**
+       * Units after charges: reuse the charge dashboard/units already in
+       * memory — only debts need a network round-trip.
+       */
+      const skipBuildingView =
+        next === "units" &&
+        (loadedRef.current.has("charges") ||
+          Boolean(deferredRef.current.buildingDashboard));
       // Urgent — do not wrap in startTransition (that delayed painting the list).
       void (async () => {
         const result = await loadSpaceTabDataDeduped({
@@ -183,6 +202,7 @@ export function useDeferredSpaceTabs(args: {
           tab: next,
           year: tabLoadContext?.planYear ?? reportPlanYear,
           reportMonth: tabLoadContext?.reportMonth ?? reportMonth,
+          skipBuildingView,
         });
         if (result.ok) {
           setDeferred((prev) => mergeDeferred(prev, next, result.data));

@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { mintSpaceInviteLink } from "@/app/actions/invite";
 import {
   changeMemberRole,
+  mintClaimInviteLink,
   updateMemberDefaultShare,
 } from "@/app/actions/members";
 import { addVirtualMember } from "@/app/actions/virtualMember";
@@ -153,28 +155,26 @@ export function MembersList({
   /** Trip/Partner: EDITOR only until Viewer ships in v2. Family keeps picker. */
   const allowViewerRole = inviteRolePicker && !editorOnlyRoles;
 
-  const spaceInviteUrl = useMemo(() => {
-    const path = allowViewerRole
-      ? `/invite/${spaceId}?role=${inviteRole}`
-      : `/invite/${spaceId}`;
-    if (typeof window === "undefined") return path;
-    return `${window.location.origin}${path}`;
-  }, [spaceId, inviteRole, allowViewerRole]);
-
-  function claimUrl(virtualUserId: string) {
-    if (typeof window === "undefined") {
-      return `/invite/${spaceId}?claim=${virtualUserId}`;
-    }
-    return `${window.location.origin}/invite/${spaceId}?claim=${virtualUserId}`;
-  }
-
   async function copyText(text: string) {
     await navigator.clipboard.writeText(text);
   }
 
   async function copySpaceLink() {
     try {
-      await copyText(spaceInviteUrl);
+      const minted = await mintSpaceInviteLink(
+        spaceId,
+        allowViewerRole ? inviteRole : "EDITOR",
+      );
+      if (!minted.ok) {
+        setSpaceLinkState("idle");
+        setRoleError(minted.error);
+        return;
+      }
+      const url =
+        typeof window === "undefined"
+          ? minted.urlPath
+          : `${window.location.origin}${minted.urlPath}`;
+      await copyText(url);
       setSpaceLinkState("done");
       window.setTimeout(() => setSpaceLinkState("idle"), 2000);
     } catch {
@@ -184,7 +184,17 @@ export function MembersList({
 
   async function copyClaimLink(virtualUserId: string) {
     try {
-      await copyText(claimUrl(virtualUserId));
+      const minted = await mintClaimInviteLink(spaceId, virtualUserId);
+      if (!minted.ok) {
+        setClaimCopiedId(null);
+        setRoleError(minted.error);
+        return;
+      }
+      const url =
+        typeof window === "undefined"
+          ? minted.urlPath
+          : `${window.location.origin}${minted.urlPath}`;
+      await copyText(url);
       setClaimCopiedId(virtualUserId);
       window.setTimeout(() => setClaimCopiedId(null), 2000);
     } catch {

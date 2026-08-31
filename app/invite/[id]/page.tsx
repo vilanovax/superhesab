@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInviteMeta } from "@/app/actions/invite";
 import { getClaimPreview } from "@/app/actions/members";
+import { verifySpaceInviteToken } from "@/lib/invite-token";
 import { JoinSpaceButton } from "@/components/spaces/join-space-button";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,13 @@ import type { SpaceRole } from "@/types";
 
 type InvitePageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; claim?: string; role?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    claim?: string;
+    t?: string;
+    /** @deprecated ignored — role is embedded in signed token `t` */
+    role?: string;
+  }>;
 };
 
 export default async function InvitePage({
@@ -22,7 +29,7 @@ export default async function InvitePage({
   searchParams,
 }: InvitePageProps) {
   const { id } = await params;
-  const { error, claim, role } = await searchParams;
+  const { error, claim, t } = await searchParams;
   const session = await requireUser();
 
   const meta = await getInviteMeta(id);
@@ -37,14 +44,21 @@ export default async function InvitePage({
   });
 
   const claimPreview = claim ? await getClaimPreview(id, claim) : null;
+  const invitePayload =
+    !claimPreview && t ? await verifySpaceInviteToken(t) : null;
+  const inviteToken =
+    invitePayload && invitePayload.spaceId === id ? t! : null;
+
   const lockedRole: SpaceRole | null = claimPreview
     ? claimPreview.role === "OWNER"
       ? "EDITOR"
       : (claimPreview.role as SpaceRole)
-    : role === "VIEWER" || role === "EDITOR"
-      ? role
+    : invitePayload
+      ? invitePayload.role
       : null;
   const templateDataset = getTemplateDataset(meta.type);
+  const linkInvalid = Boolean(claim) && !claimPreview;
+  const inviteMissing = !claim && !claimPreview && !inviteToken;
 
   return (
     <main
@@ -79,13 +93,23 @@ export default async function InvitePage({
               : "با پیوستن، می‌توانید هزینه ثبت کنید، چک‌لیست را ببینید و در تسویه مشارکت داشته باشید."}
         </p>
 
-        {claim && !claimPreview ? (
+        {linkInvalid ? (
           <p
             className="text-sm text-destructive"
             role="alert"
             aria-live="assertive"
           >
             این لینک ادعا معتبر نیست یا قبلاً استفاده شده.
+          </p>
+        ) : null}
+
+        {inviteMissing && !membership ? (
+          <p
+            className="text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
+          >
+            لینک دعوت ناقص یا منقضی است. از مالک فضا لینک جدید بخواهید.
           </p>
         ) : null}
 
@@ -108,9 +132,9 @@ export default async function InvitePage({
         <JoinSpaceButton
           spaceId={meta.id}
           alreadyMember={Boolean(membership)}
-          claimVirtualUserId={claimPreview?.id ?? null}
+          claimToken={claimPreview?.claimToken ?? null}
           claimLabel={claimPreview?.name ?? null}
-          inviteRole={role ?? null}
+          inviteToken={inviteToken}
         />
 
         <Button asChild variant="ghost" className="h-12 w-full rounded-xl">

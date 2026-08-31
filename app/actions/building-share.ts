@@ -8,6 +8,7 @@ import { getSession } from "@/lib/session";
 import {
   MAX_ACTIVE_BUILDING_SHARE_LINKS,
   isShareLinkLive,
+  loadBuildingShareHomeCardStats,
   loadBuildingShareReport,
   toShareLinkDTO,
   type BuildingShareLinkDTO,
@@ -238,6 +239,8 @@ export async function listMyFollowedBuildingShares(): Promise<
               id: true,
               name: true,
               currency: true,
+              type: true,
+              defaultPlanYear: true,
               members: {
                 where: { userId: session.userId },
                 select: { id: true },
@@ -250,21 +253,32 @@ export async function listMyFollowedBuildingShares(): Promise<
     },
   });
 
-  const cards: FollowedBuildingShareCard[] = [];
-  for (const row of rows) {
-    if (row.link.space.members.length > 0) continue;
-    const report = await loadBuildingShareReport(row.link.token);
-    if (!report) continue;
-    cards.push({
-      token: row.link.token,
-      title: row.link.title,
-      spaceName: row.link.space.name,
-      currency: row.link.space.currency,
-      collectPct: report.chargesSummary?.collectPct ?? null,
-      monthSpend: report.expensesSummary?.monthTotal ?? null,
-    });
-  }
-  return cards;
+  const eligible = rows.filter(
+    (row) =>
+      row.link.space.members.length === 0 &&
+      getTemplate(row.link.space.type).features.buildingCharges,
+  );
+
+  const cards = await Promise.all(
+    eligible.map(async (row): Promise<FollowedBuildingShareCard | null> => {
+      const stats = await loadBuildingShareHomeCardStats({
+        spaceId: row.link.space.id,
+        defaultPlanYear: row.link.space.defaultPlanYear,
+        includeExpensesSummary: row.link.includeExpensesSummary,
+        includeChargesSummary: row.link.includeChargesSummary,
+      });
+      return {
+        token: row.link.token,
+        title: row.link.title,
+        spaceName: row.link.space.name,
+        currency: row.link.space.currency,
+        collectPct: stats.collectPct,
+        monthSpend: stats.monthSpend,
+      };
+    }),
+  );
+
+  return cards.filter((c): c is FollowedBuildingShareCard => c != null);
 }
 
 export type BuildingShareViewerState = {

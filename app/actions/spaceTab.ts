@@ -26,6 +26,11 @@ export async function loadSpaceTabData(input: {
   tab: string;
   year?: number;
   reportMonth?: number | null;
+  /**
+   * When true (units after charges already painted), skip reloading the
+   * charge dashboard / units bundle — only debts (and proofs) are fetched.
+   */
+  skipBuildingView?: boolean;
 }): Promise<LoadSpaceTabResult> {
   const session = await requireUser();
   const membership = await requireSpaceMember(input.spaceId, session.userId);
@@ -91,6 +96,10 @@ export async function loadSpaceTabData(input: {
     },
   );
 
+  const skipBuildingView =
+    Boolean(input.skipBuildingView) &&
+    (tab === "units" || tab === "charges");
+
   const data = await loadDeferredTabData({
     spaceId: input.spaceId,
     tab,
@@ -102,6 +111,8 @@ export async function loadSpaceTabData(input: {
     viewerUserId: session.userId,
     // Proofs hydrate after charges paint on the client.
     includeChargeProofs: false,
+    skipBuildingView,
+    includeCalendar: tab === "charges",
   });
 
   return { ok: true, tab, data };

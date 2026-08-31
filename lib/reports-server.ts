@@ -100,6 +100,17 @@ export async function getExpensesByCategoryInRange(
   return aggregateCategoryRows(rows);
 }
 
+/** Derive category chart rows from already-fetched report lines (one DB round-trip). */
+export function categoryRowsFromExpenseLines(
+  lines: {
+    category: ExpenseCategory;
+    categoryLabel: string | null;
+    totalAmount: number;
+  }[],
+): CategoryExpenseRow[] {
+  return aggregateCategoryRows(lines);
+}
+
 /**
  * Expense line items in a date window (for report category drill-down).
  */

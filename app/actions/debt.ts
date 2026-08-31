@@ -72,15 +72,7 @@ async function assertDebtsEnabled(spaceId: string, userId: string) {
     return { ok: false as const, error: "به این فضا دسترسی ندارید." };
   }
 
-  const space = await prisma.space.findUnique({
-    where: { id: spaceId },
-    select: { type: true },
-  });
-  if (!space) {
-    return { ok: false as const, error: "فضا پیدا نشد." };
-  }
-
-  const features = getTemplate(space.type).features;
+  const features = getTemplate(membership.space.type).features;
   if (!features.debts) {
     return {
       ok: false as const,
@@ -88,7 +80,11 @@ async function assertDebtsEnabled(spaceId: string, userId: string) {
     };
   }
 
-  return { ok: true as const, membership, spaceType: space.type };
+  return {
+    ok: true as const,
+    membership,
+    spaceType: membership.space.type,
+  };
 }
 
 function toDebtDTO(row: {
@@ -149,10 +145,24 @@ export async function listSpaceDebts(spaceId: string): Promise<DebtDTO[]> {
 
   const rows = await prisma.debt.findMany({
     where: { spaceId },
-    include: {
-      payments: { orderBy: { date: "desc" } },
-      createdBy: { select: { name: true } },
+    select: {
+      id: true,
+      spaceId: true,
+      type: true,
+      counterparty: true,
+      unitId: true,
       unit: { select: { name: true } },
+      initialAmount: true,
+      note: true,
+      dueDate: true,
+      status: true,
+      createdById: true,
+      createdBy: { select: { name: true } },
+      createdAt: true,
+      payments: {
+        orderBy: { date: "desc" },
+        select: { id: true, amount: true, date: true, note: true },
+      },
     },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
   });

@@ -228,15 +228,13 @@ export const loadExpenseHeroStats = cache(
         ? { date: { gte: bounds.start, lte: bounds.end } }
         : {}),
     };
-    const [agg, count] = await Promise.all([
-      prisma.expense.aggregate({
-        where,
-        _sum: { totalAmount: true },
-      }),
-      prisma.expense.count({ where }),
-    ]);
+    const agg = await prisma.expense.aggregate({
+      where,
+      _sum: { totalAmount: true },
+      _count: true,
+    });
     return {
-      expenseCount: count,
+      expenseCount: agg._count,
       totalExpenses: agg._sum.totalAmount ?? 0,
     };
   },
@@ -296,8 +294,8 @@ export const loadCachedBalances = cache(async (spaceId: string) => {
 });
 
 export const loadCachedBuildingView = cache(
-  async (spaceId: string, planYear: number) => {
-    return getBuildingManagerView(spaceId, planYear);
+  async (spaceId: string, planYear: number, includeCalendar = true) => {
+    return getBuildingManagerView(spaceId, planYear, { includeCalendar });
   },
 );
 

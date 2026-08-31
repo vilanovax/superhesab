@@ -483,9 +483,10 @@ export async function getAnnualChargeCalendar(
 export async function getBuildingManagerView(
   spaceId: string,
   year?: number,
+  opts?: { includeCalendar?: boolean },
 ): Promise<{
   dashboard: BuildingDashboardDTO;
-  calendar: AnnualChargeCalendarDTO;
+  calendar: AnnualChargeCalendarDTO | null;
   units: BuildingUnitRow[];
 } | null> {
   const session = await requireUser();
@@ -494,9 +495,10 @@ export async function getBuildingManagerView(
 
   const y = await resolvePlanYear(spaceId, year);
   const bundle = await loadBuildingChargeData(spaceId, y);
+  const includeCalendar = opts?.includeCalendar !== false;
   return {
     dashboard: mapDashboard(bundle),
-    calendar: mapCalendar(bundle),
+    calendar: includeCalendar ? mapCalendar(bundle) : null,
     units: mapUnitRows(bundle),
   };
 }
@@ -1873,6 +1875,33 @@ export async function markAllBuildingNotificationsRead(
 
 // ─── Phase 28: charge payment proofs ────────────────────────────────────────
 
+const PROOF_AMT_PREFIX = /^\[amt:(\d+)\]\s?/;
+
+function encodeProofNote(
+  proposedAmount: number,
+  note: string | null | undefined,
+): string | null {
+  const parts = [
+    proposedAmount > 0 ? `[amt:${proposedAmount}]` : null,
+    note?.trim() || null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : null;
+}
+
+function parseProofProposedAmount(note: string | null): number | null {
+  if (!note) return null;
+  const m = note.match(PROOF_AMT_PREFIX);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function stripProofAmtPrefix(note: string | null): string | null {
+  if (!note) return null;
+  const stripped = note.replace(PROOF_AMT_PREFIX, "").trim();
+  return stripped.length > 0 ? stripped : null;
+}
+
 export type ChargeProofStatusValue = "PENDING" | "APPROVED" | "REJECTED";
 
 export type ChargePaymentProofDTO = {
@@ -1998,6 +2027,7 @@ export async function createChargeProofUploadIntent(
         : 0;
 
   try {
+    // Shell payment only — DUE + amount 0 does not reduce arrears until manager APPROVE.
     const payment = await prisma.chargePayment.upsert({
       where: {
         unitId_year_month: { unitId, year, month },
@@ -2006,8 +2036,8 @@ export async function createChargeProofUploadIntent(
         unitId,
         year,
         month,
-        amount: payAmount,
-        status: payAmount > 0 && monthly > 0 && payAmount < monthly ? "PARTIAL" : "PARTIAL",
+        amount: 0,
+        status: "DUE",
         date: new Date(),
         note: note?.trim() || "رسید در انتظار تایید مدیر",
         createdById: session.userId,
@@ -2033,7 +2063,7 @@ export async function createChargeProofUploadIntent(
         storageKey,
         mimeType,
         byteSize,
-        note: note?.trim() || null,
+        note: encodeProofNote(payAmount, note),
         status: "PENDING",
       },
     });
@@ -2138,10 +2168,12 @@ export async function listChargeProofsForManager(
     unitName: r.payment.unit.name,
     year: r.payment.year,
     month: r.payment.month,
-    amount: r.payment.amount,
+    amount:
+      parseProofProposedAmount(r.note) ??
+      (r.payment.amount > 0 ? r.payment.amount : 0),
     mimeType: r.mimeType,
     byteSize: r.byteSize,
-    note: r.note,
+    note: stripProofAmtPrefix(r.note),
     status: r.status,
     uploadedByName: r.uploadedBy.name?.trim() || r.uploadedBy.phone,
     createdAt: r.createdAt.toISOString(),
@@ -2192,10 +2224,12 @@ export async function listMyChargeProofs(
     unitName: r.payment.unit.name,
     year: r.payment.year,
     month: r.payment.month,
-    amount: r.payment.amount,
+    amount:
+      parseProofProposedAmount(r.note) ??
+      (r.payment.amount > 0 ? r.payment.amount : 0),
     mimeType: r.mimeType,
     byteSize: r.byteSize,
-    note: r.note,
+    note: stripProofAmtPrefix(r.note),
     status: r.status,
     uploadedByName: r.uploadedBy.name?.trim() || r.uploadedBy.phone,
     createdAt: r.createdAt.toISOString(),
@@ -2228,10 +2262,23 @@ export async function reviewChargeProof(
       id: true,
       paymentId: true,
       uploadedById: true,
-      payment: { select: { month: true, unit: { select: { name: true } } } },
+      note: true,
+      payment: {
+        select: {
+          month: true,
+          amount: true,
+          status: true,
+          unit: { select: { name: true } },
+        },
+      },
     },
   });
   if (!proof) return { ok: false, error: "رسید پیدا نشد." };
+
+  const proposed =
+    amount != null
+      ? asMoney(amount)
+      : (parseProofProposedAmount(proof.note) ?? proof.payment.amount);
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -2245,11 +2292,28 @@ export async function reviewChargeProof(
         },
       });
       if (status === "APPROVED") {
+        const credit = proposed > 0 ? proposed : proof.payment.amount;
+        const nextStatus =
+          paymentStatus ??
+          (credit > 0 ? "PAID" : "DUE");
         await tx.chargePayment.update({
           where: { id: proof.paymentId },
           data: {
-            ...(amount != null ? { amount: asMoney(amount) } : {}),
-            status: paymentStatus ?? "PAID",
+            amount: credit,
+            status: nextStatus,
+          },
+        });
+      } else if (
+        proof.payment.status === "DUE" &&
+        proof.payment.amount === 0
+      ) {
+        // Reject pending shell — leave unpaid DUE, do not invent PARTIAL credit.
+        await tx.chargePayment.update({
+          where: { id: proof.paymentId },
+          data: {
+            amount: 0,
+            status: "DUE",
+            note: "رسید رد شد",
           },
         });
       }

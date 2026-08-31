@@ -131,13 +131,13 @@ export async function assertSpaceTypeCreatable(
 }
 
 export async function listDisabledSpaceTypes(): Promise<SpaceType[]> {
+  const [buildingOn, fundOn] = await Promise.all([
+    isFeatureEnabled("space_type_building"),
+    isFeatureEnabled("space_type_fund"),
+  ]);
   const disabled: SpaceType[] = [];
-  if (!(await isFeatureEnabled("space_type_building"))) {
-    disabled.push("BUILDING");
-  }
-  if (!(await isFeatureEnabled("space_type_fund"))) {
-    disabled.push("FUND");
-  }
+  if (!buildingOn) disabled.push("BUILDING");
+  if (!fundOn) disabled.push("FUND");
   return disabled;
 }
 

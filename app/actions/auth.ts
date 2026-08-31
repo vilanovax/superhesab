@@ -12,12 +12,31 @@ import {
   signSessionToken,
 } from "@/lib/session";
 
-/** Dev / MVP mock OTP — replace when SMS provider is wired. */
+/** Default testing OTP until SMS is wired. Disable with ALLOW_MOCK_OTP=false. */
 const MOCK_OTP = "111111";
+
+function isMockOtpAllowed(): boolean {
+  // Default ON for local/testing; set ALLOW_MOCK_OTP=false to hard-disable.
+  return process.env.ALLOW_MOCK_OTP !== "false";
+}
 
 export type AuthActionResult =
   | { ok: true }
   | { ok: false; error: string };
+
+function assertOtpAccepted(otp: string): AuthActionResult | null {
+  if (!isMockOtpAllowed()) {
+    return {
+      ok: false,
+      error:
+        "ورود با کد پیامکی فعلاً فعال نیست. از رمز عبور استفاده کنید یا با پشتیبانی تماس بگیرید.",
+    };
+  }
+  if (normalizeOtp(otp) !== MOCK_OTP) {
+    return { ok: false, error: "کد تأیید نادرست است." };
+  }
+  return null;
+}
 
 function isValidPhone(phone: string): boolean {
   // Accept IR mobile (+98 / 09) and generic E.164-ish digits for MVP
@@ -80,7 +99,14 @@ export async function requestOtp(phone: string): Promise<AuthActionResult> {
   const allowed = await assertLoginAllowed(normalized);
   if (!allowed.ok) return allowed;
 
-  // Mock: no SMS provider in MVP
+  if (!isMockOtpAllowed()) {
+    return {
+      ok: false,
+      error:
+        "ارسال کد پیامکی فعلاً فعال نیست. از ورود با رمز عبور استفاده کنید.",
+    };
+  }
+  // Dev mock: no SMS provider wired yet
   return { ok: true };
 }
 
@@ -93,9 +119,8 @@ export async function verifyOtp(
     return { ok: false, error: "شماره موبایل معتبر نیست." };
   }
 
-  if (normalizeOtp(otp) !== MOCK_OTP) {
-    return { ok: false, error: "کد تأیید نادرست است." };
-  }
+  const otpGate = assertOtpAccepted(otp);
+  if (otpGate) return otpGate;
 
   const allowed = await assertLoginAllowed(normalized);
   if (!allowed.ok) return allowed;
@@ -138,7 +163,14 @@ export async function requestRegisterOtp(input: {
     };
   }
 
-  // Mock: no SMS provider in MVP
+  if (!isMockOtpAllowed()) {
+    return {
+      ok: false,
+      error:
+        "ثبت‌نام با کد پیامکی فعلاً فعال نیست. بعداً دوباره تلاش کنید.",
+    };
+  }
+  // Dev mock: no SMS provider wired yet
   return { ok: true };
 }
 
@@ -165,9 +197,8 @@ export async function verifyRegisterOtp(input: {
   if (!normalized || !isValidPhone(normalized)) {
     return { ok: false, error: "شماره موبایل معتبر نیست." };
   }
-  if (normalizeOtp(input.otp) !== MOCK_OTP) {
-    return { ok: false, error: "کد تأیید نادرست است." };
-  }
+  const otpGate = assertOtpAccepted(input.otp);
+  if (otpGate) return otpGate;
 
   const existing = await prisma.user.findUnique({
     where: { phone: normalized },
@@ -206,7 +237,7 @@ export async function verifyRegisterOtp(input: {
 
 /**
  * Login with phone + password for accounts that have set a password.
- * OTP login remains available for everyone.
+ * OTP defaults to mock 111111 until SMS is wired (ALLOW_MOCK_OTP=false to disable).
  */
 export async function loginWithPassword(
   phone: string,

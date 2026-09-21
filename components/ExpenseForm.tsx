@@ -1,6 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useFormState, useWatch } from "react-hook-form";
@@ -83,19 +83,6 @@ const DEFAULT_BILL_TAGS_SET = new Set<string>(DEFAULT_BILL_TAGS);
 import { notifyExpensesMutated } from "@/components/spaces/use-deferred-space-tabs";
 import { getTemplate } from "@/lib/templates/registry";
 import type { SpaceType } from "@/types";
-
-const JalaliDatePicker = dynamic(
-  () =>
-    import("@/components/ui/jalali-date-picker").then(
-      (m) => m.JalaliDatePicker,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />
-    ),
-  },
-);
 
 const CATEGORY_DEBOUNCE_MS = 300;
 function parseAmountInput(raw: string): number {

@@ -1,6 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   addGroupedDebtPayment,
@@ -42,19 +42,6 @@ import { formatDateFa, todayIsoDateTehran } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { tehranMonthKey } from "@/lib/personal";
 import { cn } from "@/lib/utils";
-
-const JalaliDatePicker = dynamic(
-  () =>
-    import("@/components/ui/jalali-date-picker").then(
-      (m) => m.JalaliDatePicker,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-11 animate-pulse rounded-xl bg-muted/40" />
-    ),
-  },
-);
 
 function panelTypeLabel(type: DebtTypeValue): string {
   return debtTypeLabel(type);

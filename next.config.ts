@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
     root: projectRoot,
   },
   images: {
+    qualities: [75, 80],
     remotePatterns: [
       {
         protocol: "https",

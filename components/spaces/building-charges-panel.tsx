@@ -1,6 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -93,19 +93,6 @@ function syncChargesQuery(view: ChargesView, month: number) {
     new CustomEvent("superhesab:charges-view", { detail: { view } }),
   );
 }
-
-const JalaliDatePicker = dynamic(
-  () =>
-    import("@/components/ui/jalali-date-picker").then(
-      (m) => m.JalaliDatePicker,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-28 animate-pulse rounded-2xl bg-muted/40" />
-    ),
-  },
-);
 
 type BuildingChargesPanelProps = {
   spaceId: string;

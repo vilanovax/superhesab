@@ -34,11 +34,12 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onOpenAutoFocus, tabIndex, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      tabIndex={tabIndex ?? -1}
       className={cn(
         // Cap to app column width (max-w-lg) so desktop sheets don't go edge-to-edge.
         "fixed inset-x-0 bottom-0 z-50 mx-auto mt-0 flex h-auto w-full max-w-lg max-h-[92dvh] flex-col rounded-t-2xl border border-border/60 bg-background outline-none",
@@ -46,6 +47,25 @@ const DrawerContent = React.forwardRef<
         className,
       )}
       {...props}
+      onOpenAutoFocus={(event) => {
+        onOpenAutoFocus?.(event);
+        if (event.defaultPrevented) return;
+        // Vaul leaves autofocus off so opening a sheet does not pop the
+        // keyboard. Radix then aria-hides the page while the trigger button
+        // still has focus, which Chrome blocks. Move focus to the sheet
+        // itself (not the first field) before that hide runs.
+        const node = event.currentTarget;
+        if (node instanceof HTMLElement) {
+          node.focus({ preventScroll: true });
+        }
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLElement &&
+          (!(node instanceof HTMLElement) || !node.contains(active))
+        ) {
+          active.blur();
+        }
+      }}
     >
       <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-primary/30" />
       {children}

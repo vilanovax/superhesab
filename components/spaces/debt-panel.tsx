@@ -56,12 +56,8 @@ const JalaliDatePicker = dynamic(
   },
 );
 
-function panelTypeLabel(
-  type: DebtTypeValue,
-  buildingContext: boolean,
-): string {
-  if (type === "LENT") return "طلب";
-  return buildingContext ? "بدهی" : debtTypeLabel(type);
+function panelTypeLabel(type: DebtTypeValue): string {
+  return debtTypeLabel(type);
 }
 
 type LedgerEdit =
@@ -122,6 +118,9 @@ export function DebtPanel({
   );
   const [editing, setEditing] = useState<LedgerEdit | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteAccountKey, setDeleteAccountKey] = useState<string | null>(
+    null,
+  );
 
   const [type, setType] = useState<DebtTypeValue>("LENT");
   const [counterparty, setCounterparty] = useState("");
@@ -296,6 +295,7 @@ export function DebtPanel({
     setAccountMode("increase");
     setEditing(null);
     setConfirmDelete(false);
+    setDeleteAccountKey(null);
     setError(null);
   }
 
@@ -495,6 +495,28 @@ export function DebtPanel({
     });
   }
 
+  function onDeleteAccount(account: DebtAccount<DebtDTO>) {
+    if (pending) return;
+    if (deleteAccountKey !== account.key) {
+      setDeleteAccountKey(account.key);
+      setError(null);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      for (const debt of account.debts) {
+        const result = await deleteDebt({ spaceId, debtId: debt.id });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+      }
+      setDeleteAccountKey(null);
+      if (accountKey === account.key) resetPay();
+      await onMutated?.();
+    });
+  }
+
   return (
     <div className="space-y-4 pb-[calc(5.5rem+max(env(safe-area-inset-bottom,0px),var(--vv-bottom,0px)))]">
       {filterUnitId && filterUnitName ? (
@@ -588,7 +610,7 @@ export function DebtPanel({
               />
               <FamilyFirstRunTile
                 tone="danger"
-                label={buildingContext ? "بدهی" : "یادم‌باشه"}
+                label="بدهی"
                 hint={
                   buildingContext
                     ? "واحدی به ساختمان بدهکار است"
@@ -614,8 +636,14 @@ export function DebtPanel({
                 setCreateOpen(true);
               }}
             >
-              {buildingContext ? "ثبت طلب یا بدهی" : "ثبت طلب"}
+              ثبت طلب یا بدهی
             </Button>
+          ) : null}
+
+          {error && !createOpen && !selectedAccount ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
           ) : null}
 
           {buildingContext && !showMonthSummary ? (
@@ -640,8 +668,13 @@ export function DebtPanel({
             tone="lent"
             accounts={lentAccounts}
             currency={currency}
-            typeLabel={(t) => panelTypeLabel(t, buildingContext)}
+            typeLabel={(t) => panelTypeLabel(t)}
             onOpen={(account) => openAccount(account)}
+            canDelete={canMutate}
+            deleteKey={deleteAccountKey}
+            deletePending={pending}
+            onDelete={onDeleteAccount}
+            onCancelDelete={() => setDeleteAccountKey(null)}
           />
 
           <DebtAccountList
@@ -649,14 +682,19 @@ export function DebtPanel({
               buildingContext
                 ? "بدهی واحدها"
                 : sharedHousehold
-                  ? "یادم‌باشه‌های خانواده"
-                  : "یادم‌باشه"
+                  ? "بدهی‌های خانواده"
+                  : "بدهی‌ها"
             }
             tone="borrowed"
             accounts={borrowedAccounts}
             currency={currency}
-            typeLabel={(t) => panelTypeLabel(t, buildingContext)}
+            typeLabel={(t) => panelTypeLabel(t)}
             onOpen={(account) => openAccount(account)}
+            canDelete={canMutate}
+            deleteKey={deleteAccountKey}
+            deletePending={pending}
+            onDelete={onDeleteAccount}
+            onCancelDelete={() => setDeleteAccountKey(null)}
           />
         </>
       )}
@@ -677,8 +715,13 @@ export function DebtPanel({
               tone="settled"
               accounts={settledAccounts}
               currency={currency}
-              typeLabel={(t) => panelTypeLabel(t, buildingContext)}
+              typeLabel={(t) => panelTypeLabel(t)}
               onOpen={(account) => openAccount(account)}
+              canDelete={canMutate}
+              deleteKey={deleteAccountKey}
+              deletePending={pending}
+              onDelete={onDeleteAccount}
+              onCancelDelete={() => setDeleteAccountKey(null)}
             />
           ) : null}
         </div>
@@ -700,9 +743,7 @@ export function DebtPanel({
               <DrawerTitle className="text-body font-bold text-on-hero">
                 {type === "LENT"
                   ? "ثبت طلب"
-                  : buildingContext
-                    ? "ثبت بدهی"
-                    : "ثبت یادم‌باشه"}
+                  : "ثبت بدهی"}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-[11px] text-on-hero/70">
                 {buildingContext
@@ -720,9 +761,7 @@ export function DebtPanel({
           >
             <div
               role="radiogroup"
-              aria-label={
-                buildingContext ? "نوع طلب یا بدهی" : "نوع طلب یا یادم‌باشه"
-              }
+              aria-label="نوع طلب یا بدهی"
               className="grid grid-cols-2 gap-0.5 rounded-xl bg-muted/80 p-0.5"
             >
               {(
@@ -730,7 +769,7 @@ export function DebtPanel({
                   { value: "LENT" as const, label: "طلب" },
                   {
                     value: "BORROWED" as const,
-                    label: buildingContext ? "بدهی" : "یادم‌باشه",
+                    label: "بدهی",
                   },
                 ] as const
               ).map((opt) => {
@@ -855,7 +894,7 @@ export function DebtPanel({
 
             {matchingCreate ? (
               <p className="text-caption text-muted-foreground">
-                به {panelTypeLabel(type, buildingContext)} «
+                به {panelTypeLabel(type)} «
                 {matchingCreate.counterparty}» اضافه می‌شود — ردیف جدا ساخته
                 نمی‌شود.
               </p>
@@ -940,12 +979,10 @@ export function DebtPanel({
               {pending
                 ? "در حال ثبت…"
                 : matchingCreate
-                  ? `افزودن به ${panelTypeLabel(type, buildingContext)} ${matchingCreate.counterparty}`
+                  ? `افزودن به ${panelTypeLabel(type)} ${matchingCreate.counterparty}`
                   : type === "LENT"
                     ? "ثبت طلب"
-                    : buildingContext
-                      ? "ثبت بدهی"
-                      : "ثبت یادم‌باشه"}
+                    : "ثبت بدهی"}
             </Button>
           </form>
         </DrawerContent>
@@ -968,7 +1005,7 @@ export function DebtPanel({
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/75">
                 {selectedAccount
-                  ? `مانده ${formatCurrency(selectedAccount.remaining, currency)} · ${panelTypeLabel(selectedAccount.type, buildingContext)}`
+                  ? `مانده ${formatCurrency(selectedAccount.remaining, currency)} · ${panelTypeLabel(selectedAccount.type)}`
                   : ""}
               </DrawerDescription>
             </DrawerHeader>
@@ -1254,7 +1291,48 @@ export function DebtPanel({
                       حذف این مورد
                     </Button>
                   )
-                ) : null}
+                ) : selectedAccount &&
+                  deleteAccountKey === selectedAccount.key ? (
+                  <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive-soft/40 px-3 py-2.5">
+                    <p className="text-center text-[11px] text-destructive">
+                      «{selectedAccount.counterparty}» و همهٔ فقره‌هایش حذف
+                      می‌شود.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 rounded-xl"
+                        disabled={pending}
+                        onClick={() => setDeleteAccountKey(null)}
+                      >
+                        انصراف
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="h-10 rounded-xl"
+                        disabled={pending}
+                        onClick={() => onDeleteAccount(selectedAccount)}
+                      >
+                        {pending ? "در حال حذف…" : "حذف شود"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 w-full rounded-xl text-caption font-medium text-destructive hover:bg-destructive/8 hover:text-destructive"
+                    disabled={pending}
+                    onClick={() =>
+                      selectedAccount &&
+                      setDeleteAccountKey(selectedAccount.key)
+                    }
+                  >
+                    حذف این حساب
+                  </Button>
+                )}
               </>
             ) : null}
 
@@ -1322,8 +1400,8 @@ function DebtMonthOverview({
         {buildingContext
           ? "خلاصه طلب و بدهی واحدها — داخل شارژ و مشاع نیست"
           : sharedHousehold
-            ? "خلاصه طلب و یادم‌باشه — داخل خرج ماه نیست"
-            : "خلاصه طلب و یادم‌باشه — داخل بودجه ماه نیست"}
+            ? "خلاصه طلب و بدهی — داخل خرج ماه نیست"
+            : "خلاصه طلب و بدهی — داخل بودجه ماه نیست"}
       </p>
       <div
         className={cn(
@@ -1356,7 +1434,7 @@ function DebtMonthOverview({
         {showBorrowed ? (
           <div className="space-y-1.5">
             <p className="text-body-sm font-semibold text-destructive">
-              {buildingContext ? "بدهی" : "یادم‌باشه"}
+              بدهی
             </p>
             <dl className="space-y-1.5">
               <SummaryRow
@@ -1389,6 +1467,11 @@ function DebtAccountList({
   currency,
   typeLabel = debtTypeLabel,
   onOpen,
+  canDelete = false,
+  deleteKey = null,
+  deletePending = false,
+  onDelete,
+  onCancelDelete,
 }: {
   title: string;
   tone: "lent" | "borrowed" | "settled";
@@ -1396,6 +1479,11 @@ function DebtAccountList({
   currency: SpaceCurrency;
   typeLabel?: (type: DebtTypeValue) => string;
   onOpen: (account: DebtAccount<DebtDTO>) => void;
+  canDelete?: boolean;
+  deleteKey?: string | null;
+  deletePending?: boolean;
+  onDelete?: (account: DebtAccount<DebtDTO>) => void;
+  onCancelDelete?: () => void;
 }) {
   if (accounts.length === 0) return null;
 
@@ -1405,55 +1493,101 @@ function DebtAccountList({
         {title}
       </h3>
       <ul className="space-y-1.5">
-        {accounts.map((account) => (
-          <li key={account.key}>
-            <button
-              type="button"
-              onClick={() => onOpen(account)}
-              className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-2xl border bg-card px-3.5 py-2.5 text-start shadow-sm",
-                "transition-colors hover:bg-muted/40 active:scale-[0.99]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                tone === "lent" && "border-success/25",
-                tone === "borrowed" && "border-destructive/25",
-                tone === "settled" && "border-border/50",
-              )}
-            >
-              <div className="min-w-0">
-                <p className="truncate text-body-sm font-semibold text-foreground">
-                  {account.counterparty}
-                </p>
-                <p className="mt-0.5 text-caption text-muted-foreground">
-                  {typeLabel(account.type)}
-                  {(() => {
-                    const unitName = account.debts.find((d) => d.unitName)
-                      ?.unitName;
-                    return unitName ? ` · واحد ${unitName}` : "";
-                  })()}
-                  {account.itemCount > 1
-                    ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`
-                    : ""}
-                  {account.nearestDueDate
-                    ? ` · سررسید ${formatDateFa(new Date(`${account.nearestDueDate}T12:00:00Z`))}`
-                    : ""}
-                </p>
-              </div>
-              <div className="shrink-0 text-end">
-                <p
+        {accounts.map((account) => {
+          const confirming = canDelete && deleteKey === account.key;
+          return (
+            <li key={account.key} className="space-y-1.5">
+              <div
+                className={cn(
+                  "flex items-stretch gap-1 rounded-2xl border bg-card pe-1.5 shadow-sm",
+                  tone === "lent" && "border-success/25",
+                  tone === "borrowed" && "border-destructive/25",
+                  tone === "settled" && "border-border/50",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpen(account)}
                   className={cn(
-                    "text-body-sm font-bold tabular-nums",
-                    tone === "lent" && "text-success",
-                    tone === "borrowed" && "text-destructive",
-                    tone === "settled" && "text-muted-foreground",
+                    "flex min-w-0 flex-1 items-center justify-between gap-3 px-3.5 py-2.5 text-start",
+                    "transition-colors hover:bg-muted/40 active:scale-[0.99]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "rounded-2xl",
                   )}
                 >
-                  {formatCurrency(account.remaining, currency)}
-                </p>
-                <p className="text-micro text-muted-foreground">مانده</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-body-sm font-semibold text-foreground">
+                      {account.counterparty}
+                    </p>
+                    <p className="mt-0.5 text-caption text-muted-foreground">
+                      {typeLabel(account.type)}
+                      {(() => {
+                        const unitName = account.debts.find((d) => d.unitName)
+                          ?.unitName;
+                        return unitName ? ` · واحد ${unitName}` : "";
+                      })()}
+                      {account.itemCount > 1
+                        ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`
+                        : ""}
+                      {account.nearestDueDate
+                        ? ` · سررسید ${formatDateFa(new Date(`${account.nearestDueDate}T12:00:00Z`))}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <p
+                      className={cn(
+                        "text-body-sm font-bold tabular-nums",
+                        tone === "lent" && "text-success",
+                        tone === "borrowed" && "text-destructive",
+                        tone === "settled" && "text-muted-foreground",
+                      )}
+                    >
+                      {formatCurrency(account.remaining, currency)}
+                    </p>
+                    <p className="text-micro text-muted-foreground">مانده</p>
+                  </div>
+                </button>
+                {canDelete && onDelete ? (
+                  <button
+                    type="button"
+                    aria-label={`حذف ${account.counterparty}`}
+                    disabled={deletePending}
+                    onClick={() => onDelete(account)}
+                    className="my-1.5 shrink-0 self-center rounded-xl px-2.5 py-2 text-caption font-semibold text-destructive transition-colors hover:bg-destructive/8 disabled:opacity-40"
+                  >
+                    حذف
+                  </button>
+                ) : null}
               </div>
-            </button>
-          </li>
-        ))}
+              {confirming ? (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/20 bg-destructive-soft/50 px-3 py-2">
+                  <p className="min-w-0 text-caption text-destructive">
+                    «{account.counterparty}» حذف شود؟
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-caption font-semibold text-muted-foreground"
+                      disabled={deletePending}
+                      onClick={onCancelDelete}
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="button"
+                      className="text-caption font-semibold text-destructive"
+                      disabled={deletePending}
+                      onClick={() => onDelete?.(account)}
+                    >
+                      {deletePending ? "…" : "حذف شود"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

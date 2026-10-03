@@ -44,6 +44,7 @@ import {
   resolveChargePaymentStatus,
   unitMonthlyCharge,
   type ChargeStatusValue,
+  unitTitle,
 } from "@/lib/building";
 import {
   currencyLabel,
@@ -162,6 +163,7 @@ export function BuildingChargesPanel({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
+  const [overpayConfirm, setOverpayConfirm] = useState(false);
   const [detailUnit, setDetailUnit] = useState<UnitDetailModel | null>(null);
   const payBaseline = useRef<PayDraftBaseline | null>(null);
 
@@ -327,6 +329,7 @@ export function BuildingChargesPanel({
     setNoteOpen(Boolean(existing?.note));
     setDate(nextDate);
     setError(null);
+    setOverpayConfirm(false);
     payBaseline.current = {
       amount: nextAmount,
       status: nextStatus,
@@ -395,7 +398,7 @@ export function BuildingChargesPanel({
       }
       setDeleteTarget(null);
       setDeleteError(null);
-      showToast(`وصول واحد ${unitName} حذف شد`, "success");
+      showToast(`وصول ${unitTitle(unitName)} حذف شد`, "success");
       notifyChargesMutated();
       router.refresh();
     });
@@ -456,6 +459,7 @@ export function BuildingChargesPanel({
     setNoteOpen(Boolean(args.payment?.note));
     setDate(nextDate);
     setError(null);
+    setOverpayConfirm(false);
     payBaseline.current = {
       amount: nextAmount,
       status: nextStatus,
@@ -518,6 +522,22 @@ export function BuildingChargesPanel({
     setError(null);
 
     const payAmount = Math.trunc(amount) || 0;
+    if ((status === "PAID" || status === "PARTIAL") && payAmount <= 0) {
+      setError("مبلغ پرداختی را وارد کنید (عدد مثبت). برای ثبت بدون پرداخت، «بدهکار» را انتخاب کنید.");
+      return;
+    }
+    if (
+      (status === "PAID" || status === "PARTIAL") &&
+      payUnit.monthlyCharge > 0 &&
+      payAmount > payUnit.monthlyCharge &&
+      !overpayConfirm
+    ) {
+      setOverpayConfirm(true);
+      setError(
+        `مبلغ ${formatCurrency(payAmount - payUnit.monthlyCharge, currency)} بیشتر از مقرر است. برای ثبت، دوباره «ذخیره» را بزنید.`,
+      );
+      return;
+    }
     const payload = {
       spaceId,
       unitId: payUnit.id,
@@ -839,7 +859,7 @@ export function BuildingChargesPanel({
                         className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-start transition-colors active:bg-muted/30"
                       >
                         <span className="truncate text-caption font-medium text-foreground">
-                          واحد {u.name}
+                          {unitTitle(u.name)}
                         </span>
                         <span className="shrink-0 text-caption font-bold tabular-nums text-destructive">
                           −{formatMoney(u.arrears)}
@@ -941,7 +961,7 @@ export function BuildingChargesPanel({
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
               <DrawerTitle className="text-body font-bold text-on-hero">
-                وصول — واحد {payUnit?.name}
+                وصول — {unitTitle(payUnit?.name ?? "")}
               </DrawerTitle>
               <DrawerDescription asChild>
                 <div className="mt-1 space-y-0.5 text-caption text-on-hero/70">
@@ -978,6 +998,8 @@ export function BuildingChargesPanel({
                     aria-checked={status === s}
                     onClick={() => {
                       setStatus(s);
+                      setOverpayConfirm(false);
+                      setError(null);
                       if (s === "PAID" && payUnit) {
                         setAmount(payUnit.monthlyCharge);
                       } else if (s === "WAIVED" || s === "DUE") {
@@ -1024,7 +1046,8 @@ export function BuildingChargesPanel({
                     value={amount}
                     onValueChange={(next) => {
                       setAmount(next);
-                      if (payUnit) {
+                      setOverpayConfirm(false);
+                      if (payUnit && next > 0) {
                         setStatus((cur) =>
                           resolveChargePaymentStatus(
                             cur,
@@ -1130,7 +1153,11 @@ export function BuildingChargesPanel({
                   className="h-11 flex-[1.4] rounded-xl text-primary-foreground"
                   disabled={pending}
                 >
-                  {pending ? "در حال ذخیره…" : "ذخیره"}
+                  {pending
+                    ? "در حال ذخیره…"
+                    : overpayConfirm
+                      ? "ذخیره با مبلغ بیشتر"
+                      : "ذخیره"}
                 </Button>
                 <Button
                   type="button"
@@ -1142,6 +1169,21 @@ export function BuildingChargesPanel({
                   انصراف
                 </Button>
               </div>
+              {canMutate && payUnit && paymentByUnit.has(payUnit.id) ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    const target = payUnit;
+                    finishClosePayDrawer();
+                    requestDeletePayment(target);
+                  }}
+                  className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-caption font-medium text-destructive transition-colors hover:bg-destructive-soft disabled:opacity-50"
+                >
+                  <TrashIcon className="size-3.5" />
+                  حذف وصول این ماه
+                </button>
+              ) : null}
             </div>
           </form>
         </DrawerContent>
@@ -1294,7 +1336,7 @@ export function BuildingChargesPanel({
         title="حذف وصول این ماه؟"
         description={
           deleteTarget
-            ? `وصول «${monthLabelFa(month)}» برای واحد ${deleteTarget.unitName} حذف می‌شود و دوباره بدهکار می‌شود.`
+            ? `وصول «${monthLabelFa(month)}» برای ${unitTitle(deleteTarget.unitName)} حذف می‌شود و دوباره بدهکار می‌شود.`
             : "این وصول حذف می‌شود."
         }
         confirmLabel="حذف وصول"
@@ -1364,7 +1406,7 @@ function ChargeUnitRow({
       <button
         type="button"
         onClick={onDetail}
-        aria-label={`جزئیات واحد ${unit.name}`}
+        aria-label={`جزئیات ${unitTitle(unit.name)}`}
         className={cn(
           "flex size-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold transition-transform active:scale-95",
           isSettled
@@ -1383,7 +1425,7 @@ function ChargeUnitRow({
       >
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="truncate text-caption font-semibold text-foreground">
-            واحد {unit.name}
+            {unitTitle(unit.name)}
           </span>
           {payStatus ? (
             <StatusPill status={payStatus} />
@@ -1419,7 +1461,7 @@ function ChargeUnitRow({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              aria-label={`ویرایش وصول واحد ${unit.name}`}
+              aria-label={`ویرایش وصول ${unitTitle(unit.name)}`}
               title="ویرایش"
               onClick={onPay}
               className="flex size-9 items-center justify-center rounded-xl border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground active:scale-95"
@@ -1429,7 +1471,7 @@ function ChargeUnitRow({
             {onDelete ? (
               <button
                 type="button"
-                aria-label={`حذف وصول واحد ${unit.name}`}
+                aria-label={`حذف وصول ${unitTitle(unit.name)}`}
                 title="حذف"
                 onClick={onDelete}
                 className="flex size-9 items-center justify-center rounded-xl border border-destructive/25 bg-card text-destructive transition-colors hover:bg-destructive-soft active:scale-95"

@@ -18,6 +18,7 @@ import {
 import {
   SUGGESTION_STATUS_LABELS,
   type SuggestionStatusValue,
+  unitTitle,
 } from "@/lib/building";
 import { formatDateFaShort } from "@/lib/format";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -149,7 +150,7 @@ export function BuildingSuggestionsInbox({
                       {s.title}
                     </p>
                     <p className="mt-0.5 text-caption text-muted-foreground">
-                      واحد {s.unitName}
+                      {unitTitle(s.unitName)}
                       {s.authorName ? ` · ${s.authorName}` : ""} ·{" "}
                       {formatDateFaShort(s.createdAt)}
                     </p>
@@ -185,7 +186,7 @@ export function BuildingSuggestionsInbox({
                     {selected.title}
                   </DrawerTitle>
                   <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
-                    واحد {selected.unitName}
+                    {unitTitle(selected.unitName)}
                     {selected.authorName ? ` · ${selected.authorName}` : ""}
                   </DrawerDescription>
                 </DrawerHeader>

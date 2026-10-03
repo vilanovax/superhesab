@@ -1,6 +1,7 @@
 "use client";
 
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { unitTitle } from "@/lib/building";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   addGroupedDebtPayment,
@@ -509,7 +510,7 @@ export function DebtPanel({
       {filterUnitId && filterUnitName ? (
         <div className="flex items-center justify-between gap-2 rounded-2xl border border-primary/20 bg-primary/6 px-3.5 py-2.5">
           <p className="min-w-0 truncate text-caption font-semibold text-foreground">
-            فیلتر واحد {filterUnitName}
+            فیلتر {unitTitle(filterUnitName)}
             {debts.length === 0 ? " — موردی نیست" : ""}
           </p>
           {onClearUnitFilter ? (
@@ -1511,7 +1512,7 @@ function DebtAccountList({
                       {(() => {
                         const unitName = account.debts.find((d) => d.unitName)
                           ?.unitName;
-                        return unitName ? ` · واحد ${unitName}` : "";
+                        return unitName ? ` · ${unitTitle(unitName)}` : "";
                       })()}
                       {account.itemCount > 1
                         ? ` · ${account.itemCount.toLocaleString("fa-IR")} فقره`

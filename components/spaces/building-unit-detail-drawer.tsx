@@ -5,6 +5,7 @@ import {
   MONTH_LABELS_FA,
   formatJalaliYear,
   type ChargeStatusValue,
+  unitTitle,
 } from "@/lib/building";
 import {
   currencyLabel,
@@ -204,7 +205,7 @@ function UnitDetailBody({
                   واحد · {formatJalaliYear(unit.year)}
                 </p>
                 <DrawerTitle className="mt-0.5 text-title font-bold tracking-tight text-on-hero">
-                  واحد {unit.name}
+                  {unitTitle(unit.name)}
                 </DrawerTitle>
               </div>
               <span

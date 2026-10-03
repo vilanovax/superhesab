@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { BuildingDashboardDTO } from "@/app/actions/building";
+import { BuildingHeroExpenseCount } from "@/components/spaces/building-hero-expense-count";
 import { BuildingYearNav } from "@/components/spaces/building-year-nav";
 import { formatJalaliYear } from "@/lib/building";
 import {
@@ -75,9 +76,7 @@ export function BuildingMonthHero({
               : "بدون واحد"}
             {" · "}
             {formatFaDigits(memberCount)} مدیر
-            {expenseCount > 0
-              ? ` · ${formatFaDigits(expenseCount)} هزینه`
-              : ""}
+            <BuildingHeroExpenseCount expenseCount={expenseCount} />
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

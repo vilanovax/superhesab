@@ -1,6 +1,7 @@
 "use client";
 
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { unitTitle } from "@/lib/building";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useFormState, useWatch } from "react-hook-form";
@@ -1340,7 +1341,7 @@ export function ExpenseForm({
                               }}
                             />
                             <span className="truncate font-medium">
-                              واحد {unit.name}
+                              {unitTitle(unit.name)}
                             </span>
                           </label>
                         </li>

@@ -15,6 +15,7 @@ import {
   unitExpectedYtd,
   unitMonthlyCharge,
   monthChargeRemainder,
+  unitTitle,
   parseUnitMultiplierInput,
   resolveChargePaymentStatus,
 } from "../lib/building";
@@ -344,6 +345,17 @@ async function main() {
       pass("building math: month remainder (partial + due, not waived)");
     } else {
       fail("building math: month remainder", "mismatch");
+    }
+
+    const titleOk =
+      unitTitle("۱") === "واحد ۱" &&
+      unitTitle("واحد ۱") === "واحد ۱" &&
+      unitTitle(" واحد ") === "واحد" &&
+      unitTitle("واحدی") === "واحد واحدی";
+    if (titleOk) {
+      pass("building: unitTitle avoids «واحد واحد»");
+    } else {
+      fail("building: unitTitle", "mismatch");
     }
 
     const moneyOk =

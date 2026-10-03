@@ -29,7 +29,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { parseUnitMultiplierInput, unitMonthlyCharge } from "@/lib/building";
+import { parseUnitMultiplierInput, unitMonthlyCharge, unitTitle } from "@/lib/building";
 import { type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -472,7 +472,13 @@ function UnitFormFields({
             autoComplete="off"
             spellCheck={false}
             value={name}
-            onChange={(e) => onName(e.target.value)}
+            onChange={(e) => {
+              e.currentTarget.setCustomValidity("");
+              onName(e.target.value);
+            }}
+            onInvalid={(e) =>
+              e.currentTarget.setCustomValidity("نام یا شماره واحد را وارد کنید.")
+            }
             placeholder="مثلاً ۱ یا شرقی…"
             className="h-11 rounded-xl border-border/70 bg-sheet-muted"
             required
@@ -610,7 +616,16 @@ function UnitFormFields({
               پایه {formatCurrency(baseCharge, currency)} × {factorLabel} ({faDigits(multNum)}⁄۱۰۰۰)
             </p>
           </div>
-        ) : (
+        ) : null}
+        {parsedMult != null && (multNum > 3000 || multNum < 250) ? (
+          <p
+            className="rounded-lg bg-amber-500/12 px-2.5 py-1.5 text-micro font-medium text-amber-800 dark:text-amber-200"
+            role="status"
+          >
+            ضریب {factorLabel} برابر غیرمعمول است — مطمئن شوید درست وارد شده (۱ = شارژ کامل).
+          </p>
+        ) : null}
+        {baseCharge > 0 ? null : (
           <p className="text-micro text-muted-foreground">
             ۱۰۰۰ = شارژ کامل پایه — می‌توانید ۱٫۲ بنویسید. ابتدا پایه را در تنظیمات تعریف کنید
           </p>
@@ -701,7 +716,7 @@ export function BuildingUnitsPanel({
     setMenuUnit(null);
     try {
       await navigator.clipboard.writeText(unitInviteUrl(unit.inviteToken));
-      showToast(`لینک واحد ${unit.name} کپی شد`);
+      showToast(`لینک ${unitTitle(unit.name)} کپی شد`);
     } catch {
       showToast("کپی لینک ناموفق بود", "error");
     }
@@ -718,7 +733,7 @@ export function BuildingUnitsPanel({
       return;
     }
     const text = unclaimedActive
-      .map((u) => `واحد ${u.name}\n${unitInviteUrl(u.inviteToken)}`)
+      .map((u) => `${unitTitle(u.name)}\n${unitInviteUrl(u.inviteToken)}`)
       .join("\n\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -764,7 +779,7 @@ export function BuildingUnitsPanel({
           ),
         );
         setConfirmAction(null);
-        showToast(`اتصال واحد ${unit.name} قطع شد`);
+        showToast(`اتصال ${unitTitle(unit.name)} قطع شد`);
         router.refresh();
         return;
       }
@@ -786,9 +801,9 @@ export function BuildingUnitsPanel({
           await navigator.clipboard.writeText(
             unitInviteUrl(result.inviteToken),
           );
-          showToast(`لینک جدید واحد ${unit.name} کپی شد`);
+          showToast(`لینک جدید ${unitTitle(unit.name)} کپی شد`);
         } catch {
-          showToast(`لینک جدید واحد ${unit.name} ساخته شد`);
+          showToast(`لینک جدید ${unitTitle(unit.name)} ساخته شد`);
         }
       }
       setConfirmAction(null);
@@ -1038,7 +1053,7 @@ export function BuildingUnitsPanel({
                       canManage ? (
                         <button
                           type="button"
-                          aria-label={`بیشتر برای واحد ${u.name}`}
+                          aria-label={`بیشتر برای ${unitTitle(u.name)}`}
                           aria-haspopup="dialog"
                           aria-expanded={menuOpen}
                           disabled={pending}
@@ -1089,7 +1104,7 @@ export function BuildingUnitsPanel({
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-1.5">
                           <span className="truncate text-body-sm font-semibold text-foreground">
-                            واحد {u.name}
+                            {unitTitle(u.name)}
                           </span>
                           <span
                             className={cn(
@@ -1171,7 +1186,7 @@ export function BuildingUnitsPanel({
               </span>
               <div className="min-w-0 flex-1">
                 <DrawerTitle className="text-body-sm font-bold text-foreground">
-                  واحد {menuUnit?.name}
+                  {unitTitle(menuUnit?.name ?? "")}
                 </DrawerTitle>
                 <DrawerDescription className="mt-0.5 text-caption text-muted-foreground">
                   {menuUnit?.linkedUserName
@@ -1326,7 +1341,7 @@ export function BuildingUnitsPanel({
           <div className="surface-hero shrink-0 px-4 pb-3 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
               <DrawerTitle className="text-body font-bold text-on-hero">
-                ویرایش واحد {editUnit?.name}
+                ویرایش {unitTitle(editUnit?.name ?? "")}
               </DrawerTitle>
               <DrawerDescription asChild>
                 <div className="mt-1 space-y-0.5 text-caption text-on-hero/70">
@@ -1481,9 +1496,9 @@ export function BuildingUnitsPanel({
         }}
         title={
           confirmAction?.kind === "unlink"
-            ? `قطع اتصال واحد ${confirmAction.unit.name}`
+            ? `قطع اتصال ${unitTitle(confirmAction.unit.name)}`
             : confirmAction
-              ? `تولید مجدد لینک واحد ${confirmAction.unit.name}`
+              ? `تولید مجدد لینک ${unitTitle(confirmAction.unit.name)}`
               : ""
         }
         description={

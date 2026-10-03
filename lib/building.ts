@@ -158,6 +158,12 @@ export function monthChargeRemainder(
   return Math.max(0, charge - payment.amount);
 }
 
+/** «واحد ۱» for name «۱»; names already starting with «واحد» stay as-is. */
+export function unitTitle(name: string): string {
+  const trimmed = name.trim();
+  return /^واحد(\s|$)/.test(trimmed) ? trimmed : `واحد ${trimmed}`;
+}
+
 const MULT_MIN = 1;
 const MULT_MAX = 100_000;
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";

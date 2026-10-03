@@ -503,6 +503,22 @@ export async function getBuildingManagerView(
   };
 }
 
+async function unitNameTaken(
+  spaceId: string,
+  name: string,
+  exceptUnitId?: string,
+): Promise<boolean> {
+  const existing = await prisma.unit.findFirst({
+    where: {
+      spaceId,
+      name: { equals: name.trim(), mode: "insensitive" },
+      ...(exceptUnitId ? { id: { not: exceptUnitId } } : {}),
+    },
+    select: { id: true },
+  });
+  return existing != null;
+}
+
 export async function createUnit(
   input: CreateUnitInput,
 ): Promise<BuildingActionResult> {
@@ -518,6 +534,10 @@ export async function createUnit(
     needOwner: true,
   });
   if (!access.ok) return access;
+
+  if (await unitNameTaken(parsed.data.spaceId, parsed.data.name)) {
+    return { ok: false, error: "واحدی با همین نام وجود دارد." };
+  }
 
   try {
     const unit = await prisma.unit.create({
@@ -554,6 +574,16 @@ export async function updateUnit(
     needOwner: true,
   });
   if (!access.ok) return access;
+
+  if (
+    await unitNameTaken(
+      parsed.data.spaceId,
+      parsed.data.name,
+      parsed.data.unitId,
+    )
+  ) {
+    return { ok: false, error: "واحدی با همین نام وجود دارد." };
+  }
 
   const updated = await prisma.unit.updateMany({
     where: { id: parsed.data.unitId, spaceId: parsed.data.spaceId },

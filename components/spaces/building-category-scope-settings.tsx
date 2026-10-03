@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { unitTitle } from "@/lib/building";
 import {
   setBuildingCategoryScope,
   type BuildingCategoryScopeDTO,
@@ -319,7 +320,7 @@ export function BuildingCategoryScopeSettings({
                                     }
                                   />
                                   <span className="truncate font-medium">
-                                    واحد {unit.name}
+                                    {unitTitle(unit.name)}
                                   </span>
                                 </label>
                               </li>

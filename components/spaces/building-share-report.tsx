@@ -1,4 +1,4 @@
-import { formatJalaliYear, monthLabelFa, tehranCivilMonth } from "@/lib/building";
+import { formatJalaliYear, monthLabelFa, tehranCivilMonth, unitTitle } from "@/lib/building";
 import type { BuildingShareReport } from "@/lib/building-share";
 import { CATEGORY_EMOJI } from "@/lib/categorizer";
 import { formatDateFaShort, formatMoney } from "@/lib/format";
@@ -169,7 +169,7 @@ export function BuildingShareReportView({
               >
                 <div className="min-w-0">
                   <p className="truncate text-caption font-semibold text-foreground">
-                    واحد {u.name}
+                    {unitTitle(u.name)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     شارژ ماهانه {formatMoney(u.monthlyCharge)}

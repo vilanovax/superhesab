@@ -16,7 +16,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { CHARGE_STATUS_LABELS, monthLabelFa } from "@/lib/building";
+import { CHARGE_STATUS_LABELS, monthLabelFa, unitTitle } from "@/lib/building";
 import { formatDateFaShort, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -163,7 +163,7 @@ export function BuildingProofsInbox({
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-caption font-semibold text-foreground">
-                  واحد {p.unitName} · {monthLabelFa(p.month)}
+                  {unitTitle(p.unitName)} · {monthLabelFa(p.month)}
                 </p>
                 <p className="text-micro text-muted-foreground">
                   {formatCurrency(p.amount, currency)} ·{" "}
@@ -207,7 +207,7 @@ export function BuildingProofsInbox({
           <div className="surface-hero shrink-0 px-4 pb-2.5 pt-1">
             <DrawerHeader className="space-y-0 p-0 text-start">
               <DrawerTitle className="text-pretty text-body font-bold text-on-hero">
-                بررسی رسید · واحد {selected?.unitName}
+                بررسی رسید · {unitTitle(selected?.unitName ?? "")}
               </DrawerTitle>
               <DrawerDescription className="mt-0.5 text-caption text-on-hero/70">
                 {selected

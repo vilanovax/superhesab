@@ -13,6 +13,7 @@ import {
   jalaliMonth,
   unitMonthlyCharge,
   type ChargeStatusValue,
+  unitTitle,
 } from "@/lib/building";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -113,7 +114,7 @@ function cellTitle(
       : kind === "MISSING_DUE"
         ? "ثبت‌نشده — برای ثبت ضربه بزنید"
         : CHARGE_STATUS_LABELS[kind];
-  return `واحد ${unitName} · ${monthName} · ${status}`;
+  return `${unitTitle(unitName)} · ${monthName} · ${status}`;
 }
 
 /** Deterministic Persian digits — avoids SSR/CSR `toLocaleString("fa-IR")` drift. */
@@ -473,7 +474,7 @@ function MonthPagerView({
                   <button
                     type="button"
                     onClick={() => onUnitClick(unit.id)}
-                    aria-label={`جزئیات واحد ${unit.name}`}
+                    aria-label={`جزئیات ${unitTitle(unit.name)}`}
                     className="flex min-w-16 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl bg-primary/10 px-2.5 py-2 text-primary ring-1 ring-primary/20 transition-colors hover:bg-primary/15"
                   >
                     <span className="text-body-sm font-bold leading-none">
@@ -640,7 +641,7 @@ function YearGridView({
                     <button
                       type="button"
                       onClick={() => onUnitClick(unit.id)}
-                      aria-label={`جزئیات واحد ${unit.name}`}
+                      aria-label={`جزئیات ${unitTitle(unit.name)}`}
                       className="inline-flex min-w-14 max-w-20 cursor-pointer items-center truncate rounded-xl bg-primary/10 px-2.5 py-2 text-caption font-bold text-primary ring-1 ring-primary/25 transition-colors hover:bg-primary/15"
                     >
                       {unit.name}

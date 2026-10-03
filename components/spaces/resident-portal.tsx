@@ -25,6 +25,7 @@ import {
   formatJalaliYear,
   monthLabelFa,
   type ChargeStatusValue,
+  unitTitle,
 } from "@/lib/building";
 import {
   CATEGORY_EMOJI,
@@ -132,7 +133,7 @@ export function ResidentPortal({
               وضعیت شارژ · {formatJalaliYear(data.year)}
             </p>
             <h1 className="mt-1 text-pretty text-title font-bold text-on-hero">
-              واحد {data.unit.name}
+              {unitTitle(data.unit.name)}
             </h1>
           </div>
           <ResidentNotificationsBell

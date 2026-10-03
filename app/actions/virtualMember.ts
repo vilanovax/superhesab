@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { memberDisplayNameTaken } from "@/lib/format";
 import { canManageMembers } from "@/lib/rbac";
 import { assertCanAddSpaceMember } from "@/lib/spaces/membership-guards";
 import { getTemplate } from "@/lib/templates/registry";
@@ -59,6 +60,21 @@ export async function addVirtualMember(
   }
   if (trimmed.length > 40) {
     return { ok: false, error: "نام خیلی طولانی است." };
+  }
+
+  if (space.type === "FUND") {
+    const peers = await prisma.spaceMember.findMany({
+      where: { spaceId },
+      select: { user: { select: { name: true } } },
+    });
+    if (
+      memberDisplayNameTaken(
+        trimmed,
+        peers.map((p) => p.user.name),
+      )
+    ) {
+      return { ok: false, error: "عضوی با این نام در صندوق هست." };
+    }
   }
 
   const phone = `virtual_${randomUUID().replace(/-/g, "")}`;

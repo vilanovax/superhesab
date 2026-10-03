@@ -39,7 +39,7 @@ const TEMPLATES: TemplateOption[] = [
   {
     value: "FUND",
     label: "صندوق",
-    hint: "نوبتی",
+    hint: "سهم نوبتی",
   },
   {
     value: "BUILDING",
@@ -278,6 +278,11 @@ export function CreateSpaceForm({
             />
           ))}
         </div>
+        {type === "FUND" ? (
+          <p className="rounded-xl bg-muted/50 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            اعضا هر دوره سهم می‌دهند؛ یک نفر کل جمع را می‌گیرد.
+          </p>
+        ) : null}
       </div>
 
       {error ? (

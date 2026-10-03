@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { memberLabel } from "@/lib/format";
+import { memberDisplayNameTaken, memberLabel } from "@/lib/format";
 import {
   clampShare,
   DEFAULT_SHARE,
@@ -257,6 +257,16 @@ export function MembersList({
   function onAddVirtual(e: React.FormEvent) {
     e.preventDefault();
     if (!isOwner || atCapacity || pending || addLockRef.current) return;
+    if (
+      fundSheet &&
+      memberDisplayNameTaken(
+        manualName,
+        members.map((m) => m.name),
+      )
+    ) {
+      setManualError("عضوی با این نام در صندوق هست.");
+      return;
+    }
     addLockRef.current = true;
     setManualError(null);
     startTransition(async () => {
@@ -321,6 +331,18 @@ export function MembersList({
 
   function onRename() {
     if (!renameTarget || pending) return;
+    if (
+      fundSheet &&
+      memberDisplayNameTaken(
+        renameValue,
+        members
+          .filter((m) => m.userId !== renameTarget.userId)
+          .map((m) => m.name),
+      )
+    ) {
+      setManageError("عضوی با این نام در صندوق هست.");
+      return;
+    }
     setManageError(null);
     startTransition(async () => {
       const result = await renameVirtualMember(

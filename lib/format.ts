@@ -113,6 +113,24 @@ export function foldPersian(input: string): string {
     .toLowerCase();
 }
 
+/** Fold + collapse spaces — duplicate-name checks for FUND members. */
+export function memberNameKey(name: string): string {
+  return foldPersian(name).replace(/\s+/g, " ").trim();
+}
+
+export function memberDisplayNameTaken(
+  candidate: string,
+  existingNames: Iterable<string | null | undefined>,
+): boolean {
+  const key = memberNameKey(candidate);
+  if (!key) return false;
+  for (const n of existingNames) {
+    if (!n) continue;
+    if (memberNameKey(n) === key) return true;
+  }
+  return false;
+}
+
 export type MoneyInputInterpret =
   | { status: "empty" }
   | { status: "ok"; value: number }

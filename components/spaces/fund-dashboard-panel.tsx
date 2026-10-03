@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/fund";
 import { FundProofsInbox } from "@/components/spaces/fund-member-proof";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
 type FundDashboardPanelProps = {
@@ -43,8 +45,13 @@ export function FundDashboardPanel({
   proofs = [],
 }: FundDashboardPanelProps) {
   const router = useRouter();
+  const showToast = useUiStore((s) => s.showToast);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [unpayTarget, setUnpayTarget] = useState<{
+    memberId: string;
+    name: string;
+  } | null>(null);
   const activePeriodRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
@@ -71,7 +78,16 @@ export function FundDashboardPanel({
     });
   }
 
-  function onTogglePaid(memberId: string, paid: boolean) {
+  function onTogglePaid(memberId: string, paid: boolean, name: string) {
+    if (!paid) {
+      setError(null);
+      setUnpayTarget({ memberId, name });
+      return;
+    }
+    applyPayment(memberId, true, name);
+  }
+
+  function applyPayment(memberId: string, paid: boolean, name: string) {
     setError(null);
     startTransition(async () => {
       const result = await setFundPayment({
@@ -84,6 +100,10 @@ export function FundDashboardPanel({
         setError(result.error);
         return;
       }
+      setUnpayTarget(null);
+      showToast(
+        paid ? `وصول «${name}» ثبت شد` : `وصول «${name}» برداشته شد`,
+      );
       router.refresh();
     });
   }
@@ -477,7 +497,7 @@ export function FundDashboardPanel({
                         "border-success/35 bg-success-soft text-success hover:bg-success-soft/80",
                     )}
                     disabled={pending}
-                    onClick={() => onTogglePaid(m.memberId, !m.paid)}
+                    onClick={() => onTogglePaid(m.memberId, !m.paid, m.name)}
                   >
                     {m.paid ? "پرداخت شد" : "ثبت"}
                   </Button>
@@ -496,6 +516,27 @@ export function FundDashboardPanel({
           </ul>
         )}
       </section>
+
+      <ConfirmDialog
+        open={unpayTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !pending) setUnpayTarget(null);
+        }}
+        title="برداشتن وصول؟"
+        description={
+          unpayTarget
+            ? `پرداخت ثبت‌شدهٔ «${unpayTarget.name}» در این دوره حذف می‌شود.`
+            : ""
+        }
+        confirmLabel="برداشتن"
+        pending={pending}
+        error={error}
+        destructive
+        onConfirm={() => {
+          if (!unpayTarget) return;
+          applyPayment(unpayTarget.memberId, false, unpayTarget.name);
+        }}
+      />
     </div>
   );
 }

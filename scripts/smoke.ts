@@ -32,7 +32,11 @@ import { BACKUP_APP, BACKUP_VERSION } from "../lib/backup/types";
 import { signSessionToken, SESSION_COOKIE } from "../lib/session-token";
 import { getTemplate } from "../lib/templates/registry";
 import { tehranJalaliMonthRange } from "../lib/jalali";
-import { foldPersian, interpretMoneyInput } from "../lib/format";
+import {
+  foldPersian,
+  interpretMoneyInput,
+  memberDisplayNameTaken,
+} from "../lib/format";
 
 const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3003";
 
@@ -225,6 +229,15 @@ async function main() {
       const amtBad = assertFundPaymentAmount(1_000_000, 999_999);
       if (amtOk.ok && !amtBad.ok) pass("fund rule: payment amount must match");
       else fail("fund rule: payment amount", `${amtOk.ok}/${amtBad.ok}`);
+      if (
+        memberDisplayNameTaken("علی", ["علی ", "سارا"]) &&
+        memberDisplayNameTaken("كي", ["کی"]) &&
+        !memberDisplayNameTaken("علی", ["علیرضا"])
+      ) {
+        pass("fund rule: duplicate member names");
+      } else {
+        fail("fund rule: duplicate member names", "fold/compare");
+      }
       const report = buildPeriodReport({
         periodIndex: 1,
         expectedTotal: 2_000_000,

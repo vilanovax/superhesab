@@ -7,6 +7,7 @@ import {
   signVirtualClaimToken,
   verifyVirtualClaimToken,
 } from "@/lib/invite-token";
+import { memberDisplayNameTaken } from "@/lib/format";
 import { clampShare, MAX_SHARE } from "@/lib/money";
 import { canManageMembers } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
@@ -340,6 +341,25 @@ export async function renameVirtualMember(
   });
   if (!target) {
     return { ok: false, error: "فقط عضو دستی (بدون اپ) قابل تغییر نام است." };
+  }
+
+  const space = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { type: true },
+  });
+  if (space?.type === "FUND") {
+    const peers = await prisma.spaceMember.findMany({
+      where: { spaceId, userId: { not: memberUserId } },
+      select: { user: { select: { name: true } } },
+    });
+    if (
+      memberDisplayNameTaken(
+        trimmed,
+        peers.map((p) => p.user.name),
+      )
+    ) {
+      return { ok: false, error: "عضوی با این نام در صندوق هست." };
+    }
   }
 
   await prisma.user.update({

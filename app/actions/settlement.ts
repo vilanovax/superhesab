@@ -17,9 +17,18 @@ import {
 } from "@/lib/spaces/space-page-ctx";
 import { getTemplate } from "@/lib/templates/registry";
 
+export type SpaceSettlementRow = {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  createdAt: string;
+};
+
 export type SpaceBalancesResult = {
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  settlements: SpaceSettlementRow[];
 };
 
 export type SettlementActionResult =
@@ -36,10 +45,11 @@ export async function getSpaceBalances(
   const session = await requireUser();
   const membership = await requireSpaceMember(spaceId, session.userId);
   if (!membership) {
-    return { balances: {}, suggestions: [] };
+    return { balances: {}, suggestions: [], settlements: [] };
   }
 
-  const [members, paid, owed, settledFrom, settledTo] = await Promise.all([
+  const [members, paid, owed, settledFrom, settledTo, settlementRows] =
+    await Promise.all([
     prisma.spaceMember.findMany({
       where: { spaceId },
       select: { userId: true },
@@ -72,6 +82,18 @@ export async function getSpaceBalances(
       where: { spaceId, status: "COMPLETED" },
       _sum: { amount: true },
     }),
+    prisma.settlement.findMany({
+      where: { spaceId, status: "COMPLETED" },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        fromUserId: true,
+        toUserId: true,
+        amount: true,
+        createdAt: true,
+      },
+    }),
   ]);
 
   const balances: Record<string, number> = {};
@@ -97,7 +119,14 @@ export async function getSpaceBalances(
   }
 
   const suggestions = simplifyDebts(balances);
-  return { balances, suggestions };
+  const settlements: SpaceSettlementRow[] = settlementRows.map((row) => ({
+    id: row.id,
+    fromUserId: row.fromUserId,
+    toUserId: row.toUserId,
+    amount: row.amount,
+    createdAt: row.createdAt.toISOString(),
+  }));
+  return { balances, suggestions, settlements };
 }
 
 export async function settleDebt(
@@ -156,6 +185,33 @@ export async function settleDebt(
   } catch {
     return { ok: false, error: "ثبت تسویه ناموفق بود." };
   }
+}
+
+export async function deleteSettlement(
+  spaceId: string,
+  settlementId: string,
+): Promise<SettlementActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership) {
+    return { ok: false, error: "به این فضا دسترسی ندارید." };
+  }
+  if (!canMutateMoney(membership.role)) {
+    return { ok: false, error: "نقش ناظر اجازه حذف تسویه ندارد." };
+  }
+  if (!getTemplate(membership.space.type).features.settlements) {
+    return { ok: false, error: "این فضا تسویه ندارد." };
+  }
+
+  const deleted = await prisma.settlement.deleteMany({
+    where: { id: settlementId, spaceId },
+  });
+  if (deleted.count === 0) {
+    return { ok: false, error: "این تسویه پیدا نشد." };
+  }
+
+  revalidatePath(`/spaces/${spaceId}`);
+  return { ok: true };
 }
 
 export type ShareSummaryTextResult =

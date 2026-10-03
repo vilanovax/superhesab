@@ -311,6 +311,112 @@ export async function mintClaimInviteLink(
   return { ok: true, path: urlPath, urlPath };
 }
 
+export async function renameVirtualMember(
+  spaceId: string,
+  memberUserId: string,
+  name: string,
+): Promise<MemberActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership || membership.role !== "OWNER") {
+    return { ok: false, error: "فقط مالک می‌تواند نام عضو دستی را عوض کند." };
+  }
+
+  const trimmed = name.trim();
+  if (trimmed.length < 2) {
+    return { ok: false, error: "نام باید حداقل ۲ حرف باشد." };
+  }
+  if (trimmed.length > 40) {
+    return { ok: false, error: "نام خیلی طولانی است." };
+  }
+
+  const target = await prisma.user.findFirst({
+    where: {
+      id: memberUserId,
+      isVirtual: true,
+      memberships: { some: { spaceId } },
+    },
+    select: { id: true },
+  });
+  if (!target) {
+    return { ok: false, error: "فقط عضو دستی (بدون اپ) قابل تغییر نام است." };
+  }
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { name: trimmed },
+  });
+
+  revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/settings`);
+  return { ok: true };
+}
+
+export async function removeSpaceMember(
+  spaceId: string,
+  memberUserId: string,
+): Promise<MemberActionResult> {
+  const session = await requireUser();
+  const membership = await requireSpaceMember(spaceId, session.userId);
+  if (!membership || membership.role !== "OWNER") {
+    return { ok: false, error: "فقط مالک می‌تواند عضو را حذف کند." };
+  }
+  if (memberUserId === session.userId) {
+    return { ok: false, error: "نمی‌توانید خودتان را از فضا حذف کنید." };
+  }
+
+  const target = await prisma.spaceMember.findUnique({
+    where: {
+      spaceId_userId: { spaceId, userId: memberUserId },
+    },
+    select: {
+      id: true,
+      role: true,
+      user: { select: { id: true, isVirtual: true } },
+    },
+  });
+  if (!target) {
+    return { ok: false, error: "عضو پیدا نشد." };
+  }
+  if (target.role === "OWNER") {
+    return { ok: false, error: "مالک قابل حذف نیست." };
+  }
+
+  const [paid, split, fromS, toS] = await Promise.all([
+    prisma.expense.count({ where: { spaceId, paidById: memberUserId } }),
+    prisma.expenseSplit.count({
+      where: { userId: memberUserId, expense: { spaceId } },
+    }),
+    prisma.settlement.count({
+      where: { spaceId, fromUserId: memberUserId },
+    }),
+    prisma.settlement.count({ where: { spaceId, toUserId: memberUserId } }),
+  ]);
+  if (paid + split + fromS + toS > 0) {
+    return {
+      ok: false,
+      error:
+        "این عضو در هزینه‌ها یا تسویه‌ها هست. اول آن‌ها را حذف یا ویرایش کنید.",
+    };
+  }
+
+  await prisma.spaceMember.delete({ where: { id: target.id } });
+
+  if (target.user.isVirtual) {
+    const leftover = await prisma.spaceMember.count({
+      where: { userId: memberUserId },
+    });
+    if (leftover === 0) {
+      await prisma.user.delete({ where: { id: memberUserId } });
+    }
+  }
+
+  revalidatePath(`/spaces/${spaceId}`);
+  revalidatePath(`/spaces/${spaceId}/settings`);
+  revalidatePath("/app");
+  return { ok: true };
+}
+
 export async function getClaimPreview(spaceId: string, claimToken: string) {
   const verified = await verifyVirtualClaimToken(claimToken);
   if (!verified || verified.spaceId !== spaceId) return null;

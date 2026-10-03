@@ -15,7 +15,7 @@
 import { expenseCategoryPrivacyWhere } from "@/lib/category-privacy";
 import { prisma } from "@/lib/db/prisma";
 import type { SpaceCurrency } from "@/lib/format";
-import { tehranMonthRange } from "@/lib/personal";
+import { tehranJalaliMonthRange } from "@/lib/jalali";
 import { canonicalizeSpaceType, getTemplate } from "@/lib/templates/registry";
 import type { SpaceRole, SpaceType } from "@/types";
 
@@ -86,7 +86,7 @@ export async function getHomeSummary(
 
   const balanceIds = balanceSpaces.map((s) => s.id);
   const spendIds = spendSpaces.map((s) => s.id);
-  const month = tehranMonthRange();
+  const month = tehranJalaliMonthRange();
 
   /**
    * Owners (and space ownerId match) never hide categories from themselves —

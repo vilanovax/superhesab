@@ -206,6 +206,7 @@ export async function SpacePageBody({
         inviteMembers={members}
         balances={balanceData.balances}
         suggestions={balanceData.suggestions}
+        settlements={balanceData.settlements}
         currency={space.currency}
         roundUpToThousand={space.roundUpToThousand}
         spaceType={space.type}

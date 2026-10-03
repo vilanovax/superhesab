@@ -7,6 +7,7 @@ import type {
 import type { DebtDTO } from "@/app/actions/debt";
 import type { InternalLoanDTO } from "@/app/actions/internalLoan";
 import type { SavingsPotDTO } from "@/app/actions/savingsPot";
+import type { SpaceSettlementRow } from "@/app/actions/settlement";
 import type { InviteMemberRow } from "@/components/spaces/invite-members-button";
 import type { FundMemberOption } from "@/components/spaces/savings-pot-panel";
 import type { BalanceMember } from "@/components/SpaceBalances";
@@ -32,6 +33,7 @@ export type SpaceTabsProps = {
   inviteMembers: InviteMemberRow[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  settlements?: SpaceSettlementRow[];
   currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
   spaceType?: SpaceType;

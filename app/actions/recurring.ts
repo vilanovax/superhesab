@@ -9,12 +9,13 @@ import {
   type ExpenseCategory,
   type TransactionType,
 } from "@/lib/categorizer";
-import { asMoney, DEFAULT_SHARE, MAX_MONEY_AMOUNT } from "@/lib/money";
+import { jalaliDaysInMonth, jalaliToGregorian, tehranJalaliMonthRange } from "@/lib/jalali";
 import {
-  tehranDayOfMonth,
-  tehranMonthKey,
-  tehranMonthRange,
-} from "@/lib/personal";
+  tehranCivilDay,
+  tehranCivilMonth,
+  tehranCivilYear,
+} from "@/lib/building";
+import { asMoney, DEFAULT_SHARE, MAX_MONEY_AMOUNT } from "@/lib/money";
 import { getTemplate } from "@/lib/templates/registry";
 import { parseExpenseDateInput } from "@/lib/format";
 
@@ -242,9 +243,11 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
   if (!getTemplate(space.type).features.recurring) return;
 
   const now = new Date();
-  const monthKey = tehranMonthKey(now);
-  const day = tehranDayOfMonth(now);
-  const { start } = tehranMonthRange(now);
+  const jy = tehranCivilYear(now);
+  const jm = tehranCivilMonth(now);
+  const day = tehranCivilDay(now);
+  const { start, key: monthKey } = tehranJalaliMonthRange(now);
+  const daysInMonth = jalaliDaysInMonth(jy, jm);
 
   const rules = await prisma.recurringRule.findMany({
     where: {
@@ -268,8 +271,9 @@ export async function ensureRecurringExpenses(spaceId: string): Promise<void> {
   for (const rule of rules) {
     if (done.has(rule.id)) continue;
 
-    const dayStr = String(rule.dayOfMonth).padStart(2, "0");
-    const isoDate = `${monthKey}-${dayStr}`;
+    const jd = Math.min(rule.dayOfMonth, daysInMonth);
+    const g = jalaliToGregorian(jy, jm, jd);
+    const isoDate = `${g.gy}-${String(g.gm).padStart(2, "0")}-${String(g.gd).padStart(2, "0")}`;
     const expenseDate = parseExpenseDateInput(isoDate);
     // Clamp into month if parse drifts
     const date =

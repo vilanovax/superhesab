@@ -27,6 +27,7 @@ export function TripSpaceTabs({
   inviteMembers,
   balances,
   suggestions,
+  settlements = [],
   currency = "TOMAN",
   roundUpToThousand = false,
   spaceType = "TRIP",
@@ -156,6 +157,7 @@ export function TripSpaceTabs({
           members={members}
           balances={balances}
           suggestions={suggestions}
+          settlements={settlements}
           currency={currency}
           roundUpToThousand={roundUpToThousand}
           variant={isPartner ? "partner" : "default"}

@@ -1961,36 +1961,56 @@ export function ExpenseForm({
               {splitMode === "EXACT" ? (
                 <div
                   className={cn(
-                    "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
+                    "mt-3 space-y-1 rounded-xl px-3 py-2 text-body-sm",
                     remaining === 0
                       ? "bg-success-soft text-success"
-                      : remaining > 0
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-destructive-soft text-destructive",
+                      : "bg-destructive-soft text-destructive",
                   )}
+                  role={remaining === 0 ? undefined : "alert"}
                 >
-                  <span>باقی‌مانده</span>
-                  <span className="font-bold tabular-nums">
-                    {formatCurrency(remaining, _currency)}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span>{remaining === 0 ? "جمع سهم‌ها درست است" : "جمع سهم‌ها برابر مبلغ کل نیست"}</span>
+                    <span className="font-bold tabular-nums">
+                      {formatCurrency(remaining, _currency)}
+                    </span>
+                  </div>
+                  {remaining !== 0 ? (
+                    <p className="text-caption">
+                      باقی‌مانده باید صفر باشد تا بشود ثبت کرد.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
               {splitMode === "PERCENT" ? (
                 <div
                   className={cn(
-                    "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-body-sm",
+                    "mt-3 space-y-1 rounded-xl px-3 py-2 text-body-sm",
                     percentRemaining === 0
                       ? "bg-success-soft text-success"
-                      : percentRemaining > 0
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-destructive-soft text-destructive",
+                      : "bg-destructive-soft text-destructive",
                   )}
+                  role={percentRemaining === 0 ? undefined : "alert"}
                 >
-                  <span>باقی‌مانده درصد</span>
-                  <span className="font-bold tabular-nums">
-                    {new Intl.NumberFormat("fa-IR").format(percentRemaining)}٪
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span>
+                      {percentRemaining === 0
+                        ? "جمع درصدها ۱۰۰ است"
+                        : `جمع درصدها ${new Intl.NumberFormat("fa-IR").format(percentAllocated)}٪ است`}
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {percentRemaining === 0
+                        ? "۱۰۰٪"
+                        : `${new Intl.NumberFormat("fa-IR").format(percentRemaining)}٪`}
+                    </span>
+                  </div>
+                  {percentRemaining !== 0 ? (
+                    <p className="text-caption">
+                      {percentRemaining > 0
+                        ? "باید دقیقاً ۱۰۰٪ شود — هنوز کم است. تا وقتی جمع ۱۰۰ نشود ثبت نمی‌شود."
+                        : "باید دقیقاً ۱۰۰٪ شود — بیشتر از ۱۰۰ است. تا وقتی جمع ۱۰۰ نشود ثبت نمی‌شود."}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2045,7 +2065,11 @@ export function ExpenseForm({
               "w-full rounded-xl font-semibold text-primary-foreground",
               isLedgerDense ? "h-11 text-caption" : "h-11 text-body-sm",
             )}
-            disabled={pending}
+            disabled={
+              pending ||
+              (splitMode === "PERCENT" && percentRemaining !== 0) ||
+              (splitMode === "EXACT" && remaining !== 0)
+            }
           >
             {pending
               ? isEdit

@@ -80,6 +80,9 @@ export function SavingsPotPanel({
     [pots],
   );
 
+  const overdraw =
+    txType === "WITHDRAWAL" && txPot != null && txAmount > txPot.balance;
+
   const createDirty =
     createOpen &&
     (title.trim().length > 0 || target > 0 || hasDeadline);
@@ -147,6 +150,12 @@ export function SavingsPotPanel({
     }
     if (!txMemberId) {
       setError("عضو را انتخاب کنید.");
+      return;
+    }
+    if (txType === "WITHDRAWAL" && txAmount > txPot.balance) {
+      setError(
+        `موجودی کافی نیست (موجودی ${formatCurrency(txPot.balance, currency)}).`,
+      );
       return;
     }
     setError(null);
@@ -571,7 +580,16 @@ export function SavingsPotPanel({
                 className="h-11 rounded-xl border-border/60 bg-card placeholder:font-normal placeholder:text-muted-foreground"
               />
             </div>
-            {error ? (
+            {overdraw && txPot ? (
+              <p
+                className="text-caption text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                موجودی کافی نیست (موجودی{" "}
+                {formatCurrency(txPot.balance, currency)}).
+              </p>
+            ) : error ? (
               <p
                 className="text-caption text-destructive"
                 role="alert"
@@ -583,7 +601,9 @@ export function SavingsPotPanel({
             <Button
               type="submit"
               className="h-11 w-full rounded-xl text-body-sm font-semibold"
-              disabled={pending || !txMemberId || txAmount < 1}
+              disabled={
+                pending || !txMemberId || txAmount < 1 || overdraw
+              }
             >
               {pending
                 ? "در حال ثبت…"

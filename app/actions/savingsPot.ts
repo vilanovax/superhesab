@@ -10,7 +10,7 @@ import {
   type SavingsPotStatusValue,
   type SavingsTransactionTypeValue,
 } from "@/lib/family-savings";
-import { parseExpenseDateInput } from "@/lib/format";
+import { formatMoney, parseExpenseDateInput } from "@/lib/format";
 import { asMoney } from "@/lib/money";
 import { canMutateMoney } from "@/lib/rbac";
 import { getTemplate } from "@/lib/templates/registry";
@@ -245,7 +245,7 @@ export async function addSavingsTransaction(
     if (amount > balance) {
       return {
         ok: false,
-        error: `برداشت از موجودی (${balance}) بیشتر است.`,
+        error: `موجودی کافی نیست (موجودی ${formatMoney(balance)}).`,
       };
     }
   }

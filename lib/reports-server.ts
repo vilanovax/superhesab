@@ -2,7 +2,7 @@ import "server-only";
 
 import type { ExpenseCategory } from "@/lib/categorizer";
 import { prisma } from "@/lib/db/prisma";
-import { tehranMonthRange } from "@/lib/personal";
+import { tehranJalaliMonthRange } from "@/lib/jalali";
 import {
   CATEGORY_CHART_COLORS,
   categoryChartKey,
@@ -165,7 +165,7 @@ export async function getExpensesByCategory(
   paidById?: string | null,
   categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<CategoryExpenseRow[]> {
-  const { start, end } = tehranMonthRange(month);
+  const { start, end } = tehranJalaliMonthRange(month);
   return getExpensesByCategoryInRange(
     spaceId,
     start,
@@ -181,7 +181,7 @@ export async function getExpenseLinesForMonth(
   paidById?: string | null,
   categoryNotIn?: ExpenseCategory[] | null,
 ): Promise<ReportExpenseLine[]> {
-  const { start, end } = tehranMonthRange(month);
+  const { start, end } = tehranJalaliMonthRange(month);
   return getExpenseLinesInRange(
     spaceId,
     start,

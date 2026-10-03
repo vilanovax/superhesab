@@ -1,6 +1,9 @@
-/**
- * Personal template helpers — month windows, budget progress, run-rate (integers only).
- */
+import { jalaliDaysInMonth } from "@/lib/jalali";
+import {
+  tehranCivilDay,
+  tehranCivilMonth,
+  tehranCivilYear,
+} from "@/lib/building";
 
 /** Calendar month key in Asia/Tehran (yyyy-mm). */
 export function tehranMonthKey(date: Date = new Date()): string {
@@ -77,8 +80,8 @@ export function projectedMonthSpend(
   expensesSoFar: number,
   date: Date = new Date(),
 ): number {
-  const day = Math.max(1, tehranDayOfMonth(date));
-  const days = tehranDaysInMonth(date);
+  const day = Math.max(1, tehranCivilDay(date));
+  const days = jalaliDaysInMonth(tehranCivilYear(date), tehranCivilMonth(date));
   return Math.round((expensesSoFar * days) / day);
 }
 

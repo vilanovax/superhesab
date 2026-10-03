@@ -14,7 +14,7 @@ import {
   tehranCivilMonth,
   tehranCivilYear,
 } from "@/lib/building";
-import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
+import { jalaliMonthBounds, jalaliYearBounds, tehranJalaliMonthRange } from "@/lib/jalali";
 import { tehranMonthRange } from "@/lib/personal";
 import type { SessionPayload } from "@/lib/session";
 import { getTemplate } from "@/lib/templates/registry";
@@ -118,9 +118,10 @@ export async function resolveSpacePageCtx(input: {
       ? fundPeriodRaw
       : undefined;
 
-  const monthRange = features.buildingCharges
-    ? jalaliMonthBounds(tehranCivilYear(), tehranCivilMonth())
-    : tehranMonthRange();
+  const monthRange =
+    features.buildingCharges || features.incomeExpense
+      ? tehranJalaliMonthRange()
+      : tehranMonthRange();
 
   const reportRange = features.buildingCharges
     ? reportMonth != null
@@ -355,4 +356,5 @@ export const loadFundProofs = cache(async (spaceId: string) => {
 export const emptyBalances = {
   balances: {} as Record<string, number>,
   suggestions: [] as Awaited<ReturnType<typeof getSpaceBalances>>["suggestions"],
+  settlements: [] as Awaited<ReturnType<typeof getSpaceBalances>>["settlements"],
 };

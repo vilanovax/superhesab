@@ -88,3 +88,36 @@ export function jalaliMonthBounds(
     end: tehranDate(e.gy, e.gm, e.gd, true),
   };
 }
+
+function tehranJalaliParts(date: Date): { jy: number; jm: number } {
+  const parts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(date);
+  const num = (type: string) =>
+    Number.parseInt(
+      (parts.find((p) => p.type === type)?.value ?? "").replace(/\D/g, ""),
+      10,
+    );
+  let jy = num("year");
+  let jm = num("month");
+  if (!(jy >= 1300 && jy <= 1600)) jy = date.getFullYear() - 621;
+  if (!(jm >= 1 && jm <= 12)) jm = 1;
+  return { jy, jm };
+}
+
+/** Inclusive Tehran bounds + `yyyy-mm` key for the Jalali month containing `date`. */
+export function tehranJalaliMonthRange(date: Date = new Date()): {
+  start: Date;
+  end: Date;
+  key: string;
+} {
+  const { jy, jm } = tehranJalaliParts(date);
+  const { start, end } = jalaliMonthBounds(jy, jm);
+  return {
+    start,
+    end,
+    key: `${jy}-${String(jm).padStart(2, "0")}`,
+  };
+}

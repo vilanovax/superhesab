@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { settleDebt } from "@/app/actions/settlement";
+import type { SpaceSettlementRow } from "@/app/actions/settlement";
+import { deleteSettlement, settleDebt } from "@/app/actions/settlement";
 import type { SimplifiedSettlement } from "@/lib/debtSimplification";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -13,7 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { payerName, type SpaceCurrency } from "@/lib/format";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatDateFa, payerName, type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { maybeCeilToThousand } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,7 @@ type SpaceBalancesProps = {
   members: BalanceMember[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  settlements?: SpaceSettlementRow[];
   currency?: SpaceCurrency;
   roundUpToThousand?: boolean;
   /** Partner shell: one bold rolling balance + settle up */
@@ -61,6 +64,141 @@ function BalanceAmount({ amount, currency = "TOMAN" }: { amount: number; currenc
     <span className="text-caption font-bold tabular-nums text-destructive">
       −{formatCurrency(Math.abs(amount), currency)}
     </span>
+  );
+}
+
+function SettlementHistory({
+  spaceId,
+  settlements,
+  membersById,
+  currentUserId,
+  currency,
+  canMutate,
+}: {
+  spaceId: string;
+  settlements: SpaceSettlementRow[];
+  membersById: Record<string, BalanceMember>;
+  currentUserId?: string;
+  currency: SpaceCurrency;
+  canMutate: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [target, setTarget] = useState<SpaceSettlementRow | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (settlements.length === 0) return null;
+
+  function onDelete() {
+    if (!target || pending) return;
+    startTransition(async () => {
+      const result = await deleteSettlement(spaceId, target.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setTarget(null);
+      setError(null);
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+      <div className="flex items-baseline justify-between gap-2 border-b border-border/40 px-3 py-2">
+        <h2 className="text-caption font-bold text-foreground">
+          پرداخت‌های ثبت‌شده
+        </h2>
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          {settlements.length.toLocaleString("fa-IR")}
+        </span>
+      </div>
+      <ul className="divide-y divide-border/35">
+        {settlements.map((row) => {
+          const from = membersById[row.fromUserId];
+          const to = membersById[row.toUserId];
+          const fromName = from
+            ? personName(from, currentUserId)
+            : "عضو";
+          const toName = to ? personName(to, currentUserId) : "عضو";
+          return (
+            <li
+              key={row.id}
+              className="flex items-center gap-2 px-3 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-caption text-foreground">
+                  <span className="font-semibold">{fromName}</span>
+                  {" به "}
+                  <span className="font-semibold">{toName}</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {formatCurrency(row.amount, currency)}
+                  </span>
+                  {" · "}
+                  {formatDateFa(row.createdAt)}
+                </p>
+              </div>
+              {canMutate ? (
+                <button
+                  type="button"
+                  aria-label="برگرداندن این تسویه"
+                  title="برگرداندن"
+                  disabled={pending}
+                  onClick={() => {
+                    setError(null);
+                    setTarget(row);
+                  }}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-destructive/25 bg-card text-destructive transition-colors hover:bg-destructive-soft active:scale-95 disabled:opacity-50"
+                >
+                  <TrashIcon className="size-3.5" />
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      <ConfirmDialog
+        open={target != null}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setTarget(null);
+            setError(null);
+          }
+        }}
+        title="برگرداندن تسویه؟"
+        description={
+          target
+            ? `پرداخت ${formatCurrency(target.amount, currency)} از مانده‌ها برداشته می‌شود و پیشنهاد تسویه برمی‌گردد.`
+            : ""
+        }
+        confirmLabel="برگرداندن"
+        pending={pending}
+        error={error}
+        destructive
+        onConfirm={onDelete}
+      />
+    </section>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+    </svg>
   );
 }
 
@@ -269,6 +407,7 @@ function PartnerRollingBalance({
   members,
   balances,
   suggestions,
+  settlements,
   currency = "TOMAN",
   roundUpToThousand,
   canMutate,
@@ -278,6 +417,7 @@ function PartnerRollingBalance({
   members: BalanceMember[];
   balances: Record<string, number>;
   suggestions: SimplifiedSettlement[];
+  settlements: SpaceSettlementRow[];
   currency?: SpaceCurrency;
   roundUpToThousand: boolean;
   canMutate: boolean;
@@ -381,6 +521,14 @@ function PartnerRollingBalance({
             ) : null}
           </ul>
         </div>
+        <SettlementHistory
+          spaceId={spaceId}
+          settlements={settlements}
+          membersById={membersById}
+          currentUserId={currentUserId}
+          currency={currency}
+          canMutate={canMutate}
+        />
       </div>
     );
   }
@@ -520,6 +668,15 @@ function PartnerRollingBalance({
           roundUpToThousand={roundUpToThousand}
         />
       ) : null}
+
+      <SettlementHistory
+        spaceId={spaceId}
+        settlements={settlements}
+        membersById={membersById}
+        currentUserId={currentUserId}
+        currency={currency}
+        canMutate={canMutate}
+      />
     </div>
   );
 }
@@ -557,6 +714,7 @@ export function SpaceBalances({
   members,
   balances,
   suggestions,
+  settlements = [],
   currency = "TOMAN",
   roundUpToThousand = false,
   variant = "default",
@@ -570,6 +728,7 @@ export function SpaceBalances({
         members={members}
         balances={balances}
         suggestions={suggestions}
+        settlements={settlements}
         currency={currency}
         roundUpToThousand={roundUpToThousand}
         canMutate={canMutate}
@@ -632,6 +791,14 @@ export function SpaceBalances({
             ))}
           </ul>
         </div>
+        <SettlementHistory
+          spaceId={spaceId}
+          settlements={settlements}
+          membersById={membersById}
+          currentUserId={currentUserId}
+          currency={currency}
+          canMutate={canMutate}
+        />
       </div>
     );
   }
@@ -732,6 +899,15 @@ export function SpaceBalances({
           </p>
         ) : null}
       </section>
+
+      <SettlementHistory
+        spaceId={spaceId}
+        settlements={settlements}
+        membersById={membersById}
+        currentUserId={currentUserId}
+        currency={currency}
+        canMutate={canMutate}
+      />
     </div>
   );
 }

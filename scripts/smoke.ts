@@ -31,6 +31,7 @@ import { parseBackupFile } from "../lib/backup/validate";
 import { BACKUP_APP, BACKUP_VERSION } from "../lib/backup/types";
 import { signSessionToken, SESSION_COOKIE } from "../lib/session-token";
 import { getTemplate } from "../lib/templates/registry";
+import { tehranJalaliMonthRange } from "../lib/jalali";
 import { foldPersian, interpretMoneyInput } from "../lib/format";
 
 const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3003";
@@ -356,6 +357,26 @@ async function main() {
       pass("building: unitTitle avoids «واحد واحد»");
     } else {
       fail("building: unitTitle", "mismatch");
+    }
+
+    const jalaliMonth = tehranJalaliMonthRange(
+      new Date("2026-09-30T12:00:00+03:30"),
+    );
+    const jalaliOct1 = tehranJalaliMonthRange(
+      new Date("2026-10-01T12:00:00+03:30"),
+    );
+    const jalaliOk =
+      jalaliMonth.key === "1405-07" &&
+      jalaliOct1.key === "1405-07" &&
+      jalaliMonth.start.getTime() === jalaliOct1.start.getTime() &&
+      new Date("2026-09-30T12:00:00+03:30") >= jalaliMonth.start &&
+      new Date("2026-09-30T12:00:00+03:30") <= jalaliMonth.end &&
+      new Date("2026-10-01T12:00:00+03:30") >= jalaliMonth.start &&
+      new Date("2026-10-01T12:00:00+03:30") <= jalaliMonth.end;
+    if (jalaliOk) {
+      pass("family month: Mehr 1405 includes 30 Sep and 1 Oct");
+    } else {
+      fail("family month: Jalali this-month window", jalaliMonth.key);
     }
 
     const moneyOk =

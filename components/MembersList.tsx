@@ -6,10 +6,20 @@ import { mintSpaceInviteLink } from "@/app/actions/invite";
 import {
   changeMemberRole,
   mintClaimInviteLink,
+  removeSpaceMember,
+  renameVirtualMember,
   updateMemberDefaultShare,
 } from "@/app/actions/members";
 import { addVirtualMember } from "@/app/actions/virtualMember";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -128,6 +138,43 @@ function LinkIcon({ className }: { className?: string }) {
   );
 }
 
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function MemberTrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
 export function MembersList({
   spaceId,
   spaceName,
@@ -152,6 +199,10 @@ export function MembersList({
   const [manualError, setManualError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [renameTarget, setRenameTarget] = useState<MembersListRow | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<MembersListRow | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
   const addLockRef = useRef(false);
   /** Trip/Partner: EDITOR only until Viewer ships in v2. Family keeps picker. */
   const allowViewerRole = inviteRolePicker && !editorOnlyRoles;
@@ -256,6 +307,166 @@ export function MembersList({
       router.refresh();
     });
   }
+
+  function openRename(member: MembersListRow) {
+    setManageError(null);
+    setRenameTarget(member);
+    setRenameValue(member.name?.trim() ?? "");
+  }
+
+  function openRemove(member: MembersListRow) {
+    setManageError(null);
+    setRemoveTarget(member);
+  }
+
+  function onRename() {
+    if (!renameTarget || pending) return;
+    setManageError(null);
+    startTransition(async () => {
+      const result = await renameVirtualMember(
+        spaceId,
+        renameTarget.userId,
+        renameValue,
+      );
+      if (!result.ok) {
+        setManageError(result.error);
+        return;
+      }
+      setRenameTarget(null);
+      router.refresh();
+    });
+  }
+
+  function onRemove() {
+    if (!removeTarget || pending) return;
+    setManageError(null);
+    startTransition(async () => {
+      const result = await removeSpaceMember(spaceId, removeTarget.userId);
+      if (!result.ok) {
+        setManageError(result.error);
+        return;
+      }
+      setRemoveTarget(null);
+      router.refresh();
+    });
+  }
+
+  function MemberActions({ member }: { member: MembersListRow }) {
+    if (!isOwner) return null;
+    const canRename = Boolean(member.isVirtual);
+    const canRemove = member.role !== "OWNER";
+    if (!canRename && !canRemove) return null;
+    return (
+      <div className="flex shrink-0 items-center">
+        {canRename ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground active:scale-[0.96]"
+            disabled={pending}
+            onClick={() => openRename(member)}
+            aria-label={`تغییر نام ${memberLabel(member)}`}
+            title="تغییر نام"
+          >
+            <PencilIcon className="size-3.5" />
+          </Button>
+        ) : null}
+        {canRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 rounded-lg text-destructive hover:bg-destructive-soft active:scale-[0.96]"
+            disabled={pending}
+            onClick={() => openRemove(member)}
+            aria-label={`حذف ${memberLabel(member)}`}
+            title="حذف عضو"
+          >
+            <MemberTrashIcon className="size-3.5" />
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const manageDialogs = isOwner ? (
+    <>
+      <Dialog
+        open={renameTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setRenameTarget(null);
+            setManageError(null);
+          }
+        }}
+      >
+        <DialogContent className="gap-4 rounded-2xl border-border/60 p-5 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-pretty text-base font-bold">
+              تغییر نام
+            </DialogTitle>
+            <DialogDescription className="text-body-sm text-muted-foreground">
+              نام نمایشی این عضو دستی در سفر عوض می‌شود.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoComplete="off"
+            spellCheck={false}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            maxLength={40}
+            className="h-11 rounded-xl"
+            aria-label="نام جدید"
+          />
+          {manageError && renameTarget ? (
+            <p className="text-xs text-destructive" role="alert">
+              {manageError}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              className="h-11 flex-1 rounded-xl"
+              disabled={pending}
+              onClick={onRename}
+            >
+              {pending ? "در حال ذخیره…" : "ذخیره"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 flex-1 rounded-xl"
+              disabled={pending}
+              onClick={() => setRenameTarget(null)}
+            >
+              انصراف
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={removeTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setRemoveTarget(null);
+            setManageError(null);
+          }
+        }}
+        title="حذف عضو؟"
+        description={
+          removeTarget
+            ? `${memberLabel(removeTarget)} از این دفتر حذف می‌شود. هزینه‌ها و تسویه‌های قبلی باید اول پاک شوند.`
+            : ""
+        }
+        confirmLabel="حذف"
+        pending={pending}
+        error={manageError && removeTarget ? manageError : null}
+        destructive
+        onConfirm={onRemove}
+      />
+    </>
+  ) : null;
 
   const atCapacity =
     maxMembers != null && members.length >= maxMembers;
@@ -590,6 +801,8 @@ export function MembersList({
                       </div>
                     </div>
 
+                    <MemberActions member={m} />
+
                     {isOwner && showShareControls ? (
                       <div className="flex shrink-0 items-center rounded-lg bg-muted/45 p-0.5">
                         <Button
@@ -756,6 +969,8 @@ export function MembersList({
                     </Button>
                   ) : null}
 
+                  <MemberActions member={m} />
+
                   {isOwner && m.role !== "OWNER" && allowViewerRole ? (
                     <Select
                       value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
@@ -864,6 +1079,7 @@ export function MembersList({
             ) : null}
           </section>
         ) : null}
+        {manageDialogs}
       </div>
     );
   }
@@ -1084,6 +1300,8 @@ export function MembersList({
                     </Button>
                   ) : null}
 
+                  <MemberActions member={m} />
+
                   {isOwner && m.role !== "OWNER" && allowViewerRole ? (
                     <Select
                       value={m.role === "VIEWER" ? "VIEWER" : "EDITOR"}
@@ -1169,6 +1387,7 @@ export function MembersList({
           })}
         </ul>
       </section>
+      {manageDialogs}
     </div>
   );
 }

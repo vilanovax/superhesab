@@ -8,8 +8,7 @@ import {
   tehranCivilMonth,
   tehranCivilYear,
 } from "@/lib/building";
-import { jalaliMonthBounds, jalaliYearBounds } from "@/lib/jalali";
-import { tehranMonthRange } from "@/lib/personal";
+import { jalaliMonthBounds, jalaliYearBounds, tehranJalaliMonthRange } from "@/lib/jalali";
 import { getTemplate } from "@/lib/templates/registry";
 import { formatDateFaShort } from "@/lib/format";
 
@@ -68,7 +67,7 @@ export async function GET(request: Request, context: RouteContext) {
       periodLabel = `سال ${formatJalaliYear(year)}`;
     }
   } else {
-    const range = tehranMonthRange();
+    const range = tehranJalaliMonthRange();
     start = range.start;
     end = range.end;
     periodLabel = `${monthLabelFa(tehranCivilMonth())} ${formatJalaliYear(tehranCivilYear())}`;

@@ -57,6 +57,7 @@ export type ReportExpenseLine = {
   date: string;
   category: ExpenseCategory;
   categoryLabel: string | null;
+  paidById: string;
   /** Same key as CategoryExpenseRow.key */
   chartKey: string;
 };

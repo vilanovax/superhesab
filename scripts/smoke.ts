@@ -14,6 +14,9 @@ import {
   unitCollected,
   unitExpectedYtd,
   unitMonthlyCharge,
+  monthChargeRemainder,
+  parseUnitMultiplierInput,
+  resolveChargePaymentStatus,
 } from "../lib/building";
 import { simplifyDebts } from "../lib/debtSimplification";
 import {
@@ -295,6 +298,51 @@ async function main() {
       pass("building math: 1.5× monthly charge");
     } else {
       fail("building math: 1.5×", String(unitMonthlyCharge(2_000_000, 1500)));
+    }
+
+    const multCases: [string, number | null][] = [
+      ["1000", 1000],
+      ["1.2", 1200],
+      ["۱٫۲", 1200],
+      ["1,4", 1400],
+      ["۱٬۵۰۰", 1500],
+      ["1", 1000],
+      ["750", 750],
+      ["", null],
+    ];
+    const multFail = multCases.find(
+      ([raw, expected]) => parseUnitMultiplierInput(raw) !== expected,
+    );
+    if (!multFail) {
+      pass("building math: parse unit multiplier (1.2 → 1200)");
+    } else {
+      fail(
+        "building math: parse unit multiplier",
+        `${multFail[0]} → ${String(parseUnitMultiplierInput(multFail[0]))}`,
+      );
+    }
+
+    const statusOk =
+      resolveChargePaymentStatus("PAID", 3000, 6000) === "PARTIAL" &&
+      resolveChargePaymentStatus("PARTIAL", 6000, 6000) === "PAID" &&
+      resolveChargePaymentStatus("PAID", 0, 6000) === "DUE" &&
+      resolveChargePaymentStatus("WAIVED", 0, 6000) === "WAIVED";
+    if (statusOk) {
+      pass("building math: payment status follows amount (PAID 3k/6k → PARTIAL)");
+    } else {
+      fail("building math: payment status follows amount", "mismatch");
+    }
+
+    const remOk =
+      monthChargeRemainder(6000, null) === 6000 &&
+      monthChargeRemainder(6000, { status: "PARTIAL", amount: 3000 }) === 3000 &&
+      monthChargeRemainder(6000, { status: "DUE", amount: 0 }) === 6000 &&
+      monthChargeRemainder(6000, { status: "PAID", amount: 6000 }) === 0 &&
+      monthChargeRemainder(6000, { status: "WAIVED", amount: 0 }) === 0;
+    if (remOk) {
+      pass("building math: month remainder (partial + due, not waived)");
+    } else {
+      fail("building math: month remainder", "mismatch");
     }
 
     const arrearsPartial = unitArrears({

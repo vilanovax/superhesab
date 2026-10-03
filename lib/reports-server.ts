@@ -138,6 +138,7 @@ export async function getExpenseLinesInRange(
       date: true,
       category: true,
       categoryLabel: true,
+      paidById: true,
     },
     orderBy: { date: "desc" },
   });
@@ -149,6 +150,7 @@ export async function getExpenseLinesInRange(
     date: row.date.toISOString(),
     category: row.category,
     categoryLabel: row.categoryLabel,
+    paidById: row.paidById,
     chartKey: expenseChartKey(row.category, row.categoryLabel),
   }));
 }

@@ -689,9 +689,15 @@ export function ExpenseForm({
   );
   const isToday =
     (watchedDate || todayIsoDateTehran()) === todayIsoDateTehran();
+  /** Compact / dense layouts render the date picker without the opt-in checkbox. */
+  const useChosenDate =
+    compactFields || useDenseChrome || changeDate || isEdit;
 
   function onSubmit(values: ExpenseFormValues) {
     const base: ExpenseFormValues = { ...values };
+    const submitDate = useChosenDate
+      ? values.date || todayIsoDateTehran()
+      : todayIsoDateTehran();
     if (!isEdit) {
       if (customCategoryLabel) {
         base.categoryLabel = customCategoryLabel;
@@ -734,10 +740,7 @@ export function ExpenseForm({
           paidById: currentUserId,
           splitMode: "EQUAL",
           transactionType: values.transactionType ?? "EXPENSE",
-          date:
-            !changeDate && !isEdit
-              ? todayIsoDateTehran()
-              : values.date || todayIsoDateTehran(),
+          date: submitDate,
           splits: [
             {
               userId: currentUserId,
@@ -754,10 +757,7 @@ export function ExpenseForm({
             paidById: currentUserId,
             splitMode: "EQUAL",
             transactionType: "EXPENSE",
-            date:
-              !changeDate && !isEdit
-                ? todayIsoDateTehran()
-                : values.date || todayIsoDateTehran(),
+            date: submitDate,
             splits: [
               {
                 userId: currentUserId,
@@ -776,10 +776,7 @@ export function ExpenseForm({
               paidById: values.paidById || currentUserId,
               splitMode: "EQUAL",
               transactionType: values.transactionType ?? "EXPENSE",
-              date:
-                !changeDate && !isEdit
-                  ? todayIsoDateTehran()
-                  : values.date || todayIsoDateTehran(),
+              date: submitDate,
               splits: [
                 {
                   userId: values.paidById || currentUserId,
@@ -813,10 +810,7 @@ export function ExpenseForm({
                 transactionType: showIncomeExpense
                   ? (values.transactionType ?? "EXPENSE")
                   : "EXPENSE",
-                date:
-                  isBuilding || changeDate || isEdit
-                    ? values.date || todayIsoDateTehran()
-                    : todayIsoDateTehran(),
+                date: submitDate,
               };
 
     startTransition(async () => {
@@ -849,7 +843,12 @@ export function ExpenseForm({
       }
       // Close only after a successful server write.
       onSuccess?.();
-      notifyExpensesMutated();
+      notifyExpensesMutated({
+        action: isEdit ? "update" : "add",
+        amount: payload.totalAmount,
+        previousAmount: isEdit ? initialExpense!.totalAmount : undefined,
+        transactionType: payload.transactionType ?? "EXPENSE",
+      });
       router.refresh();
     });
   }
@@ -911,7 +910,7 @@ export function ExpenseForm({
         })}
         className={cn(
           useDenseChrome
-            ? "flex min-h-0 flex-1 flex-col gap-0"
+            ? "flex h-full min-h-0 flex-1 flex-col gap-0"
             : isHomeSheet
               ? "flex flex-col gap-3"
               : "flex flex-col gap-3",
@@ -920,7 +919,7 @@ export function ExpenseForm({
         <div
           className={cn(
             useDenseChrome &&
-              "min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-2",
+              "min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-8",
             isLedgerDense && "space-y-2",
             !useDenseChrome && "contents",
           )}
@@ -1742,7 +1741,7 @@ export function ExpenseForm({
               );
 
               return (
-                <li key={member.userId} className="py-2.5 first:pt-0 last:pb-0">
+                <li key={member.userId} className="relative z-0 py-2.5 first:pt-0 last:pb-3">
                   <div className="flex items-center gap-2.5">
                     <FormField
                       control={form.control}
@@ -2030,7 +2029,7 @@ export function ExpenseForm({
         <div
           className={cn(
             useDenseChrome
-              ? "shrink-0 space-y-1.5 border-t border-border/45 bg-card px-0 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5"
+              ? "relative z-10 shrink-0 space-y-1.5 border-t border-border/45 bg-card px-0 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5"
               : "pt-1",
           )}
         >

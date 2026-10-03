@@ -12,7 +12,7 @@ import {
   loadCachedBuildingView,
   loadCachedFundDashboard,
   loadFundProofs,
-  loadMonthRows,
+  loadExpenseHeroStats,
   loadSpaceExpensesPage,
   loadSpaceWithMembers,
   type SpacePageCtx,
@@ -35,7 +35,6 @@ export async function SpacePageBody({
     planYear,
     reportMonth,
     fundPeriod,
-    monthRange,
     reportRange,
     activeTab,
     hiddenCategories,
@@ -54,10 +53,6 @@ export async function SpacePageBody({
     isBuildingShell &&
     (activeTab === "charges" || activeTab === "units");
   const needBuildingCalendar = isBuildingShell && activeTab === "charges";
-  const needMonthRows =
-    !isBuildingShell &&
-    (features.incomeExpense || features.budget) &&
-    (activeTab === "expenses" || activeTab === "report");
   const skipChargeProofsOnRsc =
     isBuildingShell && activeTab === "charges";
 
@@ -65,11 +60,11 @@ export async function SpacePageBody({
     space,
     expensesPage,
     balanceData,
-    monthRows,
     buildingView,
     fundDashboard,
     fundProofs,
     deferredTab,
+    heroStats,
   ] = await Promise.all([
     loadSpaceWithMembers(id),
     needExpenses
@@ -83,14 +78,6 @@ export async function SpacePageBody({
     features.settlements
       ? loadCachedBalances(id)
       : Promise.resolve(emptyBalances),
-    needMonthRows
-      ? loadMonthRows(
-          id,
-          monthRange.start.getTime(),
-          monthRange.end.getTime(),
-          hiddenCategoriesKey,
-        )
-      : Promise.resolve([]),
     needBuildingView
       ? loadCachedBuildingView(id, planYear, needBuildingCalendar)
       : Promise.resolve(null),
@@ -115,6 +102,11 @@ export async function SpacePageBody({
       skipBuildingView: needBuildingView,
       includeCalendar: needBuildingCalendar,
     }),
+    loadExpenseHeroStats(
+      id,
+      hiddenCategoriesKey,
+      isBuildingShell ? planYear : undefined,
+    ),
   ]);
 
   if (!space) notFound();
@@ -209,6 +201,7 @@ export async function SpacePageBody({
         expensesHasMore={
           activeTab === "expenses" ? expensesHasMore : false
         }
+        ledgerExpenseCount={heroStats.expenseCount}
         members={members}
         inviteMembers={members}
         balances={balanceData.balances}
@@ -222,18 +215,6 @@ export async function SpacePageBody({
         }
         reportExpenseLines={
           activeTab === "report" ? reportExpenseLines : undefined
-        }
-        familyMonthExpenses={
-          activeTab === "report"
-            ? monthRows
-                .filter((r) => r.transactionType === "EXPENSE")
-                .map((r) => ({
-                  category: r.category,
-                  categoryLabel: r.categoryLabel ?? null,
-                  totalAmount: r.totalAmount,
-                  paidById: r.paidById,
-                }))
-            : undefined
         }
         monthlyBudget={space.monthlyBudget}
         debts={activeTab === "debts" ? debts : undefined}

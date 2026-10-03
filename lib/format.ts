@@ -4,6 +4,7 @@ import {
   jalaliYear,
   monthLabelFa,
 } from "@/lib/building";
+import { MAX_MONEY_AMOUNT } from "@/lib/money";
 
 export type SpaceCurrency = "TOMAN" | "RIAL" | "USD" | "AED" | "EUR";
 
@@ -94,12 +95,61 @@ export function normalizePhone(input: string): string {
   return toAsciiDigits(input).replace(/[\s\-()]/g, "").trim();
 }
 
-/** Parse a formatted money string into an integer (0 if empty). */
-export function parseMoneyInput(input: string): number {
-  const digits = normalizeDigits(input);
-  if (!digits) return 0;
+const MONEY_MINUS = /[-−–—]/;
+const MONEY_DECIMAL_MARK = /[.\u066B]/; // . or ٫
+const MONEY_THOUSAND_SEP = /[,٬،]/g;
+
+export type MoneyInputInterpret =
+  | { status: "empty" }
+  | { status: "ok"; value: number }
+  | {
+      status: "error";
+      code: "negative" | "decimal" | "invalid" | "too_large";
+    };
+
+/**
+ * Integer money parse. Does not glue digits across a decimal mark
+ * (`375.5` is rejected, not 3755). A trailing 1–2-digit group after a
+ * thousand-separator is treated as a decimal (`۱۲۳۴٬۵۶`).
+ */
+export function interpretMoneyInput(input: string): MoneyInputInterpret {
+  const trimmed = input.trim();
+  if (!trimmed) return { status: "empty" };
+
+  const ascii = toAsciiDigits(trimmed);
+  if (MONEY_MINUS.test(ascii)) return { status: "error", code: "negative" };
+  if (MONEY_DECIMAL_MARK.test(ascii)) {
+    return { status: "error", code: "decimal" };
+  }
+
+  const compact = ascii.replace(/[+\s]/g, "");
+  if (!compact) return { status: "empty" };
+
+  const lastSep = Math.max(
+    compact.lastIndexOf(","),
+    compact.lastIndexOf("٬"),
+    compact.lastIndexOf("،"),
+  );
+  if (lastSep >= 0) {
+    const frac = compact.slice(lastSep + 1);
+    if (/^\d{1,2}$/.test(frac)) {
+      return { status: "error", code: "decimal" };
+    }
+  }
+
+  const digits = compact.replace(MONEY_THOUSAND_SEP, "");
+  if (!/^\d+$/.test(digits)) return { status: "error", code: "invalid" };
+
   const n = Number.parseInt(digits, 10);
-  return Number.isFinite(n) ? n : 0;
+  if (!Number.isFinite(n)) return { status: "error", code: "invalid" };
+  if (n > MAX_MONEY_AMOUNT) return { status: "error", code: "too_large" };
+  return { status: "ok", value: n };
+}
+
+/** Parse a formatted money string into an integer (0 if empty or invalid). */
+export function parseMoneyInput(input: string): number {
+  const parsed = interpretMoneyInput(input);
+  return parsed.status === "ok" ? parsed.value : 0;
 }
 
 /**

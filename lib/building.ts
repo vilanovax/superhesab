@@ -128,6 +128,92 @@ export function unitMonthlyCharge(
   return Math.round((baseCharge * m) / 1000);
 }
 
+/**
+ * Keep PAID/PARTIAL consistent with the amount actually collected.
+ * DUE / WAIVED are explicit manager choices and pass through.
+ */
+export function resolveChargePaymentStatus(
+  status: ChargeStatusValue,
+  amount: number,
+  due: number,
+): ChargeStatusValue {
+  if (status !== "PAID" && status !== "PARTIAL") return status;
+  if (amount <= 0) return "DUE";
+  if (due > 0 && amount < due) return "PARTIAL";
+  return "PAID";
+}
+
+/**
+ * Remaining charge for one unit in one month.
+ * PAID / WAIVED settle the month. PARTIAL and DUE (or no row) leave
+ * max(0, charge − paid).
+ */
+export function monthChargeRemainder(
+  charge: number,
+  payment: { status: ChargeStatusValue; amount: number } | null | undefined,
+): number {
+  if (charge <= 0) return 0;
+  if (!payment) return charge;
+  if (payment.status === "PAID" || payment.status === "WAIVED") return 0;
+  return Math.max(0, charge - payment.amount);
+}
+
+const MULT_MIN = 1;
+const MULT_MAX = 100_000;
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+function clampMultiplier(n: number): number | null {
+  if (!Number.isInteger(n) || n < MULT_MIN || n > MULT_MAX) return null;
+  return n;
+}
+
+/**
+ * Parse the unit-charge coefficient field.
+ * Stored as thousandths (1000 = 1×). Also accepts a human factor:
+ * `1.2` / `۱٫۲` → 1200. Grouped integers (`۱٬۲۰۰`) stay thousandths.
+ * Bare 1–9 means N× so `1` → 1000, not 1/1000.
+ */
+export function parseUnitMultiplierInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  let ascii = "";
+  for (const ch of trimmed) {
+    const p = FA_DIGITS.indexOf(ch);
+    if (p >= 0) {
+      ascii += String(p);
+      continue;
+    }
+    const a = AR_DIGITS.indexOf(ch);
+    if (a >= 0) {
+      ascii += String(a);
+      continue;
+    }
+    ascii += ch;
+  }
+  ascii = ascii.replace(/\s/g, "");
+  if (!ascii) return null;
+
+  if (/^\d{1,3}([,٬،]\d{3})+$/.test(ascii)) {
+    const n = Number.parseInt(ascii.replace(/[,٬،]/g, ""), 10);
+    return Number.isFinite(n) ? clampMultiplier(n) : null;
+  }
+
+  const decimal = /^(\d+)[.,٫](\d{1,3})$/.exec(ascii);
+  if (decimal) {
+    const factor = Number.parseFloat(`${decimal[1]}.${decimal[2]}`);
+    if (!Number.isFinite(factor) || factor <= 0) return null;
+    return clampMultiplier(Math.round(factor * 1000));
+  }
+
+  if (!/^\d+$/.test(ascii)) return null;
+  const n = Number.parseInt(ascii, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n < 10) return clampMultiplier(n * 1000);
+  return clampMultiplier(n);
+}
+
 export type ChargeBaseOverrideSlice = {
   fromMonth: number;
   toMonth: number;

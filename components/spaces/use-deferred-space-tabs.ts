@@ -74,10 +74,41 @@ export function syncTabQuery(tab: string) {
   );
 }
 
+export type ExpenseLedgerDelta = {
+  action: "add" | "update" | "delete";
+  amount: number;
+  previousAmount?: number;
+  transactionType?: "EXPENSE" | "INCOME";
+};
+
+export function applyExpenseLedgerDelta(
+  count: number,
+  total: number,
+  delta: ExpenseLedgerDelta | undefined,
+): { count: number; total: number } {
+  if (!delta) return { count, total };
+  if ((delta.transactionType ?? "EXPENSE") !== "EXPENSE") {
+    return { count, total };
+  }
+  if (delta.action === "add") {
+    return { count: count + 1, total: total + delta.amount };
+  }
+  if (delta.action === "delete") {
+    return {
+      count: Math.max(0, count - 1),
+      total: Math.max(0, total - delta.amount),
+    };
+  }
+  const prev = delta.previousAmount ?? delta.amount;
+  return { count, total: Math.max(0, total - prev + delta.amount) };
+}
+
 /** After add/edit/delete expense — deferred tab caches must refetch. */
-export function notifyExpensesMutated() {
+export function notifyExpensesMutated(delta?: ExpenseLedgerDelta) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("superhesab:expenses-mutated"));
+  window.dispatchEvent(
+    new CustomEvent("superhesab:expenses-mutated", { detail: delta }),
+  );
 }
 
 /** After charge payment / plan / override mutations — refresh deferred charges. */

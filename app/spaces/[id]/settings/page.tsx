@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { listCategoryBudgets } from "@/app/actions/categoryBudget";
@@ -38,6 +39,7 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { canMutateMoney } from "@/lib/rbac";
+import { spaceRouteMetadata } from "@/lib/spaces/space-metadata";
 import {
   getTemplate,
   getTemplateDataset,
@@ -48,6 +50,15 @@ type SettingsPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  return spaceRouteMetadata(id, "تنظیمات");
+}
 
 export default async function SpaceSettingsPage({
   params,

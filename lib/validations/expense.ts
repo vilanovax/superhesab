@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_SHARE, MIN_SHARE } from "@/lib/money";
+import { MAX_MONEY_AMOUNT, MAX_SHARE, MIN_SHARE } from "@/lib/money";
 
 export const splitModeSchema = z.enum(["EQUAL", "EXACT", "PERCENT"]);
 
@@ -25,7 +25,7 @@ export const expenseCategorySchema = z.enum([
 
 export const expenseSplitRowSchema = z.object({
   userId: z.string().min(1),
-  amount: z.number().int().min(0),
+  amount: z.number().int().min(0).max(MAX_MONEY_AMOUNT),
   selected: z.boolean(),
   /** Weight for EQUAL mode; EXACT/PERCENT store DEFAULT_SHARE on the server. */
   share: z.number().int().min(MIN_SHARE).max(MAX_SHARE),
@@ -41,7 +41,11 @@ export const expenseSchema = z
   .object({
     spaceId: z.string().min(1),
     title: z.string().trim().min(2, "عنوان حداقل ۲ کاراکتر باشد."),
-    totalAmount: z.number().int().min(1, "مبلغ باید حداقل ۱ باشد."),
+    totalAmount: z
+      .number()
+      .int()
+      .min(1, "مبلغ باید حداقل ۱ باشد.")
+      .max(MAX_MONEY_AMOUNT, "مبلغ بیش از سقف مجاز است."),
     paidById: z.string().min(1, "پرداخت‌کننده را انتخاب کنید."),
     /** Expense calendar day as yyyy-mm-dd (Tehran). */
     date: isoDateSchema,

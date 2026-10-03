@@ -17,6 +17,9 @@ export const DEFAULT_SHARE = 2;
 /** One UI step = 0.5× */
 export const SHARE_STEP = 1;
 
+/** Largest storable amount: money columns are Postgres `integer` (int4). */
+export const MAX_MONEY_AMOUNT = 2_147_483_647;
+
 export function asMoney(value: number): Money {
   if (!Number.isInteger(value)) {
     throw new Error(`Money must be an integer (got ${value})`);

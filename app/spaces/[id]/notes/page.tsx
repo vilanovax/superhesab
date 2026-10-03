@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklist } from "@/app/actions/checklist";
@@ -6,11 +7,21 @@ import { SpaceNotesPanel } from "@/components/spaces/space-notes-panel";
 import { SpaceTheme } from "@/components/spaces/space-theme";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
 import { canEditChecklist } from "@/lib/rbac";
+import { spaceRouteMetadata } from "@/lib/spaces/space-metadata";
 import { getTemplate, getTemplateDataset } from "@/lib/templates/registry";
 
 type NotesPageProps = {
   params: Promise<{ id: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  return spaceRouteMetadata(id, "یادداشت");
+}
 
 export default async function SpaceNotesPage({ params }: NotesPageProps) {
   const [{ id }, session] = await Promise.all([params, requireUser()]);

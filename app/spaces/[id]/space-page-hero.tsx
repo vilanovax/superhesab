@@ -11,12 +11,12 @@ import { PersonalMonthHero } from "@/components/spaces/personal-dashboard";
 import { ShareSummaryIconButton } from "@/components/spaces/share-summary-button";
 import { PartnerHeroStats } from "@/components/spaces/partner-hero-stats";
 import { SpaceNotesNavButton } from "@/components/spaces/space-notes-nav-button";
+import { SpaceHeroExpenseMeta } from "@/components/spaces/space-hero-expense-meta";
 import { TripHeroStats } from "@/components/spaces/trip-hero-stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { formatFaDigits } from "@/lib/format";
-import { formatCurrency } from "@/lib/formatters";
 import { maybeCeilToThousand } from "@/lib/money";
 import {
   emptyBalances,
@@ -608,13 +608,12 @@ async function SpacePageHeroCard({
                       {formatFaDigits(space.members.length)} عضو · آمادهٔ شروع
                     </>
                   ) : (
-                    <>
-                      {formatFaDigits(space.members.length)} عضو ·{" "}
-                      {formatFaDigits(expenseCount)} هزینه
-                      {totalExpenses > 0 ? (
-                        <> · جمع {formatCurrency(totalExpenses, space.currency)}</>
-                      ) : null}
-                    </>
+                    <SpaceHeroExpenseMeta
+                      memberCount={space.members.length}
+                      expenseCount={expenseCount}
+                      totalExpenses={totalExpenses}
+                      currency={space.currency}
+                    />
                   )}
                 </p>
               </div>

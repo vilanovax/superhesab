@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ensureRecurringExpenses } from "@/app/actions/recurring";
 import { requireSpaceMember, requireUser } from "@/lib/auth/guards";
+import { spaceRouteMetadata } from "@/lib/spaces/space-metadata";
 import { getTemplate } from "@/lib/templates/registry";
 import { after } from "next/server";
 import { SpacePageContent } from "./space-page-content";
@@ -14,6 +16,15 @@ type SpacePageProps = {
     period?: string;
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  return spaceRouteMetadata(id);
+}
 
 /**
  * Auth + redirects return immediately. SpacePageContent is sync and starts

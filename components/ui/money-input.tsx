@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { Input } from "@/components/ui/input";
-import { formatMoney, parseMoneyInput } from "@/lib/format";
+import {
+  formatMoney,
+  interpretMoneyInput,
+  type MoneyInputInterpret,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type MoneyInputProps = Omit<
@@ -11,6 +15,16 @@ type MoneyInputProps = Omit<
 > & {
   value: number;
   onValueChange: (value: number) => void;
+};
+
+const PARSE_ERROR_FA: Record<
+  Extract<MoneyInputInterpret, { status: "error" }>["code"],
+  string
+> = {
+  negative: "مبلغ نمی‌تواند منفی باشد.",
+  decimal: "مبلغ باید عدد صحیح باشد. اعشار وارد نکنید.",
+  invalid: "مبلغ نامعتبر است.",
+  too_large: "مبلغ بیش از سقف مجاز (۲٬۱۴۷٬۴۸۳٬۶۴۷) است.",
 };
 
 /**
@@ -23,45 +37,70 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
       value > 0 ? formatMoney(value) : "",
     );
     const [focused, setFocused] = React.useState(false);
+    const [parseError, setParseError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
       if (focused) return;
       setDisplay(value > 0 ? formatMoney(value) : "");
     }, [value, focused]);
 
+    function applyRaw(raw: string) {
+      if (raw.trim() === "") {
+        setDisplay("");
+        setParseError(null);
+        onValueChange(0);
+        return;
+      }
+      const parsed = interpretMoneyInput(raw);
+      if (parsed.status === "empty") {
+        setDisplay("");
+        setParseError(null);
+        onValueChange(0);
+        return;
+      }
+      if (parsed.status === "error") {
+        setDisplay(raw);
+        setParseError(PARSE_ERROR_FA[parsed.code]);
+        onValueChange(0);
+        return;
+      }
+      setParseError(null);
+      setDisplay(formatMoney(parsed.value));
+      onValueChange(parsed.value);
+    }
+
     return (
-      <Input
-        {...props}
-        ref={ref}
-        type="text"
-        inputMode="numeric"
-        dir="ltr"
-        autoComplete="off"
-        className={cn("tabular-nums text-end placeholder:font-normal", className)}
-        value={display}
-        onFocus={(e) => {
-          setFocused(true);
-          props.onFocus?.(e);
-        }}
-        onChange={(e) => {
-          const raw = e.target.value;
-          if (raw.trim() === "") {
-            setDisplay("");
-            onValueChange(0);
-            return;
-          }
-          const parsed = parseMoneyInput(raw);
-          setDisplay(formatMoney(parsed));
-          onValueChange(parsed);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          const parsed = parseMoneyInput(e.target.value);
-          setDisplay(parsed > 0 ? formatMoney(parsed) : "");
-          onValueChange(parsed);
-          onBlur?.(e);
-        }}
-      />
+      <div className="space-y-1">
+        <Input
+          {...props}
+          ref={ref}
+          type="text"
+          inputMode="numeric"
+          dir="ltr"
+          autoComplete="off"
+          aria-invalid={parseError ? true : props["aria-invalid"]}
+          className={cn(
+            "tabular-nums text-end placeholder:font-normal",
+            className,
+          )}
+          value={display}
+          onFocus={(e) => {
+            setFocused(true);
+            props.onFocus?.(e);
+          }}
+          onChange={(e) => applyRaw(e.target.value)}
+          onBlur={(e) => {
+            setFocused(false);
+            applyRaw(e.target.value);
+            onBlur?.(e);
+          }}
+        />
+        {parseError ? (
+          <p className="text-caption text-destructive" role="alert">
+            {parseError}
+          </p>
+        ) : null}
+      </div>
     );
   },
 );

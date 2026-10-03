@@ -9,7 +9,7 @@ import {
   type ExpenseCategory,
   type TransactionType,
 } from "@/lib/categorizer";
-import { asMoney, DEFAULT_SHARE } from "@/lib/money";
+import { asMoney, DEFAULT_SHARE, MAX_MONEY_AMOUNT } from "@/lib/money";
 import {
   tehranDayOfMonth,
   tehranMonthKey,
@@ -46,11 +46,23 @@ const categoryEnum = z.enum([
 
 const createRuleSchema = z.object({
   spaceId: z.string().min(1),
-  title: z.string().trim().min(2).max(120),
-  amount: z.number().int().positive(),
+  title: z
+    .string()
+    .trim()
+    .min(2, "عنوان حداقل ۲ کاراکتر باشد.")
+    .max(120, "عنوان حداکثر ۱۲۰ کاراکتر باشد."),
+  amount: z
+    .number()
+    .int("مبلغ باید عدد صحیح باشد.")
+    .positive("مبلغ باید بیشتر از صفر باشد.")
+    .max(MAX_MONEY_AMOUNT, "مبلغ بیش از سقف مجاز است."),
   transactionType: z.enum(["EXPENSE", "INCOME"]),
   category: categoryEnum,
-  dayOfMonth: z.number().int().min(1).max(28),
+  dayOfMonth: z
+    .number()
+    .int("روز ماه باید عدد صحیح باشد.")
+    .min(1, "روز ماه باید بین ۱ تا ۲۸ باشد.")
+    .max(28, "روز ماه باید بین ۱ تا ۲۸ باشد."),
 });
 
 const toggleSchema = z.object({

@@ -47,6 +47,7 @@ export function FamilySpaceTabs({
   currentUserRole,
   expenses,
   expensesHasMore = false,
+  ledgerExpenseCount,
   members,
   inviteMembers,
   currency = "TOMAN",
@@ -54,7 +55,6 @@ export function FamilySpaceTabs({
   canMutate = true,
   personalReportData: reportProp = [],
   reportExpenseLines: reportLinesProp = [],
-  familyMonthExpenses = [],
   monthlyBudget = null,
   debts: debtsProp = [],
   savingsPots: potsProp = [],
@@ -225,6 +225,7 @@ export function FamilySpaceTabs({
             inviteMembers={inviteMembers}
             expenses={liveExpenses}
             expensesHasMore={liveExpensesHasMore}
+            ledgerExpenseCount={ledgerExpenseCount}
             currency={currency}
             spaceType={spaceType}
             canMutate={canMutate}
@@ -236,13 +237,13 @@ export function FamilySpaceTabs({
           <SpacePanelFallback rows={4} />
         ) : (
           <>
-            {familyMonthExpenses.length > 0 ? (
+            {deferred.reportExpenseLines.length > 0 ? (
               <ReportExportButtons spaceId={spaceId} variant="row" />
             ) : null}
             <FamilyReportPanel
               currentUserId={currentUserId}
               members={familyReportMembers}
-              monthExpenses={familyMonthExpenses}
+              monthExpenses={deferred.reportExpenseLines}
               monthlyBudget={monthlyBudget}
               currency={currency}
               initialReport={deferred.personalReportData}

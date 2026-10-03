@@ -39,7 +39,9 @@ import {
   CHARGE_STATUS_LABELS,
   defaultChargePaymentIso,
   formatJalaliYear,
+  monthChargeRemainder,
   monthLabelFa,
+  resolveChargePaymentStatus,
   unitMonthlyCharge,
   type ChargeStatusValue,
 } from "@/lib/building";
@@ -254,24 +256,28 @@ export function BuildingChargesPanel({
   }, [dashboard.payments, month]);
 
   const activeUnits = dashboard.units.filter((u) => u.isActive);
-  const paidThisMonth = activeUnits.filter((u) => {
-    const s = paymentByUnit.get(u.id)?.status;
-    return s === "PAID" || s === "WAIVED";
-  }).length;
 
   const monthStats = useMemo(() => {
     let expected = 0;
     let collected = 0;
+    let remaining = 0;
+    let settled = 0;
     for (const u of activeUnits) {
-      expected += chargeForUnit(u);
+      const charge = chargeForUnit(u);
       const p = paymentByUnit.get(u.id);
-      if (p && (p.status === "PAID" || p.status === "PARTIAL" || p.status === "WAIVED")) {
+      expected += charge;
+      remaining += monthChargeRemainder(charge, p);
+      if (p?.status === "PAID" || p?.status === "WAIVED") {
+        settled += 1;
+        if (p.status === "PAID") collected += p.amount;
+      } else if (p && (p.status === "PARTIAL" || p.status === "DUE")) {
         collected += p.amount;
       }
     }
-    const unsettled = activeUnits.length - paidThisMonth;
-    return { expected, collected, unsettled };
-  }, [activeUnits, paymentByUnit, paidThisMonth, month, dashboard.basesByMonth, dashboard.plan?.baseCharge]);
+    return { expected, collected, remaining, settled };
+  }, [activeUnits, paymentByUnit, month, dashboard.basesByMonth, dashboard.plan?.baseCharge]);
+
+  const paidThisMonth = monthStats.settled;
 
   /** Unsettled first, then by name — action queue for managers. */
   const monthUnits = useMemo(() => {
@@ -511,13 +517,18 @@ export function BuildingChargesPanel({
     if (!payUnit || pending) return;
     setError(null);
 
+    const payAmount = Math.trunc(amount) || 0;
     const payload = {
       spaceId,
       unitId: payUnit.id,
       year: dashboard.year,
       month,
-      amount: Math.trunc(amount) || 0,
-      status,
+      amount: payAmount,
+      status: resolveChargePaymentStatus(
+        status,
+        payAmount,
+        payUnit.monthlyCharge,
+      ),
       note: note || null,
       date,
     };
@@ -760,7 +771,7 @@ export function BuildingChargesPanel({
               aria-valuenow={collectPct}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="درصد واحدهای تسویه‌شده این ماه"
+              aria-label={`${paidThisMonth.toLocaleString("fa-IR")} از ${activeUnits.length.toLocaleString("fa-IR")} واحد تسویه`}
             >
               <div
                 className={cn(
@@ -776,14 +787,14 @@ export function BuildingChargesPanel({
             </div>
             <p className="shrink-0 text-[11px] font-bold tabular-nums text-foreground">
               {paidThisMonth.toLocaleString("fa-IR")}/
-              {activeUnits.length.toLocaleString("fa-IR")}
+              {activeUnits.length.toLocaleString("fa-IR")} تسویه
             </p>
             <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
               {collectPct.toLocaleString("fa-IR")}٪
             </p>
-            {monthStats.unsettled > 0 ? (
+            {monthStats.remaining > 0 ? (
               <p className="shrink-0 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                {monthStats.unsettled.toLocaleString("fa-IR")} باز
+                بدهی {formatMoney(monthStats.remaining)}
               </p>
             ) : (
               <p className="shrink-0 text-[11px] font-semibold text-success">
@@ -1011,9 +1022,31 @@ export function BuildingChargesPanel({
                     name="amount"
                     autoComplete="off"
                     value={amount}
-                    onValueChange={setAmount}
+                    onValueChange={(next) => {
+                      setAmount(next);
+                      if (payUnit) {
+                        setStatus((cur) =>
+                          resolveChargePaymentStatus(
+                            cur,
+                            next,
+                            payUnit.monthlyCharge,
+                          ),
+                        );
+                      }
+                    }}
                     className="h-11 rounded-xl text-base font-bold"
                   />
+                  {payUnit &&
+                  payUnit.monthlyCharge > 0 &&
+                  amount > payUnit.monthlyCharge ? (
+                    <p className="text-micro font-medium text-amber-700 dark:text-amber-400">
+                      {formatCurrency(
+                        amount - payUnit.monthlyCharge,
+                        currency,
+                      )}{" "}
+                      بیشتر از مقرر — مطمئن هستید؟
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-caption text-muted-foreground">

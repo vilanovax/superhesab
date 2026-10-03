@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { mintSpaceInviteLink } from "@/app/actions/invite";
 import {
@@ -152,6 +152,7 @@ export function MembersList({
   const [manualError, setManualError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const addLockRef = useRef(false);
   /** Trip/Partner: EDITOR only until Viewer ships in v2. Family keeps picker. */
   const allowViewerRole = inviteRolePicker && !editorOnlyRoles;
 
@@ -204,20 +205,25 @@ export function MembersList({
 
   function onAddVirtual(e: React.FormEvent) {
     e.preventDefault();
-    if (!isOwner) return;
+    if (!isOwner || atCapacity || pending || addLockRef.current) return;
+    addLockRef.current = true;
     setManualError(null);
     startTransition(async () => {
-      const result = await addVirtualMember(
-        spaceId,
-        manualName,
-        allowViewerRole ? manualRole : "EDITOR",
-      );
-      if (!result.ok) {
-        setManualError(result.error);
-        return;
+      try {
+        const result = await addVirtualMember(
+          spaceId,
+          manualName,
+          allowViewerRole ? manualRole : "EDITOR",
+        );
+        if (!result.ok) {
+          setManualError(result.error);
+          return;
+        }
+        setManualName("");
+        router.refresh();
+      } finally {
+        addLockRef.current = false;
       }
-      setManualName("");
-      router.refresh();
     });
   }
 

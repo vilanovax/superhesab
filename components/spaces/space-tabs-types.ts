@@ -8,7 +8,6 @@ import type { DebtDTO } from "@/app/actions/debt";
 import type { InternalLoanDTO } from "@/app/actions/internalLoan";
 import type { SavingsPotDTO } from "@/app/actions/savingsPot";
 import type { InviteMemberRow } from "@/components/spaces/invite-members-button";
-import type { FamilyMonthExpenseRow } from "@/components/spaces/family-report-panel";
 import type { FundMemberOption } from "@/components/spaces/savings-pot-panel";
 import type { BalanceMember } from "@/components/SpaceBalances";
 import type { ExpenseListItem } from "@/components/expenses/expense-list";
@@ -27,6 +26,8 @@ export type SpaceTabsProps = {
   expenses: ExpenseListItem[];
   /** True when more ledger rows exist beyond the first page. */
   expensesHasMore?: boolean;
+  /** Full expense row count (not the loaded page). */
+  ledgerExpenseCount?: number;
   members: BalanceMember[];
   inviteMembers: InviteMemberRow[];
   balances: Record<string, number>;
@@ -37,7 +38,6 @@ export type SpaceTabsProps = {
   canMutate?: boolean;
   personalReportData?: CategoryExpenseRow[];
   reportExpenseLines?: ReportExpenseLine[];
-  familyMonthExpenses?: FamilyMonthExpenseRow[];
   monthlyBudget?: number | null;
   debts?: DebtDTO[];
   savingsPots?: SavingsPotDTO[];

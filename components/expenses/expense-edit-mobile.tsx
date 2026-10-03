@@ -33,8 +33,10 @@ export function ExpenseEditMobile({
     >
       <DrawerContent
         className={cn(
-          "mt-0! gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0",
-          denseEdit ? "h-auto max-h-[min(88dvh,100%)]" : "h-auto max-h-[85dvh]",
+          "mt-0! flex flex-col gap-0 overflow-hidden overscroll-contain border-border/50 bg-background p-0",
+          denseEdit
+            ? "h-[min(88dvh,100%)] max-h-[min(88dvh,100%)]"
+            : "h-auto max-h-[85dvh]",
         )}
       >
         <div

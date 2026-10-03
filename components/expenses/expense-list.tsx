@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteExpense,
@@ -54,7 +54,12 @@ import { useIsDesktop } from "@/components/hooks/use-is-desktop";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useUnsavedCloseGuard } from "@/components/ui/unsaved-close-guard";
 import { PersonalEmptyState } from "@/components/spaces/personal-empty-state";
-import { syncTabQuery, notifyExpensesMutated } from "@/components/spaces/use-deferred-space-tabs";
+import {
+  applyExpenseLedgerDelta,
+  syncTabQuery,
+  notifyExpensesMutated,
+  type ExpenseLedgerDelta,
+} from "@/components/spaces/use-deferred-space-tabs";
 import {
   formatJalaliYear,
   monthLabelFa,
@@ -124,6 +129,8 @@ type ExpenseListProps = {
   inviteMembers?: InviteMemberRow[];
   expenses: ExpenseListItem[];
   expensesHasMore?: boolean;
+  /** Full expense row count from the server (not the loaded page). */
+  ledgerExpenseCount?: number;
   currency?: SpaceCurrency;
   spaceType?: SpaceType;
   canMutate?: boolean;
@@ -344,7 +351,11 @@ function EditSheet({
       }
       onOpenChange(false);
       onDeleted?.(expense.expenseId);
-      notifyExpensesMutated();
+      notifyExpensesMutated({
+        action: "delete",
+        amount: expense.totalAmount,
+        transactionType: expense.transactionType,
+      });
       router.refresh();
     });
   }
@@ -480,6 +491,7 @@ export function ExpenseList({
   inviteMembers,
   expenses: expensesProp,
   expensesHasMore: expensesHasMoreProp = false,
+  ledgerExpenseCount: ledgerExpenseCountProp,
   currency = "TOMAN",
   spaceType = "TRIP",
   canMutate = true,
@@ -491,6 +503,9 @@ export function ExpenseList({
     expensesProp.map(normalizeExpenseDates),
   );
   const [hasMore, setHasMore] = useState(expensesHasMoreProp);
+  const [ledgerCount, setLedgerCount] = useState(
+    () => ledgerExpenseCountProp ?? expensesProp.filter((e) => e.transactionType !== "INCOME").length,
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
@@ -521,6 +536,28 @@ export function ExpenseList({
     setHasMore(expensesHasMoreProp);
     setLoadError(null);
   }, [expensesProp, expensesHasMoreProp]);
+
+  const ledgerCountPropRef = useRef(ledgerExpenseCountProp);
+  useEffect(() => {
+    if (
+      ledgerExpenseCountProp != null &&
+      ledgerExpenseCountProp !== ledgerCountPropRef.current
+    ) {
+      setLedgerCount(ledgerExpenseCountProp);
+    }
+    ledgerCountPropRef.current = ledgerExpenseCountProp;
+  }, [ledgerExpenseCountProp]);
+
+  useEffect(() => {
+    function onMutated(event: Event) {
+      const delta = (event as CustomEvent<ExpenseLedgerDelta | undefined>)
+        .detail;
+      setLedgerCount((prev) => applyExpenseLedgerDelta(prev, 0, delta).count);
+    }
+    window.addEventListener("superhesab:expenses-mutated", onMutated);
+    return () =>
+      window.removeEventListener("superhesab:expenses-mutated", onMutated);
+  }, []);
 
   useEffect(() => {
     setCategoryFilter("all");
@@ -735,7 +772,10 @@ export function ExpenseList({
   );
   const primaryCats = filterChips.slice(0, 3);
   const extraCats = filterChips.slice(3);
-  const showSearch = isTripStyle && items.length >= 10;
+  const isHomeLedger = !isBuilding && features.incomeExpense;
+  const showSearch =
+    (isTripStyle && items.length >= 10) ||
+    (isHomeLedger && (items.length >= 5 || Boolean(searchNorm)));
 
   const dayGroups = groupExpensesByDay(visibleItems);
   const monthGroups = isBuilding
@@ -893,7 +933,12 @@ export function ExpenseList({
           <div className="flex items-center justify-between gap-2 px-0.5">
             <p className="min-w-0 text-caption text-muted-foreground">
               <span className="font-semibold tabular-nums text-foreground">
-                {formatCountFa(listExpenseCount)}
+                {hasMore &&
+                !searchNorm &&
+                payerFilter === "all" &&
+                categoryFilter === "all"
+                  ? `${formatCountFa(listExpenseCount)} از ${formatCountFa(ledgerCount)}`
+                  : formatCountFa(listExpenseCount)}
               </span>
               {" هزینه"}
               {searchNorm || payerFilter !== "all" || categoryFilter !== "all"
@@ -935,7 +980,7 @@ export function ExpenseList({
             >
               همه
               <span className="ms-1 tabular-nums opacity-80">
-                {formatCountFa(items.length)}
+                {formatCountFa(ledgerCount)}
               </span>
             </button>
             <button
@@ -1013,6 +1058,21 @@ export function ExpenseList({
         </div>
       ) : null}
 
+      {isHomeLedger && showSearch ? (
+        <div className="mb-3">
+          <Input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="جستجو در عنوان یا دسته…"
+            aria-label="جستجوی تراکنش"
+            className="h-10 rounded-xl border-border/60 bg-card text-body-sm"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      ) : null}
+
       {isBuilding && filterChips.length > 1 ? (
         <div
           role="toolbar"
@@ -1059,6 +1119,12 @@ export function ExpenseList({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {isHomeLedger && searchNorm && visibleItems.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border/55 px-4 py-8 text-center text-body-sm text-muted-foreground">
+          تراکنشی با «{searchQuery.trim()}» پیدا نشد.
+        </p>
       ) : null}
 
       {(isBuilding || isTripStyle) && visibleItems.length === 0 ? (

@@ -39,7 +39,9 @@ export function AddExpenseMobile({
         <div
           className={cn(
             "flex min-h-0 flex-col",
-            compact ? "max-h-[min(88dvh,100%)]" : "max-h-[85dvh]",
+            compact
+              ? "h-[min(88dvh,100%)] max-h-[min(88dvh,100%)]"
+              : "max-h-[85dvh]",
           )}
         >
           <div

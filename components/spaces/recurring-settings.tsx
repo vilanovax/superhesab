@@ -11,6 +11,7 @@ import { SettingsDisclosure } from "@/components/spaces/settings-disclosure";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   CATEGORY_LABELS,
   categoriesForType,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/categorizer";
 import { formatCurrency } from "@/lib/formatters";
 import type { SpaceCurrency } from "@/lib/format";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
 type RecurringSettingsProps = {
@@ -36,7 +38,8 @@ export function RecurringSettings({
 }: RecurringSettingsProps) {
   const [rules, setRules] = useState(initial);
   const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
+  const showToast = useUiStore((s) => s.showToast);
   const [transactionType, setTransactionType] =
     useState<TransactionType>("EXPENSE");
   const [category, setCategory] = useState<ExpenseCategory>("OTHER");
@@ -62,7 +65,7 @@ export function RecurringSettings({
 
   function resetForm() {
     setTitle("");
-    setAmount("");
+    setAmount(0);
     setDayOfMonth("1");
     setTransactionType("EXPENSE");
     setCategory("OTHER");
@@ -72,14 +75,24 @@ export function RecurringSettings({
     e.preventDefault();
     if (disabled || pending) return;
     setError(null);
+    const day = Number.parseInt(dayOfMonth, 10);
+    if (!Number.isInteger(day) || day < 1 || day > 28) {
+      setError("روز ماه باید بین ۱ تا ۲۸ باشد.");
+      return;
+    }
+    if (amount < 1) {
+      setError("مبلغ معتبر وارد کنید.");
+      return;
+    }
+    const ruleTitle = title.trim();
     startTransition(async () => {
       const result = await createRecurringRule({
         spaceId,
-        title,
-        amount: Math.trunc(Number(amount)) || 0,
+        title: ruleTitle,
+        amount,
         transactionType,
         category,
-        dayOfMonth: Math.trunc(Number(dayOfMonth)) || 1,
+        dayOfMonth: day,
       });
       if (!result.ok) {
         setError(result.error);
@@ -88,17 +101,20 @@ export function RecurringSettings({
       setRules((prev) => [
         {
           id: result.id!,
-          title: title.trim(),
-          amount: Math.trunc(Number(amount)),
+          title: ruleTitle,
+          amount,
           transactionType,
           category,
-          dayOfMonth: Math.trunc(Number(dayOfMonth)) || 1,
+          dayOfMonth: day,
           active: true,
         },
         ...prev,
       ]);
       resetForm();
       setFormOpen(false);
+      showToast(
+        `قانون «${ruleTitle}» اضافه شد — هر ماه روز ${day.toLocaleString("fa-IR")} ثبت می‌شود.`,
+      );
     });
   }
 
@@ -297,18 +313,13 @@ export function RecurringSettings({
                   >
                     مبلغ
                   </label>
-                  <Input
+                  <MoneyInput
                     id="recurring-amount"
                     name="amount"
-                    autoComplete="off"
-                    type="text"
-                    inputMode="numeric"
                     value={amount}
-                    onChange={(e) =>
-                      setAmount(e.target.value.replace(/[^\d]/g, ""))
-                    }
-                    placeholder="مثلاً ۵۰۰۰۰۰…"
-                    className="h-10 rounded-xl tabular-nums"
+                    onValueChange={setAmount}
+                    placeholder="مثلاً ۵۰۰٬۰۰۰…"
+                    className="h-10 rounded-xl"
                     required
                   />
                 </div>

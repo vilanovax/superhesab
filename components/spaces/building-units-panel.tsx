@@ -29,7 +29,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { unitMonthlyCharge } from "@/lib/building";
+import { parseUnitMultiplierInput, unitMonthlyCharge } from "@/lib/building";
 import { type SpaceCurrency } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -452,8 +452,12 @@ function UnitFormFields({
   currency: SpaceCurrency;
   chargePreview: (multiplier: number) => number;
 }) {
-  const multNum = Math.trunc(Number(mult)) || 1000;
+  const parsedMult = parseUnitMultiplierInput(mult);
+  const multNum = parsedMult ?? 1000;
   const preview = chargePreview(multNum);
+  const factorLabel = (multNum / 1000).toLocaleString("fa-IR", {
+    maximumFractionDigits: 3,
+  });
 
   return (
     <div className="space-y-3">
@@ -540,12 +544,26 @@ function UnitFormFields({
               name="multiplier"
               autoComplete="off"
               type="text"
-              inputMode="numeric"
+              inputMode="decimal"
+              dir="ltr"
               value={mult}
-              onChange={(e) => onMult(e.target.value.replace(/[^\d]/g, ""))}
-              placeholder="۱۰۰۰"
+              onChange={(e) => onMult(e.target.value)}
+              onBlur={() => {
+                if (parsedMult != null) onMult(String(parsedMult));
+              }}
+              placeholder="۱۰۰۰ یا ۱٫۲"
               className="h-11 rounded-xl border-border/70 bg-sheet-muted tabular-nums"
+              aria-invalid={Boolean(mult.trim()) && parsedMult == null}
             />
+            {mult.trim() && parsedMult == null ? (
+              <p className="text-micro text-destructive" role="alert">
+                ضریب نامعتبر است. ۱۰۰ = ۰٫۱×، ۱۰۰۰ = کامل، ۱٫۲ = ۱٫۲×.
+              </p>
+            ) : (
+              <p className="text-micro text-muted-foreground">
+                در هزار: ۱۰۰۰ = شارژ کامل. اعشار هم قبول است (۱٫۲ → ۱۲۰۰).
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -589,13 +607,12 @@ function UnitFormFields({
               {formatCurrency(preview, currency)}
             </p>
             <p className="mt-0.5 text-micro text-muted-foreground">
-              پایه {formatCurrency(baseCharge, currency)} ×{" "}
-              {faDigits(multNum)}⁄۱۰۰۰
+              پایه {formatCurrency(baseCharge, currency)} × {factorLabel} ({faDigits(multNum)}⁄۱۰۰۰)
             </p>
           </div>
         ) : (
           <p className="text-micro text-muted-foreground">
-            ۱۰۰۰ = شارژ کامل پایه — ابتدا پایه را در تنظیمات تعریف کنید
+            ۱۰۰۰ = شارژ کامل پایه — می‌توانید ۱٫۲ بنویسید. ابتدا پایه را در تنظیمات تعریف کنید
           </p>
         )}
       </div>
@@ -816,6 +833,12 @@ export function BuildingUnitsPanel({
       focusField("unit-add-name");
       return;
     }
+    const multiplier = parseUnitMultiplierInput(unitMult);
+    if (multiplier == null) {
+      setFormError("ضریب شارژ نامعتبر است. ۱۰۰۰ = کامل، ۱٫۲ = ۱٫۲×.");
+      focusField("unit-add-mult");
+      return;
+    }
     startTransition(async () => {
       const areaRaw = unitArea.trim();
       const phoneRaw = unitPhone.trim();
@@ -824,7 +847,7 @@ export function BuildingUnitsPanel({
         name,
         area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
         phone: phoneRaw || null,
-        multiplier: Math.trunc(Number(unitMult)) || 1000,
+        multiplier,
       });
       if (!result.ok) {
         setFormError(result.error);
@@ -849,6 +872,12 @@ export function BuildingUnitsPanel({
       focusField("unit-edit-name");
       return;
     }
+    const multiplier = parseUnitMultiplierInput(editMult);
+    if (multiplier == null) {
+      setFormError("ضریب شارژ نامعتبر است. ۱۰۰۰ = کامل، ۱٫۲ = ۱٫۲×.");
+      focusField("unit-edit-mult");
+      return;
+    }
     const areaRaw = editArea.trim();
     const phoneRaw = editPhone.trim();
     const next: BuildingUnitRow = {
@@ -856,7 +885,7 @@ export function BuildingUnitsPanel({
       name,
       area: areaRaw ? Math.trunc(Number(areaRaw)) || null : null,
       phone: phoneRaw || null,
-      multiplier: Math.trunc(Number(editMult)) || 1000,
+      multiplier,
       isActive: editActive,
     };
     startTransition(async () => {
@@ -931,7 +960,7 @@ export function BuildingUnitsPanel({
             <span className="font-semibold text-foreground/80">
               {formatCurrency(baseCharge, currency)}
             </span>{" "}
-            × ضریب
+            × ضریب ÷ ۱۰۰۰
           </p>
         ) : null}
       </section>

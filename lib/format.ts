@@ -96,8 +96,22 @@ export function normalizePhone(input: string): string {
 }
 
 const MONEY_MINUS = /[-−–—]/;
-const MONEY_DECIMAL_MARK = /[.\u066B]/; // . or ٫
-const MONEY_THOUSAND_SEP = /[,٬،]/g;
+/** Grouping: ASCII comma, Arabic thousands ٬, Arabic comma ،, ٫/`.` when 3+ digits follow. */
+const MONEY_GROUP_SEP = /[,٬،.٫]/g;
+const MONEY_JUNK =
+  /[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\u00A0\u202F\u2009\u200A\u2011]/g;
+
+/**
+ * Fold Arabic/Persian lookalikes so search for «کی» matches «كي».
+ */
+export function foldPersian(input: string): string {
+  return input
+    .replace(/ي/g, "ی")
+    .replace(/ى/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/ة/g, "ه")
+    .toLowerCase();
+}
 
 export type MoneyInputInterpret =
   | { status: "empty" }
@@ -113,14 +127,11 @@ export type MoneyInputInterpret =
  * thousand-separator is treated as a decimal (`۱۲۳۴٬۵۶`).
  */
 export function interpretMoneyInput(input: string): MoneyInputInterpret {
-  const trimmed = input.trim();
+  const trimmed = input.replace(MONEY_JUNK, "").trim();
   if (!trimmed) return { status: "empty" };
 
   const ascii = toAsciiDigits(trimmed);
   if (MONEY_MINUS.test(ascii)) return { status: "error", code: "negative" };
-  if (MONEY_DECIMAL_MARK.test(ascii)) {
-    return { status: "error", code: "decimal" };
-  }
 
   const compact = ascii.replace(/[+\s]/g, "");
   if (!compact) return { status: "empty" };
@@ -129,15 +140,18 @@ export function interpretMoneyInput(input: string): MoneyInputInterpret {
     compact.lastIndexOf(","),
     compact.lastIndexOf("٬"),
     compact.lastIndexOf("،"),
+    compact.lastIndexOf("."),
+    compact.lastIndexOf("٫"),
   );
   if (lastSep >= 0) {
     const frac = compact.slice(lastSep + 1);
+    // 1–2 digits after a separator = decimal (۱۲۳۴٫۵۶ / 375.5), not 250.000.
     if (/^\d{1,2}$/.test(frac)) {
       return { status: "error", code: "decimal" };
     }
   }
 
-  const digits = compact.replace(MONEY_THOUSAND_SEP, "");
+  const digits = compact.replace(MONEY_GROUP_SEP, "");
   if (!/^\d+$/.test(digits)) return { status: "error", code: "invalid" };
 
   const n = Number.parseInt(digits, 10);

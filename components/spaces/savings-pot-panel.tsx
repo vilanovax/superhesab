@@ -141,6 +141,14 @@ export function SavingsPotPanel({
   function onTx(e: React.FormEvent) {
     e.preventDefault();
     if (!txPot) return;
+    if (txAmount < 1) {
+      setError("مبلغ را وارد کنید.");
+      return;
+    }
+    if (!txMemberId) {
+      setError("عضو را انتخاب کنید.");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result = await addSavingsTransaction({
@@ -227,10 +235,10 @@ export function SavingsPotPanel({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-body-sm font-semibold text-foreground">
-                    {pot.title}
+                  <p className="flex min-w-0 items-baseline gap-2 text-body-sm font-semibold text-foreground">
+                    <span className="min-w-0 truncate">{pot.title}</span>
                     {pot.status === "COMPLETED" ? (
-                      <span className="ms-1.5 text-caption font-medium text-success">
+                      <span className="shrink-0 text-caption font-medium text-success">
                         تکمیل
                       </span>
                     ) : null}
@@ -575,7 +583,7 @@ export function SavingsPotPanel({
             <Button
               type="submit"
               className="h-11 w-full rounded-xl text-body-sm font-semibold"
-              disabled={pending || !txMemberId}
+              disabled={pending || !txMemberId || txAmount < 1}
             >
               {pending
                 ? "در حال ثبت…"
@@ -583,6 +591,11 @@ export function SavingsPotPanel({
                   ? "ثبت واریز"
                   : "ثبت برداشت"}
             </Button>
+            {txAmount < 1 && !pending ? (
+              <p className="text-center text-[11px] text-muted-foreground">
+                مبلغ را با ارقام فارسی یا انگلیسی وارد کنید.
+              </p>
+            ) : null}
           </form>
         </DrawerContent>
       </Drawer>

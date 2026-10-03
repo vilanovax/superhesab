@@ -30,6 +30,7 @@ import { parseBackupFile } from "../lib/backup/validate";
 import { BACKUP_APP, BACKUP_VERSION } from "../lib/backup/types";
 import { signSessionToken, SESSION_COOKIE } from "../lib/session-token";
 import { getTemplate } from "../lib/templates/registry";
+import { foldPersian, interpretMoneyInput } from "../lib/format";
 
 const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3003";
 
@@ -343,6 +344,20 @@ async function main() {
       pass("building math: month remainder (partial + due, not waived)");
     } else {
       fail("building math: month remainder", "mismatch");
+    }
+
+    const moneyOk =
+      interpretMoneyInput("۲۵۰٬۰۰۰").status === "ok" &&
+      interpretMoneyInput("۲۵۰٬۰۰۰").status === "ok" &&
+      (interpretMoneyInput("۲۵۰٬۰۰۰") as { value: number }).value === 250000 &&
+      (interpretMoneyInput("۲۵۰٫۰۰۰") as { value: number }).value === 250000 &&
+      (interpretMoneyInput("100000") as { value: number }).value === 100000 &&
+      interpretMoneyInput("375.5").status === "error" &&
+      foldPersian("كي") === foldPersian("کی");
+    if (moneyOk) {
+      pass("money/search: Persian grouped amount 250000 + yeh/kaf fold");
+    } else {
+      fail("money/search: Persian grouped amount", "mismatch");
     }
 
     const arrearsPartial = unitArrears({

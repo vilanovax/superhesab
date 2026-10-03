@@ -68,12 +68,13 @@ import {
 } from "@/lib/building";
 import {
   expenseDayKey,
+  foldPersian,
   formatDateFa,
   formatDateFaShort,
+  formatFaDigits,
   payerName,
   type SpaceCurrency,
 } from "@/lib/format";
-import { formatFaDigits } from "@/lib/format";
 import { formatCurrency } from "@/lib/formatters";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { getTemplate } from "@/lib/templates/registry";
@@ -743,7 +744,7 @@ export function ExpenseList({
       .sort((a, b) => b.count - a.count);
   })();
 
-  const searchNorm = searchQuery.trim().toLowerCase();
+  const searchNorm = foldPersian(searchQuery.trim());
   const visibleItems = items.filter((e) => {
     if (isTripStyle && payerFilter === "mine" && e.paidById !== currentUserId) {
       return false;
@@ -760,7 +761,7 @@ export function ExpenseList({
       return false;
     }
     if (searchNorm) {
-      const hay = `${e.title} ${e.categoryLabel ?? ""}`.toLowerCase();
+      const hay = foldPersian(`${e.title} ${e.categoryLabel ?? ""}`);
       if (!hay.includes(searchNorm)) return false;
     }
     return true;
@@ -1123,7 +1124,7 @@ export function ExpenseList({
 
       {isHomeLedger && searchNorm && visibleItems.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border/55 px-4 py-8 text-center text-body-sm text-muted-foreground">
-          تراکنشی با «{searchQuery.trim()}» پیدا نشد.
+          هیچ تراکنشی با این جستجو پیدا نشد.
         </p>
       ) : null}
 

@@ -4,8 +4,10 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 /**
  * Protects app routes and invite landing.
  * Unauthenticated invite visits → /login?callbackUrl=/invite/[id]
+ *
+ * Next.js 16 renamed the middleware file convention to proxy (Node.js runtime).
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected =
     pathname.startsWith("/app") ||
